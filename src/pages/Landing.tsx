@@ -17,6 +17,12 @@ import {
 } from 'lucide-react';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { useMedia } from '../context/MediaContext';
+import { 
+  InstagramLogo, 
+  YouTubeLogo, 
+  FacebookLogo, 
+  LinkedInLogo 
+} from '../components/common/PlatformLogos';
 
 export const Landing: React.FC = () => {
   const { setAppView } = useMedia();
@@ -118,10 +124,92 @@ export const Landing: React.FC = () => {
                 100% Verified Official APIs
               </span>
             </div>
+
+            {/* Light Platform Integration Ribbon */}
+            <div className="pt-6 max-w-4xl mx-auto">
+              <div className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider text-center mb-3 flex items-center justify-center gap-2">
+                <span className="h-px w-8 bg-[#E2E8F0]" />
+                <span>Synchronized Cross-Platform Ingestion</span>
+                <span className="h-px w-8 bg-[#E2E8F0]" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Instagram Light Card */}
+                <div className="group p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-pink-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-3 backdrop-blur-xs">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500/10 via-rose-500/10 to-purple-500/10 border border-rose-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                    <InstagramLogo size="md" variant="light" />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <div className="text-xs font-bold text-[#0B132B] truncate group-hover:text-rose-600 transition-colors">Instagram</div>
+                    <div className="text-[10px] text-[#64748B] truncate">Reels · Posts · Reach</div>
+                  </div>
+                </div>
+
+                {/* YouTube Light Card */}
+                <div className="group p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-red-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-3 backdrop-blur-xs">
+                  <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                    <YouTubeLogo size="md" variant="light" />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <div className="text-xs font-bold text-[#0B132B] truncate group-hover:text-red-600 transition-colors">YouTube</div>
+                    <div className="text-[10px] text-[#64748B] truncate">Shorts · Retention</div>
+                  </div>
+                </div>
+
+                {/* Facebook Light Card */}
+                <div className="group p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-blue-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-3 backdrop-blur-xs">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                    <FacebookLogo size="md" variant="light" />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <div className="text-xs font-bold text-[#0B132B] truncate group-hover:text-blue-600 transition-colors">Facebook</div>
+                    <div className="text-[10px] text-[#64748B] truncate">Pages · Shares · Video</div>
+                  </div>
+                </div>
+
+                {/* LinkedIn Light Card */}
+                <div className="group p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-sky-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-3 backdrop-blur-xs">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                    <LinkedInLogo size="md" variant="light" />
+                  </div>
+                  <div className="min-w-0 text-left">
+                    <div className="text-xs font-bold text-[#0B132B] truncate group-hover:text-sky-600 transition-colors">LinkedIn</div>
+                    <div className="text-[10px] text-[#64748B] truncate">Articles · Feeds · Depth</div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Interactive Dashboard Preview */}
+          {/* Interactive Dashboard Preview with Ambient Floating Light Badges */}
           <div className="mt-14 relative max-w-5xl mx-auto">
+            {/* Floating Light Badge: Instagram Reel */}
+            <div className="hidden lg:flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg absolute -top-5 -left-5 z-20 hover:scale-105 transition-transform">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500/15 via-rose-500/15 to-purple-500/15 border border-rose-200/60 flex items-center justify-center shrink-0">
+                <InstagramLogo size="sm" variant="light" />
+              </div>
+              <div className="text-left">
+                <div className="text-xs font-bold text-[#0B132B] flex items-center gap-1.5">
+                  <span>Instagram Reel</span>
+                  <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-md">+4.9% Eng</span>
+                </div>
+                <div className="text-[10px] text-[#64748B]">Hook retention analyzed</div>
+              </div>
+            </div>
+
+            {/* Floating Light Badge: YouTube Shorts */}
+            <div className="hidden lg:flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg absolute -bottom-5 -right-5 z-20 hover:scale-105 transition-transform">
+              <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-200/60 flex items-center justify-center shrink-0">
+                <YouTubeLogo size="sm" variant="light" />
+              </div>
+              <div className="text-left">
+                <div className="text-xs font-bold text-[#0B132B] flex items-center gap-1.5">
+                  <span>YouTube Shorts</span>
+                  <span className="text-[10px] font-semibold text-[#0284C7] bg-sky-50 border border-sky-200/60 px-1.5 py-0.5 rounded-md">142k Plays</span>
+                </div>
+                <div className="text-[10px] text-[#64748B]">Full channel ingest active</div>
+              </div>
+            </div>
+
             <div className="rounded-2xl bg-white border border-[#CBD5E1] shadow-2xl overflow-hidden">
               {/* Mock Window Header */}
               <div className="px-5 py-3.5 bg-[#0B132B] text-white flex items-center justify-between border-b border-[#1E293B]">
@@ -231,56 +319,107 @@ export const Landing: React.FC = () => {
       </section>
 
       {/* Supported Platforms Section */}
-      <section id="platforms" className="py-16 bg-white border-y border-[#E2E8F0]">
+      <section id="platforms" className="py-20 bg-white border-y border-[#E2E8F0]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center space-y-2 mb-10">
+          <div className="text-center space-y-3 mb-12">
             <h2 className="text-xs font-semibold text-[#0284C7] uppercase tracking-wider">
               Certified Integrations
             </h2>
-            <p className="text-xl font-bold text-[#0B132B]">
+            <p className="text-2xl sm:text-3xl font-bold text-[#0B132B] tracking-tight">
               Direct Official Connections to Your Core Channels
+            </p>
+            <p className="text-xs text-[#64748B] max-w-xl mx-auto">
+              Media Navigator links with read-only scopes through Meta Graph API and Google Data API to analyze every post, reel, and video with verified metrics.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div className="p-6 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3 text-center hover:border-[#0284C7]/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600 text-white flex items-center justify-center mx-auto shadow-sm">
-                <Instagram className="w-6 h-6" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Instagram Card */}
+            <div className="p-6 rounded-2xl bg-gradient-to-b from-rose-50/40 via-white to-white border border-[#E2E8F0] hover:border-pink-300/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 text-center group">
+              <div className="space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500/10 via-rose-500/15 to-purple-500/15 border border-rose-200/60 text-white flex items-center justify-center mx-auto shadow-2xs group-hover:scale-105 transition-transform">
+                  <InstagramLogo size="lg" variant="light" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B132B] group-hover:text-rose-600 transition-colors">Instagram</h3>
+                  <div className="text-[10px] font-semibold text-rose-600/80 uppercase tracking-wider mt-0.5">
+                    Meta Graph API v22.0
+                  </div>
+                </div>
+                <p className="text-xs text-[#64748B] leading-relaxed">
+                  Reels, Carousels, Stories, and Feeds. Ingests full archive, plays, saves, reach, and real audience retention.
+                </p>
               </div>
-              <h3 className="text-base font-bold text-[#0B132B]">Instagram</h3>
-              <p className="text-xs text-[#64748B] leading-relaxed">
-                Reels, Carousels, and Posts. Analyzes plays, saves, shares, and real audience retention.
-              </p>
+              <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-center gap-1.5 text-[11px] font-medium text-[#64748B]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Full Media Diagnostics</span>
+              </div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3 text-center hover:border-[#0284C7]/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-red-600 text-white flex items-center justify-center mx-auto shadow-sm">
-                <Youtube className="w-6 h-6" />
+            {/* YouTube Card */}
+            <div className="p-6 rounded-2xl bg-gradient-to-b from-red-50/40 via-white to-white border border-[#E2E8F0] hover:border-red-300/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 text-center group">
+              <div className="space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-200/60 flex items-center justify-center mx-auto shadow-2xs group-hover:scale-105 transition-transform">
+                  <YouTubeLogo size="lg" variant="light" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B132B] group-hover:text-red-600 transition-colors">YouTube</h3>
+                  <div className="text-[10px] font-semibold text-red-600/80 uppercase tracking-wider mt-0.5">
+                    YouTube Data API v3
+                  </div>
+                </div>
+                <p className="text-xs text-[#64748B] leading-relaxed">
+                  Shorts and Long-form Channel Uploads. Ingests total watch time, subscriber conversions, and click-through rates.
+                </p>
               </div>
-              <h3 className="text-base font-bold text-[#0B132B]">YouTube</h3>
-              <p className="text-xs text-[#64748B] leading-relaxed">
-                Shorts and Long-form Videos. Ingests full channel uploads, watch time, and click-through rates.
-              </p>
+              <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-center gap-1.5 text-[11px] font-medium text-[#64748B]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Shorts &amp; Long-Form Analytics</span>
+              </div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3 text-center hover:border-[#0284C7]/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center mx-auto shadow-sm">
-                <Facebook className="w-6 h-6" />
+            {/* Facebook Card */}
+            <div className="p-6 rounded-2xl bg-gradient-to-b from-blue-50/40 via-white to-white border border-[#E2E8F0] hover:border-blue-300/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 text-center group">
+              <div className="space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-200/60 flex items-center justify-center mx-auto shadow-2xs group-hover:scale-105 transition-transform">
+                  <FacebookLogo size="lg" variant="light" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B132B] group-hover:text-blue-600 transition-colors">Facebook</h3>
+                  <div className="text-[10px] font-semibold text-blue-600/80 uppercase tracking-wider mt-0.5">
+                    Meta Page Insights API
+                  </div>
+                </div>
+                <p className="text-xs text-[#64748B] leading-relaxed">
+                  Page Posts, Videos, and Photos. Measures viral reshares, reactions, impressions, and follower demographics.
+                </p>
               </div>
-              <h3 className="text-base font-bold text-[#0B132B]">Facebook</h3>
-              <p className="text-xs text-[#64748B] leading-relaxed">
-                Page Posts and Video distribution. Measures organic reach, impressions, and viral sharing.
-              </p>
+              <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-center gap-1.5 text-[11px] font-medium text-[#64748B]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Organic Reach &amp; Viral Shares</span>
+              </div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3 text-center hover:border-[#0284C7]/40 transition-colors">
-              <div className="w-12 h-12 rounded-xl bg-sky-700 text-white flex items-center justify-center mx-auto shadow-sm">
-                <Linkedin className="w-6 h-6" />
+            {/* LinkedIn Card */}
+            <div className="p-6 rounded-2xl bg-gradient-to-b from-sky-50/40 via-white to-white border border-[#E2E8F0] hover:border-sky-300/80 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 text-center group">
+              <div className="space-y-3">
+                <div className="w-14 h-14 rounded-2xl bg-sky-500/10 border border-sky-200/60 flex items-center justify-center mx-auto shadow-2xs group-hover:scale-105 transition-transform">
+                  <LinkedInLogo size="lg" variant="light" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-[#0B132B] group-hover:text-sky-600 transition-colors">LinkedIn</h3>
+                  <div className="text-[10px] font-semibold text-sky-600/80 uppercase tracking-wider mt-0.5">
+                    LinkedIn Community API
+                  </div>
+                </div>
+                <p className="text-xs text-[#64748B] leading-relaxed">
+                  Company and Professional Feeds. Evaluates PDF carousels, text-only discussions, clicks, and comment depth.
+                </p>
               </div>
-              <h3 className="text-base font-bold text-[#0B132B]">LinkedIn</h3>
-              <p className="text-xs text-[#64748B] leading-relaxed">
-                Company and Professional creator feeds. Evaluates document carousels, text hooks, and engagement.
-              </p>
+              <div className="pt-3 border-t border-[#E2E8F0] flex items-center justify-center gap-1.5 text-[11px] font-medium text-[#64748B]">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>B2B Document &amp; Feed Tracking</span>
+              </div>
             </div>
           </div>
         </div>
@@ -356,6 +495,23 @@ export const Landing: React.FC = () => {
               Sign In to Workspace
             </button>
           </div>
+
+          {/* Light Platform Icons in Footer */}
+          <div className="pt-6 pb-2 flex items-center justify-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-colors" title="Instagram Integration">
+              <InstagramLogo size="sm" variant="light" />
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-colors" title="YouTube Integration">
+              <YouTubeLogo size="sm" variant="light" />
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-colors" title="Facebook Integration">
+              <FacebookLogo size="sm" variant="light" />
+            </div>
+            <div className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-colors" title="LinkedIn Integration">
+              <LinkedInLogo size="sm" variant="light" />
+            </div>
+          </div>
+
           <div className="pt-8 text-xs text-slate-400 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p>© 2026 Media Navigator. All rights reserved.</p>
             <div className="flex items-center gap-6">
