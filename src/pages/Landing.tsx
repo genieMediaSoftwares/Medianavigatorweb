@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   ArrowRight, 
   ShieldCheck, 
@@ -13,7 +13,9 @@ import {
   Facebook, 
   Linkedin,
   Lock,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from 'lucide-react';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { useMedia } from '../context/MediaContext';
@@ -26,12 +28,13 @@ import {
 
 export const Landing: React.FC = () => {
   const { setAppView } = useMedia();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] font-sans antialiased selection:bg-[#0284C7]/20">
+    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] font-sans antialiased selection:bg-[#0284C7]/20 overflow-x-hidden">
       {/* Top Sticky Navigation */}
-      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-[#E2E8F0]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+      <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-[#E2E8F0]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-18 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <BrandLogo />
             <span className="hidden sm:inline-block text-xs font-semibold text-[#0284C7] uppercase tracking-wider pl-2 border-l border-[#E2E8F0]">
@@ -39,6 +42,7 @@ export const Landing: React.FC = () => {
             </span>
           </div>
 
+          {/* Desktop Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#475569]">
             <a href="#features" className="hover:text-[#0284C7] transition-colors">Features</a>
             <a href="#platforms" className="hover:text-[#0284C7] transition-colors">Integrations</a>
@@ -46,10 +50,11 @@ export const Landing: React.FC = () => {
             <a href="#faq" className="hover:text-[#0284C7] transition-colors">Architecture</a>
           </nav>
 
-          <div className="flex items-center gap-3">
+          {/* Desktop Action Buttons */}
+          <div className="hidden sm:flex items-center gap-2 md:gap-3">
             <button
               onClick={() => setAppView('signin')}
-              className="px-4 py-2 text-sm font-medium text-[#0F172A] hover:text-[#0284C7] transition-colors"
+              className="px-3.5 py-2 text-sm font-medium text-[#0F172A] hover:text-[#0284C7] transition-colors"
             >
               Sign In
             </button>
@@ -61,26 +66,110 @@ export const Landing: React.FC = () => {
               <ArrowRight className="w-4 h-4 text-[#06B6D4]" />
             </button>
           </div>
+
+          {/* Mobile Menu & Quick CTA Button */}
+          <div className="flex sm:hidden items-center gap-2">
+            <button
+              onClick={() => setAppView('signup')}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#0B132B] text-white hover:bg-[#1C2541] transition-all shadow-xs"
+            >
+              Get Started
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-lg text-[#0B132B] hover:bg-slate-100 transition-colors"
+              aria-label="Toggle Navigation Menu"
+            >
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-b border-[#E2E8F0] bg-white/95 backdrop-blur-md px-4 pt-3 pb-5 space-y-3 shadow-lg animate-in slide-in-from-top-2 duration-200">
+            <nav className="flex flex-col space-y-2 text-sm font-medium text-[#0B132B]">
+              <a 
+                href="#features" 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Features
+              </a>
+              <a 
+                href="#platforms" 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Integrations
+              </a>
+              <a 
+                href="#security" 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Security & Privacy
+              </a>
+              <a 
+                href="#faq" 
+                onClick={() => setMobileMenuOpen(false)} 
+                className="px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors"
+              >
+                Architecture
+              </a>
+            </nav>
+
+            <div className="pt-3 border-t border-[#E2E8F0] flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setAppView('app');
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-sky-50 text-[#0284C7] border border-sky-200 text-center"
+              >
+                Explore Live Demo
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setAppView('signin')}
+                }
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-medium text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 text-center"
+              >
+                Sign In to Workspace
+              </button>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  setAppView('signup');
+                }}
+                className="w-full py-2.5 px-4 rounded-xl text-xs font-semibold bg-[#0B132B] text-white hover:bg-[#1C2541] text-center shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <span>Start Free Workspace</span>
+                <ArrowRight className="w-3.5 h-3.5 text-[#06B6D4]" />
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-16 pb-20 md:pt-24 md:pb-28 overflow-hidden bg-gradient-to-b from-slate-50/70 via-white to-white">
+      <section className="relative pt-10 pb-16 sm:pt-16 sm:pb-20 md:pt-24 md:pb-28 overflow-hidden bg-gradient-to-b from-slate-50/70 via-white to-white">
         {/* Animated Background Grid & Multi-Channel Glow Orbs */}
         <div className="absolute inset-0 bg-hero-grid [mask-image:radial-gradient(ellipse_75%_65%_at_50%_35%,#000_60%,transparent_100%)] pointer-events-none -z-10" />
 
         {/* Ambient Gradient Color Orbs for Social Channels */}
-        <div className="absolute -top-16 -left-20 w-[450px] h-[450px] bg-gradient-to-tr from-rose-500/15 via-pink-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow" />
-        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[650px] h-[380px] bg-gradient-to-tr from-[#0284C7]/15 via-[#06B6D4]/10 to-transparent blur-3xl rounded-full pointer-events-none -z-10 animate-pulse-glow [animation-delay:2.5s]" />
-        <div className="absolute -top-16 -right-20 w-[480px] h-[480px] bg-gradient-to-bl from-red-500/15 via-amber-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:4s]" />
-        <div className="absolute bottom-16 -left-10 w-[380px] h-[380px] bg-gradient-to-tr from-blue-600/10 via-sky-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:1.5s]" />
-        <div className="absolute bottom-20 -right-10 w-[400px] h-[400px] bg-gradient-to-tl from-sky-500/10 via-cyan-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:3.5s]" />
+        <div className="absolute -top-16 -left-20 w-[320px] sm:w-[450px] h-[320px] sm:h-[450px] bg-gradient-to-tr from-rose-500/15 via-pink-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow" />
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[340px] sm:w-[650px] h-[300px] sm:h-[380px] bg-gradient-to-tr from-[#0284C7]/15 via-[#06B6D4]/10 to-transparent blur-3xl rounded-full pointer-events-none -z-10 animate-pulse-glow [animation-delay:2.5s]" />
+        <div className="absolute -top-16 -right-20 w-[320px] sm:w-[480px] h-[320px] sm:h-[480px] bg-gradient-to-bl from-red-500/15 via-amber-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:4s]" />
+        <div className="absolute bottom-16 -left-10 w-[300px] sm:w-[380px] h-[300px] sm:h-[380px] bg-gradient-to-tr from-blue-600/10 via-sky-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:1.5s]" />
+        <div className="absolute bottom-20 -right-10 w-[300px] sm:w-[400px] h-[300px] sm:h-[400px] bg-gradient-to-tl from-sky-500/10 via-cyan-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:3.5s]" />
 
         {/* ========================================================================= */}
         {/* FLOATING SOCIAL MEDIA LOGOS & LIGHT GLASS CARDS (Hero Ambient Touch)      */}
         {/* ========================================================================= */}
 
-        {/* 1. FLOATING INSTAGRAM CARD (Top Left) */}
+        {/* 1. FLOATING INSTAGRAM CARD (Top Left - Desktop) */}
         <div 
           className="hidden lg:flex items-center gap-3 p-3.5 rounded-2xl bg-white/90 backdrop-blur-md border border-rose-200/70 shadow-lg shadow-rose-500/5 absolute top-12 left-4 xl:left-12 z-20 animate-float-slow hover:scale-105 transition-all cursor-default group"
           title="Instagram Real-Time Signal Ingestion"
@@ -98,7 +187,7 @@ export const Landing: React.FC = () => {
           </div>
         </div>
 
-        {/* 2. FLOATING YOUTUBE CARD (Top Right) */}
+        {/* 2. FLOATING YOUTUBE CARD (Top Right - Desktop) */}
         <div 
           className="hidden lg:flex items-center gap-3 p-3.5 rounded-2xl bg-white/90 backdrop-blur-md border border-red-200/70 shadow-lg shadow-red-500/5 absolute top-12 right-4 xl:right-12 z-20 animate-float-medium hover:scale-105 transition-all cursor-default group"
           title="YouTube Shorts Channel Analytics"
@@ -116,7 +205,7 @@ export const Landing: React.FC = () => {
           </div>
         </div>
 
-        {/* 3. FLOATING FACEBOOK CARD (Mid/Bottom Left) */}
+        {/* 3. FLOATING FACEBOOK CARD (Mid/Bottom Left - Desktop) */}
         <div 
           className="hidden lg:flex items-center gap-3 p-3.5 rounded-2xl bg-white/90 backdrop-blur-md border border-blue-200/70 shadow-lg shadow-blue-500/5 absolute bottom-28 left-6 xl:left-14 z-20 animate-float-reverse hover:scale-105 transition-all cursor-default group"
           title="Facebook Page Insights"
@@ -134,7 +223,7 @@ export const Landing: React.FC = () => {
           </div>
         </div>
 
-        {/* 4. FLOATING LINKEDIN CARD (Mid/Bottom Right) */}
+        {/* 4. FLOATING LINKEDIN CARD (Mid/Bottom Right - Desktop) */}
         <div 
           className="hidden lg:flex items-center gap-3 p-3.5 rounded-2xl bg-white/90 backdrop-blur-md border border-sky-200/70 shadow-lg shadow-sky-500/5 absolute bottom-28 right-6 xl:right-14 z-20 animate-float-drift hover:scale-105 transition-all cursor-default group"
           title="LinkedIn Professional Feed Tracking"
@@ -152,7 +241,31 @@ export const Landing: React.FC = () => {
           </div>
         </div>
 
-        {/* SUBTLE FLOATING AMBIENT LOGO BUBBLES (Accessible on all screens) */}
+        {/* RESPONSIVE MOBILE FLOATING PLATFORM PILLS (Visible on mobile and tablets) */}
+        <div className="lg:hidden flex flex-wrap items-center justify-center gap-2 mb-4 px-3 relative z-20">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 border border-rose-200/80 shadow-xs backdrop-blur-md animate-float-slow">
+            <InstagramLogo size="sm" variant="light" />
+            <span className="text-[11px] font-bold text-[#0B132B]">Instagram</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 border border-red-200/80 shadow-xs backdrop-blur-md animate-float-medium" style={{ animationDelay: '1.4s' }}>
+            <YouTubeLogo size="sm" variant="light" />
+            <span className="text-[11px] font-bold text-[#0B132B]">YouTube</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 border border-blue-200/80 shadow-xs backdrop-blur-md animate-float-reverse" style={{ animationDelay: '0.8s' }}>
+            <FacebookLogo size="sm" variant="light" />
+            <span className="text-[11px] font-bold text-[#0B132B]">Facebook</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 border border-sky-200/80 shadow-xs backdrop-blur-md animate-float-drift" style={{ animationDelay: '2.1s' }}>
+            <LinkedInLogo size="sm" variant="light" />
+            <span className="text-[11px] font-bold text-[#0B132B]">LinkedIn</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          </div>
+        </div>
+
+        {/* SUBTLE FLOATING AMBIENT LOGO BUBBLES */}
         <div className="absolute top-8 left-1/4 -translate-x-12 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/80 border border-pink-200/60 shadow-xs backdrop-blur-xs animate-float-drift pointer-events-none opacity-80" style={{ animationDelay: '1.2s' }}>
           <InstagramLogo size="sm" variant="subtle" />
         </div>
@@ -167,31 +280,31 @@ export const Landing: React.FC = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="text-center max-w-3xl mx-auto space-y-6">
-            {/* Clean kicker - No pill enclosure */}
-            <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#0284C7] uppercase tracking-wider">
-              <span>Official Meta & Google Partner APIs</span>
+          <div className="text-center max-w-3xl mx-auto space-y-4 sm:space-y-6">
+            {/* Clean kicker */}
+            <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs font-semibold text-[#0284C7] uppercase tracking-wider">
+              <span>Official Meta & Google APIs</span>
               <span aria-hidden="true">·</span>
               <span>Full Archive Ingestion</span>
               <span aria-hidden="true">·</span>
               <span>Zero Truncation</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-[#0B132B] tracking-tight leading-tight">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-[#0B132B] tracking-tight leading-tight px-1">
               Turn Your Social Media Data Into{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#0284C7] to-[#06B6D4]">
                 Smarter Growth.
               </span>
             </h1>
 
-            <p className="text-lg text-[#475569] leading-relaxed">
+            <p className="text-sm sm:text-base md:text-lg text-[#475569] leading-relaxed max-w-2xl mx-auto px-2">
               Media Navigator connects your Instagram, YouTube, Facebook, and LinkedIn profiles to ingest your complete content history. Uncover winning patterns, diagnose underperformers, and get grounded, data-backed growth intelligence.
             </p>
 
-            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3 max-w-md sm:max-w-none mx-auto w-full px-4 sm:px-0">
               <button
                 onClick={() => setAppView('signup')}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl text-sm font-semibold bg-[#0B132B] text-white hover:bg-[#1C2541] transition-all shadow-md flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl text-sm font-semibold bg-[#0B132B] text-white hover:bg-[#1C2541] transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span>Start Free Workspace</span>
                 <ArrowRight className="w-4 h-4 text-[#06B6D4]" />
@@ -199,7 +312,7 @@ export const Landing: React.FC = () => {
 
               <button
                 onClick={() => setAppView('app')}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl text-sm font-medium bg-white text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl text-sm font-medium bg-white text-[#0F172A] border border-[#CBD5E1] hover:bg-slate-50 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
               >
                 <span>Live Interactive Demo</span>
                 <ChevronRight className="w-4 h-4 text-[#64748B]" />
@@ -207,43 +320,43 @@ export const Landing: React.FC = () => {
             </div>
 
             {/* Trust and privacy messaging */}
-            <div className="pt-4 flex flex-wrap items-center justify-center gap-6 text-xs text-[#64748B]">
+            <div className="pt-2 sm:pt-4 flex flex-wrap items-center justify-center gap-3 sm:gap-6 text-[11px] sm:text-xs text-[#64748B]">
               <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
                 Read-Only Access Only
               </span>
               <span className="flex items-center gap-1.5">
-                <Lock className="w-4 h-4 text-[#0284C7]" />
-                Zero Token or Credential Storage
+                <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0284C7]" />
+                Zero Token Storage
               </span>
               <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-4 h-4 text-[#0284C7]" />
-                100% Verified Official APIs
+                <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0284C7]" />
+                100% Verified APIs
               </span>
             </div>
 
             {/* Light Platform Integration Ribbon */}
             <div className="pt-6 max-w-4xl mx-auto">
-              <div className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider text-center mb-3 flex items-center justify-center gap-2">
-                <span className="h-px w-8 bg-[#E2E8F0]" />
+              <div className="text-[10px] sm:text-[11px] font-semibold text-[#64748B] uppercase tracking-wider text-center mb-3 flex items-center justify-center gap-2">
+                <span className="h-px w-6 sm:w-8 bg-[#E2E8F0]" />
                 <span>Synchronized Cross-Platform Ingestion</span>
-                <span className="h-px w-8 bg-[#E2E8F0]" />
+                <span className="h-px w-6 sm:w-8 bg-[#E2E8F0]" />
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
                 {/* Instagram Light Card */}
-                <div className="group p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-pink-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-3 backdrop-blur-xs">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500/10 via-rose-500/10 to-purple-500/10 border border-rose-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                <div className="group p-2.5 sm:p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-pink-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-2.5 sm:gap-3 backdrop-blur-xs">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500/10 via-rose-500/10 to-purple-500/10 border border-rose-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
                     <InstagramLogo size="md" variant="light" />
                   </div>
                   <div className="min-w-0 text-left">
                     <div className="text-xs font-bold text-[#0B132B] truncate group-hover:text-rose-600 transition-colors">Instagram</div>
-                    <div className="text-[10px] text-[#64748B] truncate">Reels · Posts · Reach</div>
+                    <div className="text-[10px] text-[#64748B] truncate">Reels · Posts</div>
                   </div>
                 </div>
 
                 {/* YouTube Light Card */}
-                <div className="group p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-red-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-3 backdrop-blur-xs">
-                  <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                <div className="group p-2.5 sm:p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-red-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-2.5 sm:gap-3 backdrop-blur-xs">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-red-500/10 border border-red-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
                     <YouTubeLogo size="md" variant="light" />
                   </div>
                   <div className="min-w-0 text-left">
@@ -253,24 +366,24 @@ export const Landing: React.FC = () => {
                 </div>
 
                 {/* Facebook Light Card */}
-                <div className="group p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-blue-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-3 backdrop-blur-xs">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                <div className="group p-2.5 sm:p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-blue-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-2.5 sm:gap-3 backdrop-blur-xs">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-500/10 border border-blue-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
                     <FacebookLogo size="md" variant="light" />
                   </div>
                   <div className="min-w-0 text-left">
                     <div className="text-xs font-bold text-[#0B132B] truncate group-hover:text-blue-600 transition-colors">Facebook</div>
-                    <div className="text-[10px] text-[#64748B] truncate">Pages · Shares · Video</div>
+                    <div className="text-[10px] text-[#64748B] truncate">Pages · Shares</div>
                   </div>
                 </div>
 
                 {/* LinkedIn Light Card */}
-                <div className="group p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-sky-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-3 backdrop-blur-xs">
-                  <div className="w-10 h-10 rounded-xl bg-sky-500/10 border border-sky-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
+                <div className="group p-2.5 sm:p-3 rounded-2xl bg-white/80 hover:bg-white border border-[#E2E8F0] hover:border-sky-300/70 shadow-xs hover:shadow-md transition-all flex items-center gap-2.5 sm:gap-3 backdrop-blur-xs">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-sky-500/10 border border-sky-200/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform shadow-2xs">
                     <LinkedInLogo size="md" variant="light" />
                   </div>
                   <div className="min-w-0 text-left">
                     <div className="text-xs font-bold text-[#0B132B] truncate group-hover:text-sky-600 transition-colors">LinkedIn</div>
-                    <div className="text-[10px] text-[#64748B] truncate">Articles · Feeds · Depth</div>
+                    <div className="text-[10px] text-[#64748B] truncate">Feeds · Depth</div>
                   </div>
                 </div>
               </div>
@@ -309,70 +422,70 @@ export const Landing: React.FC = () => {
 
             <div className="rounded-2xl bg-white border border-[#CBD5E1] shadow-2xl overflow-hidden">
               {/* Mock Window Header */}
-              <div className="px-5 py-3.5 bg-[#0B132B] text-white flex items-center justify-between border-b border-[#1E293B]">
+              <div className="px-3 sm:px-5 py-2.5 sm:py-3.5 bg-[#0B132B] text-white flex flex-wrap items-center justify-between gap-2 border-b border-[#1E293B]">
                 <div className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-rose-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-amber-500/80" />
-                  <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-                  <span className="ml-3 text-xs font-mono text-slate-300">
-                    app.medianavigator.io / workspace / intelligence
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-rose-500/80" />
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-500/80" />
+                  <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500/80" />
+                  <span className="ml-2 sm:ml-3 text-[11px] sm:text-xs font-mono text-slate-300 truncate max-w-[180px] sm:max-w-none">
+                    app.medianavigator.io / intelligence
                   </span>
                 </div>
-                <div className="text-[11px] font-medium text-cyan-300 flex items-center gap-1.5">
+                <div className="text-[10px] sm:text-[11px] font-medium text-cyan-300 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                  Active Ingestion: All Posts & Reels Synchronized
+                  <span>Ingestion Live · 4 Channels Active</span>
                 </div>
               </div>
 
               {/* Preview Content */}
-              <div className="p-6 md:p-8 bg-[#F8FAFC] space-y-6">
+              <div className="p-3.5 sm:p-6 md:p-8 bg-[#F8FAFC] space-y-4 sm:space-y-6">
                 {/* 4 Metric Highlights */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-xs space-y-1">
-                    <div className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-4">
+                  <div className="p-3 sm:p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-xs space-y-1">
+                    <div className="text-[10px] sm:text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
                       Total Analyzed
                     </div>
-                    <div className="text-2xl font-extrabold text-[#0B132B]">
+                    <div className="text-lg sm:text-2xl font-extrabold text-[#0B132B]">
                       1,482 Assets
                     </div>
-                    <div className="text-xs text-[#0284C7] font-medium">
+                    <div className="text-[11px] sm:text-xs text-[#0284C7] font-medium truncate">
                       Zero Pagination Limit
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-xs space-y-1">
-                    <div className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                  <div className="p-3 sm:p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-xs space-y-1">
+                    <div className="text-[10px] sm:text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
                       Aggregate Views
                     </div>
-                    <div className="text-2xl font-extrabold text-[#0B132B]">
+                    <div className="text-lg sm:text-2xl font-extrabold text-[#0B132B]">
                       2,489,120
                     </div>
-                    <div className="text-xs text-emerald-600 font-medium">
+                    <div className="text-[11px] sm:text-xs text-emerald-600 font-medium truncate">
                       +28.4% vs baseline
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-xs space-y-1">
-                    <div className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                  <div className="p-3 sm:p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-xs space-y-1">
+                    <div className="text-[10px] sm:text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
                       Top Format
                     </div>
-                    <div className="text-2xl font-extrabold text-[#0284C7]">
+                    <div className="text-lg sm:text-2xl font-extrabold text-[#0284C7]">
                       Reels (4.9%)
                     </div>
-                    <div className="text-xs text-[#64748B]">
-                      2.4x higher comment depth
+                    <div className="text-[11px] sm:text-xs text-[#64748B] truncate">
+                      2.4x higher comments
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-xs space-y-1">
-                    <div className="text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
+                  <div className="p-3 sm:p-4 rounded-xl bg-white border border-[#E2E8F0] shadow-xs space-y-1">
+                    <div className="text-[10px] sm:text-[11px] font-semibold text-[#64748B] uppercase tracking-wider">
                       Hook Question Lift
                     </div>
-                    <div className="text-2xl font-extrabold text-emerald-600">
+                    <div className="text-lg sm:text-2xl font-extrabold text-emerald-600">
                       +3.8%
                     </div>
-                    <div className="text-xs text-[#64748B]">
-                      Measured retention impact
+                    <div className="text-[11px] sm:text-xs text-[#64748B] truncate">
+                      Retention impact
                     </div>
                   </div>
                 </div>

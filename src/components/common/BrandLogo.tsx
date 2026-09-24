@@ -1,8 +1,15 @@
 import React from 'react';
 
-export const BrandLogo: React.FC<{ collapsed?: boolean }> = ({ collapsed = false }) => {
+export const BrandLogo: React.FC<{ 
+  collapsed?: boolean;
+  onClick?: () => void;
+  className?: string;
+}> = ({ collapsed = false, onClick, className = '' }) => {
   return (
-    <div className="flex items-center gap-2.5 select-none">
+    <div 
+      onClick={onClick}
+      className={`flex items-center gap-2.5 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
+    >
       {/* Abstract navigation / orbit icon with modern sky/cyan gradient */}
       <div className="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0284C7] to-[#06B6D4] flex items-center justify-center shadow-xs text-white shrink-0">
         <svg

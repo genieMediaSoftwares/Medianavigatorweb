@@ -66,7 +66,7 @@ export const Sidebar: React.FC = () => {
       {/* Brand Header */}
       <div className="h-16 px-4 flex items-center justify-between border-b border-[#E2E8F0] bg-white">
         <div className="flex items-center gap-2">
-          <BrandLogo />
+          <BrandLogo onClick={() => setAppView('landing')} />
         </div>
         <button
           onClick={() => setAppView('landing')}

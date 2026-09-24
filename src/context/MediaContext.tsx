@@ -92,7 +92,21 @@ interface MediaContextType {
 const MediaContext = createContext<MediaContextType | undefined>(undefined);
 
 export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [appView, setAppView] = useState<AppViewMode>('app');
+  const getInitialAppView = (): AppViewMode => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      const viewParam = searchParams.get('view');
+      if (viewParam === 'app' || viewParam === 'signin' || viewParam === 'signup' || viewParam === 'landing') {
+        return viewParam as AppViewMode;
+      }
+      if (window.location.hash === '#workspace' || window.location.hash === '#dashboard') {
+        return 'app';
+      }
+    }
+    return 'landing';
+  };
+
+  const [appView, setAppView] = useState<AppViewMode>(getInitialAppView);
   
   const [user, setUser] = useState<UserAccount>({
     fullName: 'Alex Vance',

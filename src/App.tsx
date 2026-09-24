@@ -127,7 +127,7 @@ const AppContent: React.FC = () => {
           <div className="relative w-72 max-w-[85vw] h-full bg-white text-[#0F172A] border-r border-[#E2E8F0] p-5 flex flex-col justify-between z-50 shadow-2xl">
             <div className="space-y-4">
               <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
-                <BrandLogo />
+                <BrandLogo onClick={() => { setAppView('landing'); setMobileMenuOpen(false); }} />
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="p-1.5 rounded-lg text-[#64748B] hover:text-[#0B132B] hover:bg-slate-100 transition-colors"

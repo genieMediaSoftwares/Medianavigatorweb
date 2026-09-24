@@ -149,6 +149,16 @@ export const TopBar: React.FC<{ onMobileMenuClick?: () => void }> = ({ onMobileM
           )}
         </div>
 
+        {/* Quick Link to Landing Page */}
+        <button
+          onClick={() => setAppView('landing')}
+          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-2xs"
+          title="Return to Landing Page"
+        >
+          <ArrowUpRight className="w-3.5 h-3.5 text-[#0284C7]" />
+          <span>Landing Page</span>
+        </button>
+
         {/* Live Sync Trigger */}
         <button
           onClick={() => startSyncFlow('instagram', 'primary_account')}
