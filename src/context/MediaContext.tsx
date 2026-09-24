@@ -96,34 +96,81 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   
   const [user, setUser] = useState<UserAccount>({
     fullName: 'Alex Vance',
-    email: 'alex@veritasmedia.co',
-    organization: 'Veritas Media Labs',
-    accountType: 'Marketing agency',
+    email: 'alex@medianavigator.app',
+    organization: 'My Media Workspace',
+    accountType: 'Creator',
     avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
   });
 
   const [brandProfile, setBrandProfile] = useState<BrandProfile>({
-    brandName: 'Veritas Media Labs',
-    niche: 'B2B SaaS, Creator Economy & Growth Engineering',
-    targetAudience: 'Tech founders, growth marketers, and modern creators',
-    primaryLocation: 'North America & Global Remote',
+    brandName: 'My Media Channel',
+    niche: 'Digital Media, Content & Creator Strategy',
+    targetAudience: 'Engaged audience and modern community',
+    primaryLocation: 'Global / North America',
     mainGoal: 'Increase reach and scale viral organic engagement',
-    currentExperience: 'Advanced social media operators',
+    currentExperience: 'Active social media creator',
     preferredFormats: ['reel', 'carousel', 'video'],
   });
 
   const [workspaces, setWorkspaces] = useState<string[]>([
-    'Veritas Media Labs',
-    'Acme Growth Studio',
-    'Apex Horizon Creators'
+    'Primary Workspace',
+    'Marketing Team',
+    'Creator Studio'
   ]);
-  const [currentWorkspace, setCurrentWorkspace] = useState<string>('Veritas Media Labs');
+  const [currentWorkspace, setCurrentWorkspace] = useState<string>('Primary Workspace');
 
   const [currentTab, setCurrentTab] = useState<NavigationTab>('overview');
   const [selectedPlatform, setSelectedPlatform] = useState<'all' | PlatformType>('all');
   const [timeframe, setTimeframe] = useState<string>('Last 7 days');
   const [activeMedia, setActiveMedia] = useState<NormalizedMedia | null>(null);
-  const [connections, setConnections] = useState<PlatformConnection[]>([]);
+  const defaultConnections: PlatformConnection[] = [
+    {
+      platform: 'instagram',
+      name: 'Instagram',
+      accountHandle: 'Not connected',
+      connected: false,
+      lastSyncedAt: '',
+      status: 'not_connected',
+      statusMessage: 'Connect Instagram to start analyzing your media.',
+      primaryStrength: 'Reels, visual carousels & reach',
+      dataPointsCount: 0,
+    },
+    {
+      platform: 'youtube',
+      name: 'YouTube',
+      accountHandle: 'Not connected',
+      connected: false,
+      lastSyncedAt: '',
+      status: 'not_connected',
+      statusMessage: 'Connect YouTube to start analyzing your media.',
+      primaryStrength: 'Shorts & video retention',
+      dataPointsCount: 0,
+    },
+    {
+      platform: 'facebook',
+      name: 'Facebook',
+      accountHandle: 'Not connected',
+      connected: false,
+      lastSyncedAt: '',
+      status: 'not_connected',
+      statusMessage: 'Connect Facebook to start analyzing your media.',
+      primaryStrength: 'Page posts & viral sharing',
+      dataPointsCount: 0,
+    },
+    {
+      platform: 'linkedin',
+      name: 'LinkedIn',
+      accountHandle: 'Not connected',
+      connected: false,
+      lastSyncedAt: '',
+      status: 'not_connected',
+      statusMessage: 'Connect LinkedIn to start analyzing your media.',
+      primaryStrength: 'Professional network & B2B feeds',
+      dataPointsCount: 0,
+    },
+  ];
+
+  const [connections, setConnections] = useState<PlatformConnection[]>(defaultConnections);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [isNavigating, setIsNavigating] = useState<boolean>(false);
   const [navigationStep, setNavigationStep] = useState<string>('Collecting signals');

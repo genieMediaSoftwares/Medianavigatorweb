@@ -212,7 +212,7 @@ export const Settings: React.FC = () => {
 
                 <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
                   <div className="text-xs font-bold text-[#0B132B]">Workspace Identifier</div>
-                  <code className="text-xs text-[#0284C7] font-mono">ws-veritas-prod-0824</code>
+                  <code className="text-xs text-[#0284C7] font-mono">ws-live-prod-0824</code>
                 </div>
               </div>
 

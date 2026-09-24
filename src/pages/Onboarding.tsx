@@ -20,7 +20,7 @@ export const Onboarding: React.FC = () => {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  const [brandName, setBrandName] = useState(brandProfile.brandName || 'Veritas Media Labs');
+  const [brandName, setBrandName] = useState(brandProfile.brandName || 'My Media Channel');
   const [niche, setNiche] = useState(brandProfile.niche || 'B2B SaaS, Creator Economy & Growth Engineering');
   const [targetAudience, setTargetAudience] = useState(brandProfile.targetAudience || 'Tech founders, growth marketers, and modern creators');
   const [primaryLocation, setPrimaryLocation] = useState(brandProfile.primaryLocation || 'Global / North America');

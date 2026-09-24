@@ -304,7 +304,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs text-[#0B132B] focus:outline-none focus:border-[#0284C7] focus:ring-1 focus:ring-[#0284C7]"
                   />
                   <div className="text-[11px] text-[#64748B]">
-                    Optionally target a specific channel handle (e.g. @Veritasium) or channel ID.
+                    Optionally target a specific channel handle (e.g. @YourChannel) or channel ID.
                   </div>
                 </div>
               </div>

@@ -3,12 +3,73 @@ import {
   ArrowRight, 
   RotateCw, 
   Sparkles, 
-  Key
+  Key,
+  Plus,
+  Settings,
+  CheckCircle2,
+  RefreshCw,
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 import { useMedia } from '../context/MediaContext';
 import { api, OverviewData } from '../services/api';
-import { KeySignal, Observation, PlatformType } from '../types';
+import { KeySignal, Observation, PlatformType, PlatformConnection } from '../types';
 import { PlatformConnectModal } from '../components/modals/PlatformConnectModal';
+import { 
+  InstagramLogo, 
+  YouTubeLogo, 
+  FacebookLogo, 
+  LinkedInLogo 
+} from '../components/common/PlatformLogos';
+
+const PLATFORMS_ORDER: PlatformType[] = ['instagram', 'youtube', 'facebook', 'linkedin'];
+
+const PLATFORM_CONFIG: Record<PlatformType, {
+  name: string;
+  logo: (variant?: 'light' | 'subtle' | 'original') => React.ReactNode;
+  apiLabel: string;
+  ingestDescription: string;
+  accentBg: string;
+  accentBorder: string;
+  accentText: string;
+}> = {
+  instagram: {
+    name: 'Instagram',
+    logo: (variant) => <InstagramLogo size="md" variant={variant} />,
+    apiLabel: 'Meta Graph API v22.0',
+    ingestDescription: 'Reels · Posts · Reach · Real Views',
+    accentBg: 'bg-gradient-to-tr from-amber-500/10 via-rose-500/10 to-purple-500/10',
+    accentBorder: 'border-rose-200/60',
+    accentText: 'text-rose-600',
+  },
+  youtube: {
+    name: 'YouTube',
+    logo: (variant) => <YouTubeLogo size="md" variant={variant} />,
+    apiLabel: 'YouTube Data API v3',
+    ingestDescription: 'Shorts · Retention · Views · Subscribers',
+    accentBg: 'bg-red-500/10',
+    accentBorder: 'border-red-200/60',
+    accentText: 'text-red-600',
+  },
+  facebook: {
+    name: 'Facebook',
+    logo: (variant) => <FacebookLogo size="md" variant={variant} />,
+    apiLabel: 'Meta Page Insights API',
+    ingestDescription: 'Page Posts · Viral Shares · Video Reach',
+    accentBg: 'bg-blue-500/10',
+    accentBorder: 'border-blue-200/60',
+    accentText: 'text-blue-600',
+  },
+  linkedin: {
+    name: 'LinkedIn',
+    logo: (variant) => <LinkedInLogo size="md" variant={variant} />,
+    apiLabel: 'LinkedIn Community API',
+    ingestDescription: 'Carousels · B2B Articles · Feed Depth',
+    accentBg: 'bg-sky-500/10',
+    accentBorder: 'border-sky-200/60',
+    accentText: 'text-sky-600',
+  },
+};
 
 export const Overview: React.FC = () => {
   const { 
@@ -16,7 +77,8 @@ export const Overview: React.FC = () => {
     setSelectedPlatform, 
     setCurrentTab, 
     connections, 
-    refreshConnections 
+    refreshConnections,
+    startSyncFlow
   } = useMedia();
 
   const [data, setData] = useState<OverviewData | null>(null);
@@ -53,6 +115,23 @@ export const Overview: React.FC = () => {
 
   const hasConnectedPlatforms = connections.some((c) => c.connected);
 
+  // Helper to retrieve connection record for a platform
+  const getConnection = (platform: PlatformType): PlatformConnection => {
+    const found = connections.find((c) => c.platform === platform);
+    if (found) return found;
+    return {
+      platform,
+      name: PLATFORM_CONFIG[platform].name,
+      accountHandle: 'Not connected',
+      connected: false,
+      lastSyncedAt: '',
+      status: 'not_connected',
+      statusMessage: `Connect ${PLATFORM_CONFIG[platform].name} to start analyzing your media.`,
+      primaryStrength: PLATFORM_CONFIG[platform].ingestDescription,
+      dataPointsCount: 0,
+    };
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-24 text-xs text-[#64748B] bg-white rounded-2xl border border-[#E2E8F0]">
@@ -62,63 +141,166 @@ export const Overview: React.FC = () => {
     );
   }
 
+  // Render Platform Channels Grid Component
+  const renderPlatformGrid = (isCompact = false) => (
+    <section id="platform-channels-section" className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xs font-bold uppercase tracking-wider text-[#0B132B] flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-[#0284C7]" />
+            <span>Integrated Media Channels &amp; Platform Status</span>
+          </h2>
+          <p className="text-[11px] text-[#64748B] mt-0.5">
+            Direct connections to official APIs with verified read-only scopes. Connect your accounts to analyze all published media.
+          </p>
+        </div>
+        <button
+          onClick={() => setCurrentTab('connections')}
+          className="text-xs font-semibold text-[#0284C7] hover:text-[#0369A1] hover:underline flex items-center gap-1"
+        >
+          <span>All Integrations</span>
+          <ArrowRight className="w-3 h-3" />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {PLATFORMS_ORDER.map((platform) => {
+          const conn = getConnection(platform);
+          const cfg = PLATFORM_CONFIG[platform];
+          const isSelected = selectedPlatform === platform;
+
+          return (
+            <div
+              key={platform}
+              id={`platform-card-${platform}`}
+              className={`p-4 rounded-2xl bg-white border transition-all flex flex-col justify-between space-y-3.5 shadow-2xs hover:shadow-md ${
+                isSelected 
+                  ? 'border-[#0284C7] ring-2 ring-[#0284C7]/15' 
+                  : 'border-[#E2E8F0] hover:border-slate-300'
+              }`}
+            >
+              {/* Top Row: Logo & Status Badge */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`w-9 h-9 rounded-xl ${cfg.accentBg} border ${cfg.accentBorder} flex items-center justify-center shrink-0 shadow-2xs`}>
+                      {cfg.logo('light')}
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold text-[#0B132B] leading-tight flex items-center gap-1.5">
+                        <span>{cfg.name}</span>
+                        {isSelected && (
+                          <span className="text-[9px] font-bold text-[#0284C7] bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200">
+                            Active Filter
+                          </span>
+                        )}
+                      </h3>
+                      <div className="text-[10px] text-[#64748B] font-mono">
+                        {cfg.apiLabel}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                      conn.connected
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : 'bg-slate-100 text-[#64748B] border border-slate-200'
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${conn.connected ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    {conn.connected ? 'Active' : 'Not Connected'}
+                  </span>
+                </div>
+
+                {/* Account Details & Ingestion scope */}
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-[#0B132B] truncate">
+                    {conn.connected 
+                      ? (conn.accountHandle !== 'Not connected' ? conn.accountHandle : `Connected Account`)
+                      : 'No Account Linked'}
+                  </div>
+                  <div className="text-[11px] text-[#64748B] leading-snug line-clamp-2">
+                    {cfg.ingestDescription}
+                  </div>
+                  {conn.connected && (
+                    <div className="pt-1 text-[10px] text-emerald-600 font-medium flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{conn.dataPointsCount > 0 ? `${conn.dataPointsCount} assets analyzed` : 'Live API connection ready'}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 border-t border-[#F1F5F9]">
+                {conn.connected ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPlatform(selectedPlatform === platform ? 'all' : platform);
+                      }}
+                      className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center ${
+                        isSelected
+                          ? 'bg-[#0B132B] text-white border-[#0B132B]'
+                          : 'bg-[#F8FAFC] hover:bg-slate-100 text-[#0F172A] border-[#CBD5E1]'
+                      }`}
+                    >
+                      {isSelected ? 'Reset Filter' : 'Filter Feed'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConnectModalPlatform(platform)}
+                      className="py-2 px-3 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-[#0F172A] border border-[#CBD5E1] shadow-2xs flex items-center justify-center gap-1 transition-all"
+                      title="Manage API connection & credentials"
+                    >
+                      <Settings className="w-3.5 h-3.5 text-[#64748B]" />
+                      <span>Manage</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConnectModalPlatform(platform)}
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-[#0284C7] hover:bg-[#0369A1] text-white transition-all shadow-2xs flex items-center justify-center gap-1.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Connect {cfg.name}</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+
   return (
     <div id="overview-screen" className="space-y-6 max-w-6xl mx-auto font-sans">
-      {/* If no media data exists, display strict real empty state */}
+      {/* If no media data exists, display clean state with platform channels hub */}
       {(!data || !data.hasData || data.signals.length === 0) ? (
         <div className="space-y-6">
           <div className="p-8 rounded-3xl bg-white border border-[#E2E8F0] shadow-2xs space-y-3">
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-xs font-semibold bg-[#0284C7]/10 text-[#0284C7] border border-[#0284C7]/20">
               <span className="w-1.5 h-1.5 rounded-full bg-[#0284C7]" />
-              {hasConnectedPlatforms ? 'Connected — Awaiting Media Assets' : 'No Platforms Connected'}
+              {hasConnectedPlatforms ? 'Channels Connected — Awaiting Media Assets' : 'Connect Your Media Accounts'}
             </div>
             <h1 className="text-xl md:text-3xl font-bold text-[#0B132B] tracking-tight">
               {hasConnectedPlatforms 
-                ? 'Your account is connected, but no analyzable media data is currently available.' 
-                : 'Connect your account to unlock Media Intelligence.'}
+                ? 'Your account is connected. Synchronize to ingest media assets.' 
+                : 'Connect YouTube, Instagram, Facebook, or LinkedIn to unlock Media Intelligence.'}
             </h1>
             <p className="text-sm text-[#64748B] leading-relaxed max-w-2xl">
               {hasConnectedPlatforms
-                ? 'We connected to your profile, but no published posts, videos, or reels were returned from the platform API. Publish content or synchronize again.'
-                : 'Media Navigator never fabricates performance numbers. Connect your Instagram, Facebook, YouTube, or LinkedIn accounts to start analyzing real audience momentum.'}
+                ? 'We established secure read access to your platform API. Click below to synchronize your published posts, reels, and video metrics.'
+                : 'Media Navigator performs deep forensic intelligence and retention breakdowns across all your channels. Connect your accounts using the buttons below to begin.'}
             </p>
           </div>
 
-          {/* Quick Platform Connection Cards */}
-          <div className="space-y-3">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
-              Connect Your Media Channels
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {connections.map((conn) => (
-                <div
-                  key={conn.platform}
-                  className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs flex flex-col justify-between space-y-4 hover:border-[#0284C7]/40 transition-colors"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="text-sm font-bold text-[#0B132B]">{conn.name}</h3>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${conn.connected ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-[#64748B]'}`}>
-                        {conn.connected ? 'Connected' : 'Disconnected'}
-                      </span>
-                    </div>
-                    <p className="text-xs text-[#64748B] leading-relaxed">
-                      {conn.primaryStrength}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setConnectModalPlatform(conn.platform)}
-                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-[#0284C7] hover:bg-[#0369A1] text-white transition-all shadow-2xs flex items-center justify-center gap-1.5"
-                  >
-                    <Key className="w-3.5 h-3.5" />
-                    {conn.connected ? 'Manage' : `Connect ${conn.name}`}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Quick Platform Connection Cards with Connect Buttons */}
+          {renderPlatformGrid(false)}
         </div>
       ) : (
         <>
@@ -175,7 +357,10 @@ export const Overview: React.FC = () => {
             </div>
           </section>
 
-          {/* 2. KEY SIGNALS */}
+          {/* 2. CHANNELS INTEGRATION & STATUS HUB (ALWAYS VISIBLE ON OVERVIEW) */}
+          {renderPlatformGrid(false)}
+
+          {/* 3. KEY SIGNALS */}
           <section id="key-signals-section" className="space-y-4">
             <div>
               <h2 className="text-base font-bold text-[#0B132B] tracking-tight">
@@ -219,65 +404,7 @@ export const Overview: React.FC = () => {
             </div>
           </section>
 
-          {/* 3. PLATFORM OVERVIEW */}
-          <section id="platform-overview-section" className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#64748B]">
-                Connected Channels
-              </span>
-              <button
-                onClick={() => setCurrentTab('connections')}
-                className="text-xs font-semibold text-[#0284C7] hover:underline"
-              >
-                Manage connections →
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {connections.map((conn) => {
-                const isSelected = selectedPlatform === conn.platform;
-
-                return (
-                  <button
-                    key={conn.platform}
-                    id={`platform-selector-${conn.platform}`}
-                    onClick={() => {
-                      if (!conn.connected) {
-                        setConnectModalPlatform(conn.platform);
-                      } else {
-                        setSelectedPlatform(conn.platform);
-                      }
-                    }}
-                    className={`p-4 rounded-2xl text-left border transition-all ${
-                      isSelected
-                        ? 'bg-[#0B132B] text-white border-[#0B132B] shadow-xs'
-                        : 'bg-white border-[#E2E8F0] text-[#0B132B] hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`text-sm font-bold ${isSelected ? 'text-white' : 'text-[#0B132B]'}`}>
-                        {conn.name}
-                      </span>
-                      <span
-                        className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold ${
-                          conn.connected
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-slate-100 text-[#64748B]'
-                        }`}
-                      >
-                        {conn.connected ? 'Active' : 'Disconnected'}
-                      </span>
-                    </div>
-                    <div className={`text-xs ${isSelected ? 'text-slate-300' : 'text-[#64748B]'}`}>
-                      {conn.connected ? conn.accountHandle : 'Click to connect'}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* 4. “WHAT HAPPENED?” SECTION */}
+          {/* 4. “WHAT HAPPENED?” OBSERVATIONS */}
           {data.observations.length > 0 && (
             <section id="what-happened-section" className="space-y-4">
               <div>

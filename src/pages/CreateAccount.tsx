@@ -129,7 +129,7 @@ export const CreateAccount: React.FC = () => {
                     type="text"
                     value={organization}
                     onChange={(e) => setOrganization(e.target.value)}
-                    placeholder="Veritas Media Labs"
+                    placeholder="Your Brand or Organization"
                     className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0284C7] pl-10"
                     required
                   />
