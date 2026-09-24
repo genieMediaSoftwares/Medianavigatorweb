@@ -65,11 +65,108 @@ export const Landing: React.FC = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-16 pb-20 md:pt-24 md:pb-28 overflow-hidden">
-        {/* Subtle accent background glow */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-tr from-[#0284C7]/10 via-[#06B6D4]/10 to-transparent blur-3xl pointer-events-none -z-10" />
+      <section className="relative pt-16 pb-20 md:pt-24 md:pb-28 overflow-hidden bg-gradient-to-b from-slate-50/70 via-white to-white">
+        {/* Animated Background Grid & Multi-Channel Glow Orbs */}
+        <div className="absolute inset-0 bg-hero-grid [mask-image:radial-gradient(ellipse_75%_65%_at_50%_35%,#000_60%,transparent_100%)] pointer-events-none -z-10" />
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Ambient Gradient Color Orbs for Social Channels */}
+        <div className="absolute -top-16 -left-20 w-[450px] h-[450px] bg-gradient-to-tr from-rose-500/15 via-pink-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow" />
+        <div className="absolute top-12 left-1/2 -translate-x-1/2 w-[650px] h-[380px] bg-gradient-to-tr from-[#0284C7]/15 via-[#06B6D4]/10 to-transparent blur-3xl rounded-full pointer-events-none -z-10 animate-pulse-glow [animation-delay:2.5s]" />
+        <div className="absolute -top-16 -right-20 w-[480px] h-[480px] bg-gradient-to-bl from-red-500/15 via-amber-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:4s]" />
+        <div className="absolute bottom-16 -left-10 w-[380px] h-[380px] bg-gradient-to-tr from-blue-600/10 via-sky-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:1.5s]" />
+        <div className="absolute bottom-20 -right-10 w-[400px] h-[400px] bg-gradient-to-tl from-sky-500/10 via-cyan-400/10 to-transparent rounded-full blur-3xl pointer-events-none -z-10 animate-pulse-glow [animation-delay:3.5s]" />
+
+        {/* ========================================================================= */}
+        {/* FLOATING SOCIAL MEDIA LOGOS & LIGHT GLASS CARDS (Hero Ambient Touch)      */}
+        {/* ========================================================================= */}
+
+        {/* 1. FLOATING INSTAGRAM CARD (Top Left) */}
+        <div 
+          className="hidden lg:flex items-center gap-3 p-3.5 rounded-2xl bg-white/90 backdrop-blur-md border border-rose-200/70 shadow-lg shadow-rose-500/5 absolute top-12 left-4 xl:left-12 z-20 animate-float-slow hover:scale-105 transition-all cursor-default group"
+          title="Instagram Real-Time Signal Ingestion"
+        >
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-amber-500/15 via-rose-500/20 to-purple-500/20 border border-rose-200/80 flex items-center justify-center shrink-0 shadow-2xs group-hover:rotate-6 transition-transform">
+            <InstagramLogo size="md" variant="light" />
+          </div>
+          <div className="text-left pr-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[#0B132B] group-hover:text-rose-600 transition-colors">Instagram Reel</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+            <div className="text-[11px] font-semibold text-emerald-600">+28.4% Retention</div>
+            <div className="text-[9px] text-[#64748B] font-mono">Meta Graph v22.0</div>
+          </div>
+        </div>
+
+        {/* 2. FLOATING YOUTUBE CARD (Top Right) */}
+        <div 
+          className="hidden lg:flex items-center gap-3 p-3.5 rounded-2xl bg-white/90 backdrop-blur-md border border-red-200/70 shadow-lg shadow-red-500/5 absolute top-12 right-4 xl:right-12 z-20 animate-float-medium hover:scale-105 transition-all cursor-default group"
+          title="YouTube Shorts Channel Analytics"
+        >
+          <div className="w-11 h-11 rounded-xl bg-red-500/15 border border-red-200/80 flex items-center justify-center shrink-0 shadow-2xs group-hover:-rotate-6 transition-transform">
+            <YouTubeLogo size="md" variant="light" />
+          </div>
+          <div className="text-left pr-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[#0B132B] group-hover:text-red-600 transition-colors">YouTube Shorts</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+            <div className="text-[11px] font-semibold text-[#0284C7]">142k Plays · 84% CTR</div>
+            <div className="text-[9px] text-[#64748B] font-mono">Data API v3 Active</div>
+          </div>
+        </div>
+
+        {/* 3. FLOATING FACEBOOK CARD (Mid/Bottom Left) */}
+        <div 
+          className="hidden lg:flex items-center gap-3 p-3.5 rounded-2xl bg-white/90 backdrop-blur-md border border-blue-200/70 shadow-lg shadow-blue-500/5 absolute bottom-28 left-6 xl:left-14 z-20 animate-float-reverse hover:scale-105 transition-all cursor-default group"
+          title="Facebook Page Insights"
+        >
+          <div className="w-11 h-11 rounded-xl bg-blue-500/15 border border-blue-200/80 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-110 transition-transform">
+            <FacebookLogo size="md" variant="light" />
+          </div>
+          <div className="text-left pr-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[#0B132B] group-hover:text-blue-600 transition-colors">Facebook Page</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            </div>
+            <div className="text-[11px] font-semibold text-blue-600">3.2x Viral Reshares</div>
+            <div className="text-[9px] text-[#64748B] font-mono">Page Insights Ingest</div>
+          </div>
+        </div>
+
+        {/* 4. FLOATING LINKEDIN CARD (Mid/Bottom Right) */}
+        <div 
+          className="hidden lg:flex items-center gap-3 p-3.5 rounded-2xl bg-white/90 backdrop-blur-md border border-sky-200/70 shadow-lg shadow-sky-500/5 absolute bottom-28 right-6 xl:right-14 z-20 animate-float-drift hover:scale-105 transition-all cursor-default group"
+          title="LinkedIn Professional Feed Tracking"
+        >
+          <div className="w-11 h-11 rounded-xl bg-sky-500/15 border border-sky-200/80 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-110 transition-transform">
+            <LinkedInLogo size="md" variant="light" />
+          </div>
+          <div className="text-left pr-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[#0B132B] group-hover:text-sky-600 transition-colors">LinkedIn Feed</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            </div>
+            <div className="text-[11px] font-semibold text-[#0284C7]">B2B Decision Depth</div>
+            <div className="text-[9px] text-[#64748B] font-mono">Community Ingestion</div>
+          </div>
+        </div>
+
+        {/* SUBTLE FLOATING AMBIENT LOGO BUBBLES (Accessible on all screens) */}
+        <div className="absolute top-8 left-1/4 -translate-x-12 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/80 border border-pink-200/60 shadow-xs backdrop-blur-xs animate-float-drift pointer-events-none opacity-80" style={{ animationDelay: '1.2s' }}>
+          <InstagramLogo size="sm" variant="subtle" />
+        </div>
+        <div className="absolute top-10 right-1/4 translate-x-12 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/80 border border-red-200/60 shadow-xs backdrop-blur-xs animate-float-slow pointer-events-none opacity-80" style={{ animationDelay: '2.8s' }}>
+          <YouTubeLogo size="sm" variant="subtle" />
+        </div>
+        <div className="absolute bottom-12 left-1/3 -translate-x-16 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/80 border border-blue-200/60 shadow-xs backdrop-blur-xs animate-float-medium pointer-events-none opacity-80" style={{ animationDelay: '3.4s' }}>
+          <FacebookLogo size="sm" variant="subtle" />
+        </div>
+        <div className="absolute bottom-14 right-1/3 translate-x-16 hidden md:flex items-center justify-center w-8 h-8 rounded-full bg-white/80 border border-sky-200/60 shadow-xs backdrop-blur-xs animate-float-reverse pointer-events-none opacity-80" style={{ animationDelay: '0.8s' }}>
+          <LinkedInLogo size="sm" variant="subtle" />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-3xl mx-auto space-y-6">
             {/* Clean kicker - No pill enclosure */}
             <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#0284C7] uppercase tracking-wider">
@@ -183,7 +280,7 @@ export const Landing: React.FC = () => {
           {/* Interactive Dashboard Preview with Ambient Floating Light Badges */}
           <div className="mt-14 relative max-w-5xl mx-auto">
             {/* Floating Light Badge: Instagram Reel */}
-            <div className="hidden lg:flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg absolute -top-5 -left-5 z-20 hover:scale-105 transition-transform">
+            <div className="hidden lg:flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg absolute -top-5 -left-5 z-20 animate-float-slow hover:scale-105 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500/15 via-rose-500/15 to-purple-500/15 border border-rose-200/60 flex items-center justify-center shrink-0">
                 <InstagramLogo size="sm" variant="light" />
               </div>
@@ -197,7 +294,7 @@ export const Landing: React.FC = () => {
             </div>
 
             {/* Floating Light Badge: YouTube Shorts */}
-            <div className="hidden lg:flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg absolute -bottom-5 -right-5 z-20 hover:scale-105 transition-transform">
+            <div className="hidden lg:flex items-center gap-3 px-3.5 py-2.5 rounded-2xl bg-white/95 backdrop-blur-md border border-[#E2E8F0] shadow-lg absolute -bottom-5 -right-5 z-20 animate-float-reverse hover:scale-105 transition-transform">
               <div className="w-8 h-8 rounded-xl bg-red-500/15 border border-red-200/60 flex items-center justify-center shrink-0">
                 <YouTubeLogo size="sm" variant="light" />
               </div>
