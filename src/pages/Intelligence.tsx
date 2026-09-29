@@ -21,7 +21,9 @@ import {
   Eye,
   SlidersHorizontal,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Film,
+  Play
 } from 'lucide-react';
 import { useMedia } from '../context/MediaContext';
 import { api } from '../services/api';
@@ -36,6 +38,7 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
   const [activeSubTab, setActiveSubTab] = useState<'archive' | 'insights' | 'top' | 'bottom' | 'patterns'>(defaultSubTab || 'archive');
   const [diagnoseMedia, setDiagnoseMedia] = useState<NormalizedMedia | null>(null);
   const [diagnoseStatus, setDiagnoseStatus] = useState<'working' | 'underperforming' | undefined>(undefined);
+  const [diagnoseInitialTab, setDiagnoseInitialTab] = useState<'working' | 'not_working' | 'video' | 'comparison'>('working');
 
   useEffect(() => {
     if (defaultSubTab) {
@@ -100,8 +103,13 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
     }
   };
 
-  const handleDiagnosePerformer = (item: PerformerAnalysis, forcedStatus?: 'working' | 'underperforming') => {
+  const handleDiagnosePerformer = (
+    item: PerformerAnalysis, 
+    forcedStatus?: 'working' | 'underperforming',
+    initialTab?: 'working' | 'not_working' | 'video'
+  ) => {
     setDiagnoseStatus(forcedStatus);
+    setDiagnoseInitialTab(initialTab || (forcedStatus === 'underperforming' ? 'not_working' : 'working'));
     setDiagnoseMedia({
       id: item.id,
       workspaceId: 'default',
@@ -725,14 +733,25 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
                           </div>
 
                           <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0]">
-                            <button
-                              id={`analyze-top-${item.id}`}
-                              onClick={() => handleDiagnosePerformer(item, 'working')}
-                              className="py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#0284C7] to-[#06B6D4] hover:from-[#0369a1] hover:to-[#0891b2] transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-sky-100" />
-                              <span>Forensic AI Breakdown: Why It's Working</span>
-                            </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                id={`why-in-top-${item.id}`}
+                                onClick={() => handleDiagnosePerformer(item, 'working', 'working')}
+                                className="py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                              >
+                                <TrendingUp className="w-3.5 h-3.5 text-emerald-100" />
+                                <span>Why It's in Top</span>
+                              </button>
+
+                              <button
+                                id={`deep-analysis-top-${item.id}`}
+                                onClick={() => handleDiagnosePerformer(item, 'working', 'video')}
+                                className="py-1.5 px-3 rounded-xl text-xs font-bold text-[#0B132B] bg-slate-100 hover:bg-slate-200 border border-[#CBD5E1] transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                              >
+                                <Film className="w-3.5 h-3.5 text-[#0284C7]" />
+                                <span>{item.contentType === 'reel' || item.contentType === 'video' || item.contentType === 'short' ? 'Deep Video Analysis' : 'Deep Analysis'}</span>
+                              </button>
+                            </div>
                             <span className="text-[11px] text-[#64748B] font-medium">
                               Outperforming baseline by {item.baselineComparison}
                             </span>
@@ -887,14 +906,25 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
                           </div>
 
                           <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0]">
-                            <button
-                              id={`analyze-bottom-${item.id}`}
-                              onClick={() => handleDiagnosePerformer(item, 'underperforming')}
-                              className="py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
-                            >
-                              <Sparkles className="w-3.5 h-3.5 text-amber-100" />
-                              <span>Forensic AI Breakdown: Why It Wasn't Working</span>
-                            </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                id={`what-to-improve-${item.id}`}
+                                onClick={() => handleDiagnosePerformer(item, 'underperforming', 'not_working')}
+                                className="py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                              >
+                                <AlertTriangle className="w-3.5 h-3.5 text-amber-100" />
+                                <span>What to Improve</span>
+                              </button>
+
+                              <button
+                                id={`deep-analysis-bottom-${item.id}`}
+                                onClick={() => handleDiagnosePerformer(item, 'underperforming', 'video')}
+                                className="py-1.5 px-3 rounded-xl text-xs font-bold text-[#0B132B] bg-slate-100 hover:bg-slate-200 border border-[#CBD5E1] transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                              >
+                                <Film className="w-3.5 h-3.5 text-rose-600" />
+                                <span>{item.contentType === 'reel' || item.contentType === 'video' || item.contentType === 'short' ? 'Deep Video Analysis' : 'Deep Analysis'}</span>
+                              </button>
+                            </div>
                             <span className="text-[11px] text-[#64748B] font-medium">
                               Forensic hook &amp; pacing remedies
                             </span>
@@ -1110,6 +1140,7 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
       <PostAIDiagnosisModal
         media={diagnoseMedia}
         forcedStatus={diagnoseStatus}
+        initialTab={diagnoseInitialTab}
         onClose={() => {
           setDiagnoseMedia(null);
           setDiagnoseStatus(undefined);

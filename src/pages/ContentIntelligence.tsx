@@ -347,10 +347,10 @@ export const ContentIntelligence: React.FC = () => {
                       id={`ai-diagnose-${item.id}`}
                       onClick={() => setAiDiagnoseMedia(item)}
                       className="w-full py-2 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#0284C7] via-[#0ea5e9] to-[#06B6D4] hover:from-[#0369a1] hover:to-[#0891b2] transition-all flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs group/btn cursor-pointer"
-                      title="AI Forensic Analysis: Why it worked or why it didn't"
+                      title="Post Analysis: Deep retention breakdown"
                     >
                       <Sparkles className="w-3.5 h-3.5 text-sky-100 group-hover/btn:rotate-12 transition-transform" />
-                      <span>Analyze with AI</span>
+                      <span>Post Analysis</span>
                     </button>
 
                     <div className="flex items-center gap-2">

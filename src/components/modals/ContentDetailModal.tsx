@@ -197,7 +197,7 @@ export const ContentDetailModal: React.FC<ContentDetailModalProps> = ({ media, o
                 className="w-full py-2.5 px-4 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#0284C7] via-[#0ea5e9] to-[#06B6D4] hover:from-[#0369a1] hover:to-[#0891b2] transition-all flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-sky-100" />
-                <span>Forensic AI Breakdown (Why it worked / didn't work)</span>
+                <span>Post Analysis</span>
               </button>
 
               {aiAnalysis ? (

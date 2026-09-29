@@ -213,6 +213,25 @@ export interface Workspace {
   demoMode: boolean;
 }
 
+export interface VideoTimelinePoint {
+  secondRange: string;
+  stage: string;
+  retentionEstimate: string;
+  actionableInsight: string;
+}
+
+export interface VideoAnalysisResult {
+  hookScore: number;
+  hookQuality: 'Exceptional' | 'Above Average' | 'Needs Improvement';
+  retentionDropoffPrediction: string;
+  audioPacingFeedback: string;
+  kineticTextRecommendations: string[];
+  viralReplicationConcept: string;
+  testedAlternativeHook: string;
+  soundOffOptimizationTip: string;
+  timelineCurve?: VideoTimelinePoint[];
+}
+
 export interface PostAIDiagnosis {
   mediaId: string;
   status: 'working' | 'underperforming' | 'average';
@@ -232,6 +251,9 @@ export interface PostAIDiagnosis {
     valuePropositionGap: string;
     formattingMismatch: string;
   };
+  topSuccessDrivers?: string[];
+  bottomImprovementPoints?: string[];
+  videoAnalysis?: VideoAnalysisResult;
   metricBreakdown: {
     viewsAnalysis: string;
     engagementHealth: string;
