@@ -27,12 +27,26 @@ export const SignIn: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
 
-    if (!email || !email.includes('@')) {
-      setErrorMessage('Please enter a valid work email address.');
+    const cleanUser = email.trim().toLowerCase();
+    const cleanPass = password.trim();
+
+    // Check if user is logging into Admin Dashboard
+    if (cleanUser === 'admin' && cleanPass === 'password') {
+      setLoading(true);
+      try {
+        await login('admin', 'password');
+      } finally {
+        setLoading(false);
+      }
       return;
     }
-    if (!password || password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
+
+    if (!email || (!email.includes('@') && cleanUser !== 'admin')) {
+      setErrorMessage('Please enter a valid work email or username.');
+      return;
+    }
+    if (!password || password.length < 4) {
+      setErrorMessage('Password must be at least 4 characters.');
       return;
     }
 
@@ -47,6 +61,14 @@ export const SignIn: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAdminSignIn = async () => {
+    setEmail('admin');
+    setPassword('password');
+    setLoading(true);
+    await login('admin', 'password');
+    setLoading(false);
   };
 
   const handleDemoSignIn = async () => {
@@ -85,14 +107,14 @@ export const SignIn: React.FC = () => {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <div>
               <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                Work Email
+                Work Email or Username
               </label>
               <div className="relative">
                 <input
-                  type="email"
+                  type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
+                  placeholder="name@company.com or admin"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent transition-all pl-10"
                   required
                 />
@@ -169,6 +191,16 @@ export const SignIn: React.FC = () => {
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Instant Demo Workspace Access</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAdminSignIn}
+                disabled={loading}
+                className="w-full py-2.5 rounded-xl bg-[#0B132B]/5 text-[#0B132B] border border-slate-300 text-xs font-bold hover:bg-[#0B132B]/10 transition-colors flex items-center justify-center gap-2"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#00F0FF]" />
+                <span>Sign In as Admin (admin / password)</span>
               </button>
             </div>
           </form>

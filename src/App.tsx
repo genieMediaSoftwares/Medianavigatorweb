@@ -29,6 +29,8 @@ import { Connections } from './pages/Connections';
 import { Settings } from './pages/Settings';
 import { Reports } from './pages/Reports';
 import { BrandLogo } from './components/common/BrandLogo';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { AdminProvider } from './context/AdminContext';
 
 import { X, ExternalLink, LogOut, Layers } from 'lucide-react';
 
@@ -59,6 +61,9 @@ const AppContent: React.FC = () => {
   }
   if (appView === 'onboarding') {
     return <Onboarding />;
+  }
+  if (appView === 'admin') {
+    return <AdminDashboard />;
   }
 
   const renderActiveScreen = () => {
@@ -207,7 +212,9 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <MediaProvider>
-      <AppContent />
+      <AdminProvider>
+        <AppContent />
+      </AdminProvider>
     </MediaProvider>
   );
 }

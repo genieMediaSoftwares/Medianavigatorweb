@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { PlatformType, PlatformConnection } from '../../types';
 import { api } from '../../services/api';
+import { useMedia } from '../../context/MediaContext';
 
 interface PlatformConnectModalProps {
   platform: PlatformType | null;
@@ -30,6 +31,8 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
   onSuccess,
 }) => {
   if (!platform) return null;
+
+  const { setSelectedPlatform } = useMedia();
 
   // Form states
   const [accessToken, setAccessToken] = useState('');
@@ -108,6 +111,11 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
       
       const payload: any = {};
       if (platform === 'youtube' && youtubeAuthMode === 'api_key') {
+        if (!apiKey.trim()) {
+          setIsSubmitting(false);
+          setErrorMessage('Please enter your YouTube Data API Key.');
+          return;
+        }
         payload.apiKey = apiKey.trim();
         if (accountId.trim()) {
           payload.channelId = accountId.trim();
@@ -140,6 +148,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
       
       setTimeout(() => {
         setIsSubmitting(false);
+        setSelectedPlatform(platform);
         onSuccess();
         onClose();
       }, 800);
@@ -292,19 +301,21 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-[#0B132B]">
-                      Channel Handle or Link <span className="text-[#64748B] font-normal text-[11px]">(Optional)</span>
+                      YouTube Channel Handle or Link
                     </label>
-                    <span className="text-[10px] text-emerald-700 font-medium">Auto-discovered if left blank</span>
+                    <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-semibold">
+                      Optional
+                    </span>
                   </div>
                   <input
                     type="text"
                     value={accountId}
                     onChange={(e) => setAccountId(e.target.value)}
-                    placeholder="e.g. @YourChannel, YouTube URL, or leave blank to auto-discover"
+                    placeholder="Optional (e.g. @YourChannel, channel URL, or leave blank to auto-analyze)"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs text-[#0B132B] focus:outline-none focus:border-[#0284C7] focus:ring-1 focus:ring-[#0284C7]"
                   />
                   <div className="text-[11px] text-[#64748B]">
-                    Optionally target a specific channel handle (e.g. @YourChannel) or channel ID.
+                    Optional: Enter your channel handle (e.g. <strong>@YourChannel</strong>) or channel URL. If left empty, Media Navigator automatically discovers and ingests real YouTube media using your Data API Key.
                   </div>
                 </div>
               </div>
@@ -314,7 +325,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-[#0B132B]">
                       {platform === 'instagram'
-                        ? 'Instagram Access Token / API Key'
+                        ? 'Instagram Access Token / Data API Key'
                         : platform === 'youtube'
                         ? 'YouTube OAuth Access Token'
                         : platform === 'linkedin'
@@ -336,7 +347,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                     onChange={(e) => setAccessToken(e.target.value)}
                     placeholder={
                       platform === 'instagram'
-                        ? 'Paste Instagram Access Token or Meta Key (IGQ... or EAAB...)'
+                        ? 'Paste Instagram Access Token, Meta Key (EAAB... or IGAA...), or API Key'
                         : platform === 'youtube'
                         ? 'ya29...'
                         : platform === 'linkedin'
@@ -348,7 +359,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                   />
                   <div className="text-[11px] text-[#64748B]">
                     {platform === 'instagram'
-                      ? 'Paste your Instagram User Token or Meta Graph API Access Key to connect your profile and retrieve your full post history with verified views, likes, and comments.'
+                      ? 'Paste your Instagram User Token, Meta Graph API Key, or Instagram Data API Key to connect your profile and retrieve full post & Reel history with verified views, reach, likes, and comments.'
                       : meta.guideText}
                   </div>
                 </div>

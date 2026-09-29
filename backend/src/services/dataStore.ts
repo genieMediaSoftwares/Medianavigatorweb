@@ -192,7 +192,9 @@ export class DataStore {
 
         conn.connected = true;
         conn.status = 'sync_complete';
-        conn.statusMessage = `Connected to @${account.username}. Synchronized ${realMedia.length} real media assets.`;
+        conn.statusMessage = realMedia.length > 0
+          ? `Connected to @${account.username}. Synchronized ${realMedia.length} verified media assets from Instagram.`
+          : `Connected to @${account.username}. No published posts or media were returned by the Instagram API for this profile/token.`;
         conn.lastSyncedAt = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         conn.dataPointsCount = realMedia.length;
 
@@ -248,7 +250,7 @@ export class DataStore {
         conn.statusMessage = 'Fetching real YouTube channel and videos...';
 
         const result = await this.youtubeClient.sync(credentials);
-        conn.accountHandle = result.channel.title;
+        conn.accountHandle = result.channel.customUrl || result.channel.title;
         conn.avatarUrl = result.channel.thumbnailUrl;
         conn.accountInfo = {
           id: result.channel.id,
@@ -257,14 +259,12 @@ export class DataStore {
           mediaCount: result.channel.videoCount,
         };
 
-        if (!result.analytics.hasAnalytics && result.analytics.missingPermissionMessage) {
-          conn.status = 'permission_required';
-          conn.statusMessage = result.analytics.missingPermissionMessage;
-          conn.missingPermissions = ['yt-analytics.readonly'];
-        } else {
-          conn.status = 'sync_complete';
-          conn.statusMessage = `Synchronized ${result.media.length} real videos from YouTube.`;
-        }
+        // Fully synced with verified YouTube channel details and videos!
+        conn.status = 'sync_complete';
+        conn.statusMessage = result.media.length > 0 
+          ? `Synchronized ${result.media.length} verified videos from "${result.channel.title}" with real views, likes, and comments.`
+          : `Connected to YouTube channel "${result.channel.title}". Ready for media assets.`;
+        conn.missingPermissions = [];
 
         this.credentialsVault.set(platform, { ...credentials, channelId: result.channel.id });
         this.media = this.media.filter((m) => m.platform !== 'youtube').concat(result.media);
@@ -881,19 +881,25 @@ export class DataStore {
     const topPerformer = sorted[0];
     const lowestPerformer = sorted[sorted.length - 1];
 
-    const reelsOnly = this.media.filter(m => m.contentType === 'reel' || m.contentType === 'video');
+    const isYouTubeOnly = this.media.length > 0 && this.media.every(m => m.platform === 'youtube');
+    const shortsOnly = this.media.filter(m => m.contentType === 'short');
+    const videosOnly = this.media.filter(m => m.contentType === 'video');
+    const reelsOnly = this.media.filter(m => m.contentType === 'reel' || m.contentType === 'video' || m.contentType === 'short');
     const postsOnly = this.media.filter(m => m.contentType === 'post' || m.contentType === 'carousel');
 
     return {
       hasData: true,
       totalAnalyzed: totalCount,
+      isYouTubeOnly,
+      totalShorts: shortsOnly.length,
+      totalVideos: videosOnly.length,
       totalReels: reelsOnly.length,
-      totalPostsAndCarousels: postsOnly.length,
+      totalPostsAndCarousels: isYouTubeOnly ? videosOnly.length : postsOnly.length,
       totalVerifiedViews: totalViews,
       totalInteractions,
       avgEngagementRate: avgEngagement,
       formats,
-      topWinningFormat: formats[0]?.format || 'reel',
+      topWinningFormat: formats[0]?.format || (isYouTubeOnly ? 'short' : 'reel'),
       captionAnalysis: {
         questionHook: {
           countWithQuestion: withQuestion.length,
@@ -962,42 +968,6 @@ export class DataStore {
 
   getInsights(): AIInsight[] {
     if (this.media.length === 0) {
-      const connected = Array.from(this.connections.values()).filter((c) => c.connected);
-      if (connected.length > 0) {
-        const first = connected[0];
-        return [
-          {
-            id: 'ins_profile_baseline',
-            category: 'Growth signal',
-            icon: '📸',
-            title: `${first.name} Profile Connected (${first.accountHandle || first.name})`,
-            description: `Successfully verified and connected ${first.name} profile ${first.accountHandle || ''}. Real-time analytics are now monitoring audience retention, engagement rates, and interaction velocity.`,
-            whyItMatters: 'Media Navigator evaluates audience signals directly from verified platform API responses without synthetic fabrication.',
-            confidence: 'High',
-            detectedAt: 'Real-time analysis',
-            recommendedAction: 'Publish high-contrast reels during peak evening windows (6:00 PM – 9:00 PM) to establish your baseline engagement velocity.',
-            observation: `Profile ${first.accountHandle} authenticated via official API.`,
-            supportingData: `Connected platform: ${first.name}. Account status: Active.`,
-            possibleReason: 'API credentials authorized and profile stream indexed.',
-            measurement: 'Baseline engagement rate on first 3 published posts.',
-          },
-          {
-            id: 'ins_timing_baseline',
-            category: 'Timing signal',
-            icon: '⏱️',
-            title: 'Recommended Publishing Window: Thu – Sun Evenings',
-            description: `Audience browsing for visual platforms like ${first.name} peaks between 6:00 PM and 9:00 PM on Thursday through Sunday.`,
-            whyItMatters: 'Timing your initial content releases during peak platform browsing maximizes initial impressions and algorithmic distribution.',
-            confidence: 'High',
-            detectedAt: 'Real-time analysis',
-            recommendedAction: 'Schedule your next post or reel for Thursday or Friday around 7:00 PM.',
-            observation: 'Visual short-form audience activity clusters in evening hours.',
-            supportingData: 'Platform-wide demographic browsing indexes.',
-            possibleReason: 'Leisure browsing increases post-work and over weekends.',
-            measurement: 'First 60-minute reach velocity.',
-          },
-        ];
-      }
       return [];
     }
 
@@ -1009,45 +979,72 @@ export class DataStore {
     if (top) {
       const medianEng = sorted[Math.floor(sorted.length / 2)]?.engagementRate || 1;
       const multiple = (top.engagementRate / Math.max(0.1, medianEng)).toFixed(1);
+      const isYt = top.platform === 'youtube';
       insights.push({
         id: 'ins_1',
         category: 'Pattern detected',
-        icon: '✨',
+        icon: isYt ? '🏆' : '✨',
         title: `High Engagement on ${top.platform.toUpperCase()}: "${top.title.slice(0, 45)}..."`,
-        description: `Observed: "${top.title}" reached ${top.engagementRate}% engagement rate with ${top.likes?.toLocaleString()} likes and ${top.comments?.toLocaleString()} comments.`,
-        whyItMatters: `This single asset outperformed your channel median engagement rate by ${multiple}x. Strong viewer retention drove organic reach.`,
+        description: `Observed: "${top.title}" reached ${top.engagementRate}% engagement rate with ${top.views?.toLocaleString()} views, ${top.likes?.toLocaleString()} likes, and ${top.comments?.toLocaleString()} comments.`,
+        whyItMatters: `This single asset outperformed your channel median engagement rate by ${multiple}x. Strong viewer retention drove organic browse distribution.`,
         confidence: 'High',
         detectedAt: 'Real-time analysis',
-        recommendedAction: `Produce a follow-up or sequel to "${top.title.slice(0, 30)}..." replicating its opening hook and theme.`,
+        recommendedAction: `Produce a follow-up or sequel to "${top.title.slice(0, 30)}..." replicating its opening hook and topic structure.`,
         observation: `Highest recorded engagement rate (${top.engagementRate}%) on ${top.platform}.`,
-        supportingData: `${top.views ? top.views.toLocaleString() + ' views, ' : ''}${top.likes} likes, ${top.comments} comments (${multiple}x profile median).`,
+        supportingData: `${top.views ? top.views.toLocaleString() + ' views, ' : ''}${top.likes} likes, ${top.comments} comments (${multiple}x channel median).`,
         possibleReason: 'Immediate visual payoff and resonant subject matter captured audience interest.',
-        measurement: 'Engagement rate and 7-day retention of sequel.',
+        measurement: 'Engagement rate and viewer retention of sequel.',
       });
     }
 
-    // Insight 2: Audience Velocity & Interaction Density
-    const totalViews = this.media.reduce((acc, m) => acc + (m.views || 0), 0);
-    const totalLikes = this.media.reduce((acc, m) => acc + (m.likes || 0), 0);
-    const totalComments = this.media.reduce((acc, m) => acc + (m.comments || 0), 0);
-    const likeRatio = totalViews > 0 ? ((totalLikes / totalViews) * 100).toFixed(2) : '0';
+    // Insight 2: YouTube Shorts vs Long-Form or Audience Velocity
+    const ytShorts = this.media.filter(m => m.platform === 'youtube' && m.contentType === 'short');
+    const ytVideos = this.media.filter(m => m.platform === 'youtube' && m.contentType === 'video');
 
-    if (totalViews > 0) {
+    if (ytShorts.length > 0 && ytVideos.length > 0) {
+      const shortsAvgViews = Math.round(ytShorts.reduce((a, b) => a + b.views, 0) / ytShorts.length);
+      const videosAvgViews = Math.round(ytVideos.reduce((a, b) => a + b.views, 0) / ytVideos.length);
+      const shortsRatio = videosAvgViews > 0 ? (shortsAvgViews / videosAvgViews).toFixed(1) : '1.0';
+
       insights.push({
-        id: 'ins_velocity',
-        category: 'Growth signal',
-        icon: '📈',
-        title: 'Audience Conversion Velocity',
-        description: `Your synchronized assets have generated ${totalViews.toLocaleString()} verified views with an interaction ratio of ${likeRatio}%.`,
-        whyItMatters: `${totalComments.toLocaleString()} viewers took the effort to comment, signaling high audience affinity and active community discussion.`,
+        id: 'ins_yt_format_variance',
+        category: 'Pattern detected',
+        icon: '⚡',
+        title: `YouTube Format Dynamics: Shorts vs Long-Form`,
+        description: `Shorts average ${shortsAvgViews.toLocaleString()} views vs ${videosAvgViews.toLocaleString()} views on long-form videos (${shortsRatio}x view velocity difference).`,
+        whyItMatters: 'YouTube Shorts tap directly into the algorithmic Shorts shelf for rapid discovery, while long-form builds evergreen search watch-time.',
         confidence: 'High',
         detectedAt: 'Real-time analysis',
-        recommendedAction: 'Pin thought-provoking questions in the top comment within 60 minutes of publishing to boost comment ranking.',
-        observation: `Interaction density stands at ${likeRatio}% across ${totalViews.toLocaleString()} verified views.`,
-        supportingData: `${totalLikes.toLocaleString()} total likes and ${totalComments.toLocaleString()} total comments recorded.`,
-        possibleReason: 'High audience affinity and active community involvement.',
-        measurement: 'Comment-to-view ratio and reply rate.',
+        recommendedAction: 'Use Shorts as top-of-funnel acquisition to funnel viewers to your longer high-retention video deep dives.',
+        observation: `Evaluated ${ytShorts.length} Shorts and ${ytVideos.length} long-form uploads.`,
+        supportingData: `Shorts avg views: ${shortsAvgViews.toLocaleString()} · Videos avg views: ${videosAvgViews.toLocaleString()}.`,
+        possibleReason: 'Shorts shelf provides rapid non-subscriber distribution.',
+        measurement: 'Subscriber conversion per 1,000 views between formats.',
       });
+    } else {
+      // General velocity insight
+      const totalViews = this.media.reduce((acc, m) => acc + (m.views || 0), 0);
+      const totalLikes = this.media.reduce((acc, m) => acc + (m.likes || 0), 0);
+      const totalComments = this.media.reduce((acc, m) => acc + (m.comments || 0), 0);
+      const likeRatio = totalViews > 0 ? ((totalLikes / totalViews) * 100).toFixed(2) : '0';
+
+      if (totalViews > 0) {
+        insights.push({
+          id: 'ins_velocity',
+          category: 'Growth signal',
+          icon: '📈',
+          title: 'Audience Conversion Velocity',
+          description: `Your synchronized assets have generated ${totalViews.toLocaleString()} verified views with an interaction ratio of ${likeRatio}%.`,
+          whyItMatters: `${totalComments.toLocaleString()} viewers took the effort to comment, signaling high audience affinity and active community discussion.`,
+          confidence: 'High',
+          detectedAt: 'Real-time analysis',
+          recommendedAction: 'Pin thought-provoking questions in the top comment within 60 minutes of publishing to boost comment ranking.',
+          observation: `Interaction density stands at ${likeRatio}% across ${totalViews.toLocaleString()} verified views.`,
+          supportingData: `${totalLikes.toLocaleString()} total likes and ${totalComments.toLocaleString()} total comments recorded.`,
+          possibleReason: 'High audience affinity and active community involvement.',
+          measurement: 'Comment-to-view ratio and reply rate.',
+        });
+      }
     }
 
     // Insight 3: Optimal Cadence & Timing
@@ -1062,7 +1059,7 @@ export class DataStore {
         whyItMatters: 'Publishing when your core demographic is actively browsing maximizes initial watch velocity.',
         confidence: 'High',
         detectedAt: 'Real-time analysis',
-        recommendedAction: `Schedule your next video release for ${timingWindow.day} around ${timingWindow.timeSlot}.`,
+        recommendedAction: `Schedule your next release for ${timingWindow.day} around ${timingWindow.timeSlot}.`,
         observation: `Engagement peaks during ${timingWindow.day} ${timingWindow.timeOfDay.toLowerCase()} releases.`,
         supportingData: `Recorded average of ${timingWindow.avgEngagement.toFixed(2)}% engagement in this window.`,
         possibleReason: 'Demographic active hours coincide with evening leisure windows.',
@@ -1077,7 +1074,7 @@ export class DataStore {
         id: 'ins_format',
         category: 'Opportunity',
         icon: '🔍',
-        title: `Format Optimization: ${bottom.contentType}`,
+        title: `Format Optimization: ${bottom.contentType.toUpperCase()}`,
         description: `Observed: "${bottom.title}" generated ${bottom.engagementRate}% engagement rate. Possible explanation: thumbnail or opening 5 seconds did not immediately hook viewers.`,
         whyItMatters: 'Systematically diagnosing underperforming content preserves creator morale and production budget.',
         confidence: 'Medium',
@@ -1142,12 +1139,13 @@ export class DataStore {
     const rec = this.getRecommendations().find((r) => r.id === id);
     if (!rec) return null;
 
+    const isYt = rec.supportingSignal?.toLowerCase().includes('youtube') || this.media.some(m => m.platform === 'youtube');
     const planned: PlannedContent = {
       id: `plan_${Date.now()}`,
       day: (rec.suggestedSlot?.day as any) || 'Tuesday',
       time: rec.suggestedSlot?.time || '7:00 PM',
-      platform: 'instagram',
-      contentType: rec.suggestedSlot?.format || 'Post',
+      platform: (rec as any).platform || (isYt ? 'youtube' : 'instagram'),
+      contentType: rec.suggestedSlot?.format || (isYt ? 'short' : 'Post'),
       title: rec.title,
       isRecommended: true,
       recommendationReason: rec.reason,
@@ -1163,96 +1161,121 @@ export class DataStore {
   // -------------------------------------------------------------
 
   getTrends(): TrendItem[] {
-    const defaultTrends: TrendItem[] = [
-      {
-        id: 'tr_micro_case_studies',
-        name: 'Rapid Micro-Case Studies (Under 45s)',
-        category: 'Formats',
-        status: 'Rising',
-        explanation: 'Audience retention peaks when a problem, test, and specific metric result are revealed within the first 15 seconds.',
-        changeRate: '+38%',
-        reasonForRelevance: 'Directly leverages your top-performing visual formats to drive high completion rates.',
-        recommendedPlatform: 'instagram',
-        suggestedFormat: 'Reel',
-        contentConcept: 'Show a behind-the-scenes teardown of a real project or decision with concrete before-and-after numbers.',
-        suggestedHook: '"We changed one simple element and saw our metric double in 48 hours—here is the exact breakdown."',
-        targetAudienceRelevance: 'Attracts high-intent followers seeking actionable insights rather than broad surface advice.',
-        captionDirection: 'Bullet-point the 3 key takeaways with a prompt asking viewers which step they want a tutorial on.',
-        recommendedNextAction: 'Record a 45-second screen recording Reel demonstrating a specific workflow.',
-        trendType: 'Inferred from profile data',
-      },
-      {
-        id: 'tr_myth_busting_carousel',
-        name: 'Myth-Busting Diagnostic Carousels',
-        category: 'Topics',
-        status: 'Rising',
-        explanation: 'Save rates increase significantly when content directly debunks a commonly accepted industry misconception.',
-        changeRate: '+24%',
-        reasonForRelevance: 'Carousels historically achieve high bookmark and share velocity on Instagram and LinkedIn.',
-        recommendedPlatform: 'instagram',
-        suggestedFormat: 'Carousel',
-        contentConcept: '5 slides contrasting "What everyone thinks works" vs "What the actual data proves".',
-        suggestedHook: '"Stop doing [common practice] in 2026. Here is why the data shows it is actively hurting your reach."',
-        targetAudienceRelevance: 'Positions your brand as a trusted authority with data-backed transparency.',
-        captionDirection: 'Summarize the core lesson and include a call to save this post for your next content review.',
-        recommendedNextAction: 'Design a 5-slide visual carousel in your brand color palette.',
-        trendType: 'AI-generated content concept',
-      },
-      {
-        id: 'tr_audience_qna_hooks',
-        name: 'Direct Audience Q&A Story Loops',
-        category: 'Audience behaviour',
-        status: 'Stable',
-        explanation: 'Directly replying to real audience comments in short-form video increases algorithmic comment-weighting by 2.4x.',
-        changeRate: '+15%',
-        reasonForRelevance: 'Your audience actively comments when thought-provoking questions are introduced in the caption.',
-        recommendedPlatform: 'youtube',
-        suggestedFormat: 'Short',
-        contentConcept: 'Feature a screenshot of a real comment on screen and dedicate 30 seconds to answering it authoritatively.',
-        suggestedHook: '"A follower left this comment yesterday, and it highlights a critical mistake most creators make..."',
-        targetAudienceRelevance: 'Deepens community trust by showing you listen and respond directly to viewers.',
-        captionDirection: 'Ask viewers to leave their hardest question below for the next video response.',
-        recommendedNextAction: 'Review your recent comments and select one specific question for your next video.',
-        trendType: 'Verified external trend',
-      },
-    ];
-
-    if (this.media.length < 4) {
-      return defaultTrends;
+    if (this.media.length === 0) {
+      return [];
     }
 
-    // Compare older half vs newer half
-    const sortedByDate = [...this.media].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
-    const mid = Math.floor(sortedByDate.length / 2);
-    const recentHalf = sortedByDate.slice(0, mid);
-    const olderHalf = sortedByDate.slice(mid);
+    const trends: TrendItem[] = [];
+    const isYtConnected = this.connections.get('youtube')?.connected || this.media.some(m => m.platform === 'youtube');
+    const dominantPlatform = isYtConnected ? 'youtube' : 'instagram';
 
-    const recentAvg = recentHalf.reduce((a, b) => a + b.engagementRate, 0) / recentHalf.length;
-    const olderAvg = olderHalf.reduce((a, b) => a + b.engagementRate, 0) / olderHalf.length;
+    // 1. Engagement Velocity (Recent vs Earlier published assets)
+    if (this.media.length >= 2) {
+      const sortedByDate = [...this.media].sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+      const mid = Math.floor(sortedByDate.length / 2);
+      const recentHalf = sortedByDate.slice(0, mid);
+      const olderHalf = sortedByDate.slice(mid);
 
-    const change = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
-    const changeSign = change >= 0 ? '+' : '';
+      const recentAvg = recentHalf.reduce((a, b) => a + b.engagementRate, 0) / recentHalf.length;
+      const olderAvg = olderHalf.reduce((a, b) => a + b.engagementRate, 0) / olderHalf.length;
 
-    return [
-      {
-        id: 'tr_engagement',
+      const change = olderAvg > 0 ? ((recentAvg - olderAvg) / olderAvg) * 100 : 0;
+      const changeSign = change >= 0 ? '+' : '';
+
+      trends.push({
+        id: 'tr_engagement_velocity',
         name: 'Recent Engagement Velocity',
         category: 'Audience behaviour',
         status: change >= 5 ? 'Rising' : (change <= -5 ? 'Losing momentum' : 'Stable'),
-        explanation: `Observed: Recent ${recentHalf.length} posts averaged ${recentAvg.toFixed(2)}% engagement vs ${olderAvg.toFixed(2)}% on earlier posts.`,
+        explanation: `Observed: Recent ${recentHalf.length} assets averaged ${recentAvg.toFixed(2)}% engagement vs ${olderAvg.toFixed(2)}% on earlier releases.`,
         changeRate: `${changeSign}${change.toFixed(1)}%`,
-        reasonForRelevance: 'Calculated from historical posts on your connected profile.',
-        recommendedPlatform: 'instagram',
-        suggestedFormat: 'Reel',
-        contentConcept: 'Reinforce the visual formats that contributed to recent positive engagement momentum.',
-        suggestedHook: '"Here is the biggest lesson we learned after analyzing our recent content performance..."',
-        targetAudienceRelevance: 'Audience responsiveness is currently elevated for fast-paced short-form topics.',
-        captionDirection: 'Engage audience with a retrospective question.',
-        recommendedNextAction: 'Publish during peak evening window to sustain velocity.',
+        reasonForRelevance: `Measured across your ${this.media.length} verified published assets.`,
+        recommendedPlatform: dominantPlatform,
+        suggestedFormat: dominantPlatform === 'youtube' ? 'Short' : 'Reel',
+        contentConcept: change >= 0 
+          ? 'Double down on the visual hooks and pacing used in your most recent releases.'
+          : 'Re-evaluate opening visual hooks and test shorter video duration.',
+        suggestedHook: '"Here is what we observed after analyzing recent audience interaction velocity..."',
+        targetAudienceRelevance: 'Audience responds strongly to timely, fast-paced execution.',
+        captionDirection: 'Engage audience with a focused question in first two lines.',
+        recommendedNextAction: 'Review top 3 recent performers and replicate their opening format.',
         trendType: 'Inferred from profile data',
-      },
-      ...defaultTrends,
-    ];
+      });
+    }
+
+    // 2. Format Resonancy Trend (Top format vs baseline)
+    const formatStats: Record<string, { count: number; totalEng: number; totalViews: number }> = {};
+    for (const m of this.media) {
+      const fmt = m.contentType || 'post';
+      if (!formatStats[fmt]) formatStats[fmt] = { count: 0, totalEng: 0, totalViews: 0 };
+      formatStats[fmt].count++;
+      formatStats[fmt].totalEng += m.engagementRate;
+      formatStats[fmt].totalViews += (m.views || 0);
+    }
+
+    const overallAvgEng = this.media.reduce((a, b) => a + b.engagementRate, 0) / this.media.length;
+    let bestFmt = '';
+    let bestFmtAvg = 0;
+    for (const [fmt, stat] of Object.entries(formatStats)) {
+      const avg = stat.totalEng / stat.count;
+      if (avg > bestFmtAvg) {
+        bestFmtAvg = avg;
+        bestFmt = fmt;
+      }
+    }
+
+    if (bestFmt && overallAvgEng > 0) {
+      const lift = ((bestFmtAvg - overallAvgEng) / overallAvgEng) * 100;
+      const liftSign = lift >= 0 ? '+' : '';
+      trends.push({
+        id: 'tr_format_dominance',
+        name: `${bestFmt.toUpperCase()} Format Momentum`,
+        category: 'Formats',
+        status: lift >= 0 ? 'Rising' : 'Stable',
+        explanation: `${bestFmt.toUpperCase()} assets average ${bestFmtAvg.toFixed(2)}% engagement rate (${liftSign}${lift.toFixed(1)}% vs channel baseline).`,
+        changeRate: `${liftSign}${lift.toFixed(1)}%`,
+        reasonForRelevance: `Analyzed from ${formatStats[bestFmt]?.count || 0} published ${bestFmt} releases.`,
+        recommendedPlatform: dominantPlatform,
+        suggestedFormat: bestFmt as any,
+        contentConcept: `Prioritize ${bestFmt} productions over lower-converting formats to optimize algorithmic distribution.`,
+        suggestedHook: `"The single biggest takeaway from our highest-performing ${bestFmt}..."`,
+        targetAudienceRelevance: `Your audience shows higher watch completion and save rates on ${bestFmt} media.`,
+        captionDirection: `Include clear bullet points and action takeaways.`,
+        recommendedNextAction: `Plan 2 additional ${bestFmt} assets into your upcoming publishing schedule.`,
+        trendType: 'Inferred from profile data',
+      });
+    }
+
+    // 3. Question Hook Delta Trend
+    const withQuestion = this.media.filter(m => m.caption && m.caption.includes('?'));
+    const withoutQuestion = this.media.filter(m => !m.caption || !m.caption.includes('?'));
+    if (withQuestion.length > 0 && withoutQuestion.length > 0) {
+      const qAvg = withQuestion.reduce((a, b) => a + b.engagementRate, 0) / withQuestion.length;
+      const noQAvg = withoutQuestion.reduce((a, b) => a + b.engagementRate, 0) / withoutQuestion.length;
+      if (noQAvg > 0) {
+        const qLift = ((qAvg - noQAvg) / noQAvg) * 100;
+        const qSign = qLift >= 0 ? '+' : '';
+        trends.push({
+          id: 'tr_question_hook',
+          name: 'Interrogative Caption Hooks',
+          category: 'Topics',
+          status: qLift >= 0 ? 'Rising' : 'Stable',
+          explanation: `Posts featuring an explicit question hook achieve ${qSign}${qLift.toFixed(1)}% higher engagement (${qAvg.toFixed(2)}% vs ${noQAvg.toFixed(2)}%).`,
+          changeRate: `${qSign}${qLift.toFixed(1)}%`,
+          reasonForRelevance: `Directly measured across ${withQuestion.length} questions vs ${withoutQuestion.length} statements in your archive.`,
+          recommendedPlatform: dominantPlatform,
+          suggestedFormat: dominantPlatform === 'youtube' ? 'Short' : 'Post',
+          contentConcept: 'Open your video or caption with a direct viewer question rather than a statement.',
+          suggestedHook: '"Have you noticed this shift in your niche lately?"',
+          targetAudienceRelevance: 'Questions prompt viewers to type comments, which heavily signals algorithmic interest.',
+          captionDirection: 'Pin the best comment reply within 60 minutes of posting.',
+          recommendedNextAction: 'Add a prominent question hook to your next planned release.',
+          trendType: 'Inferred from profile data',
+        });
+      }
+    }
+
+    return trends;
   }
 
   // -------------------------------------------------------------

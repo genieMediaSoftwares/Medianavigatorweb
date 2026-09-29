@@ -18,7 +18,9 @@ export type NavigationTab =
   | 'recommendations'
   | 'crossplatform';
 
-export type AppViewMode = 'landing' | 'signin' | 'signup' | 'onboarding' | 'app';
+export type AppViewMode = 'landing' | 'signin' | 'signup' | 'onboarding' | 'app' | 'admin';
+
+export * from './types/admin';
 
 export interface BrandProfile {
   brandName: string;

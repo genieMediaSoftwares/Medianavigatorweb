@@ -20,16 +20,13 @@ import { useMedia } from '../context/MediaContext';
 import { api } from '../services/api';
 import { PlatformType, PlatformConnection } from '../types';
 import { PlatformConnectModal } from '../components/modals/PlatformConnectModal';
-import { PlatformOnboardingModal } from '../components/modals/PlatformOnboardingModal';
 
 export const Connections: React.FC = () => {
   const { 
     connections, 
     refreshConnections, 
     setCurrentTab,
-    startSyncFlow,
-    onboardingPlatform,
-    setOnboardingPlatform
+    startSyncFlow
   } = useMedia();
 
   const [syncingPlatform, setSyncingPlatform] = useState<string | null>(null);
@@ -156,7 +153,7 @@ export const Connections: React.FC = () => {
             if (firstConnected) {
               handleSync(firstConnected.platform, firstConnected.accountHandle);
             } else {
-              setOnboardingPlatform('instagram');
+              setSelectedConnectPlatform('youtube');
             }
           }}
           className="px-4 py-2 rounded-xl bg-[#0B132B] text-white text-xs font-semibold hover:bg-[#1C2541] transition-all flex items-center gap-2 shadow-xs shrink-0 self-start sm:self-auto"
@@ -202,9 +199,9 @@ export const Connections: React.FC = () => {
                       </h3>
                       <div className="text-xs text-[#64748B]">
                         {conn.connected ? (
-                          <span>Account: <strong className="text-[#0B132B]">@{conn.accountHandle}</strong></span>
+                          <span>Channel: <strong className="text-[#0B132B]">{conn.accountHandle}</strong></span>
                         ) : (
-                          <span>OAuth 2.0 PKCE Certified</span>
+                          <span>Official API Integration</span>
                         )}
                       </div>
                     </div>
@@ -222,21 +219,21 @@ export const Connections: React.FC = () => {
                   <div className="pt-2 border-t border-[#F1F5F9] grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
                       <div className="text-[10px] uppercase font-semibold text-[#64748B]">
-                        Audience Reach
+                        {conn.platform === 'youtube' ? 'Subscribers' : 'Audience Reach'}
                       </div>
                       <div className="text-sm font-bold text-[#0B132B]">
                         {conn.accountInfo?.followersCount
                           ? conn.accountInfo.followersCount.toLocaleString()
-                          : '42,900'}
+                          : (conn.accountInfo?.mediaCount ? `${conn.accountInfo.mediaCount} Videos` : 'Active')}
                       </div>
                     </div>
 
                     <div className="p-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0]">
                       <div className="text-[10px] uppercase font-semibold text-[#64748B]">
-                        Verified Content
+                        {conn.platform === 'youtube' ? 'Verified Videos' : 'Verified Content'}
                       </div>
                       <div className="text-sm font-bold text-[#0284C7]">
-                        {conn.dataPointsCount > 0 ? `${conn.dataPointsCount} Assets` : 'Full Archive'}
+                        {conn.dataPointsCount > 0 ? `${conn.dataPointsCount} Assets` : 'Active'}
                       </div>
                     </div>
                   </div>
@@ -278,22 +275,13 @@ export const Connections: React.FC = () => {
                     </div>
                   </>
                 ) : (
-                  <>
-                    <button
-                      onClick={() => setOnboardingPlatform(conn.platform)}
-                      className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#0B132B] hover:bg-[#1C2541] text-white transition-all shadow-xs flex items-center gap-2"
-                    >
-                      <Key className="w-3.5 h-3.5 text-[#06B6D4]" />
-                      <span>Connect {conn.name}</span>
-                    </button>
-
-                    <button
-                      onClick={() => setSelectedConnectPlatform(conn.platform)}
-                      className="text-xs text-[#0284C7] hover:underline font-medium"
-                    >
-                      API Key Fallback
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setSelectedConnectPlatform(conn.platform)}
+                    className="w-full px-4 py-2.5 rounded-xl text-xs font-bold bg-[#0B132B] hover:bg-[#1C2541] text-white transition-all shadow-xs flex items-center justify-center gap-2"
+                  >
+                    <Key className="w-3.5 h-3.5 text-[#06B6D4]" />
+                    <span>Connect {conn.name}</span>
+                  </button>
                 )}
               </div>
             </div>
@@ -312,18 +300,7 @@ export const Connections: React.FC = () => {
         </p>
       </div>
 
-      {/* Modals */}
-      {onboardingPlatform && (
-        <PlatformOnboardingModal
-          platform={onboardingPlatform}
-          onClose={() => setOnboardingPlatform(null)}
-          onProceedToAuth={(p) => {
-            setOnboardingPlatform(null);
-            startSyncFlow(p, `${p}_creator`);
-          }}
-        />
-      )}
-
+      {/* Modal */}
       {selectedConnectPlatform && (
         <PlatformConnectModal
           platform={selectedConnectPlatform}

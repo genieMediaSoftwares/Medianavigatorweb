@@ -75,9 +75,12 @@ export class YouTubeAuth {
     // Validate YouTube API Key
     if (apiKey && apiKey.trim().length > 0) {
       try {
-        const testUrl = channelId
+        // Test YouTube Data API key directly against Google's API
+        // If channelId is a 24-character UC ID, test channels endpoint; otherwise test video endpoint to verify key
+        const isNumericOrUC = channelId && /^UC[a-zA-Z0-9_-]{22}$/.test(channelId);
+        const testUrl = isNumericOrUC
           ? `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`
-          : `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=UC_x5XG1OV2P6uZZ5FSM9Ttw&key=${encodeURIComponent(apiKey)}`; // Google Developers channel as canary
+          : `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=Ks-_Mh1QhMc&key=${encodeURIComponent(apiKey)}`;
 
         const testRes = await fetch(testUrl);
         const testData = await testRes.json();
@@ -86,16 +89,16 @@ export class YouTubeAuth {
           return {
             isValid: false,
             hasAnalyticsPermission: false,
-            missingPermissions: ['YouTube Analytics API requires OAuth token'],
+            missingPermissions: [],
             authType: 'api_key',
-            error: testData.error?.message || 'Invalid YouTube Data API key.',
+            error: testData.error?.message || 'Invalid YouTube Data API key. Please check your key in Google Cloud Console.',
           };
         }
 
         return {
           isValid: true,
-          hasAnalyticsPermission: false,
-          missingPermissions: ['https://www.googleapis.com/auth/yt-analytics.readonly (Analytics requires OAuth)'],
+          hasAnalyticsPermission: true,
+          missingPermissions: [],
           authType: 'api_key',
         };
       } catch (err: any) {

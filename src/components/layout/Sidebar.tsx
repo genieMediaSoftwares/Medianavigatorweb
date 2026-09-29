@@ -16,7 +16,8 @@ import {
   LogOut,
   ExternalLink,
   Sparkles,
-  Check
+  Check,
+  ShieldCheck
 } from 'lucide-react';
 import { BrandLogo } from '../common/BrandLogo';
 import { useMedia } from '../../context/MediaContext';
@@ -212,6 +213,15 @@ export const Sidebar: React.FC = () => {
             </button>
           );
         })}
+
+        <button
+          onClick={() => setAppView('admin')}
+          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all text-[#0B132B] font-bold bg-[#00F0FF]/10 hover:bg-[#00F0FF]/20 border border-[#00F0FF]/30 mt-2"
+        >
+          <ShieldCheck className="w-4 h-4 shrink-0 text-[#0284C7]" />
+          <span className="truncate flex-1">Admin Panel</span>
+          <span className="text-[9px] uppercase font-mono px-1 py-0.2 rounded bg-[#0284C7] text-white">Ops</span>
+        </button>
       </div>
 
       {/* User Profile Footer */}

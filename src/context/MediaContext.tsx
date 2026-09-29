@@ -188,48 +188,11 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [isNavigating, setIsNavigating] = useState<boolean>(false);
   const [navigationStep, setNavigationStep] = useState<string>('Collecting signals');
-  const [demoMode, setDemoMode] = useState<boolean>(true);
+  const [demoMode, setDemoMode] = useState<boolean>(false);
 
-  // Notifications
+  // Notifications (Populated only on real events)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationItem[]>([
-    {
-      id: 'notif-1',
-      type: 'sync_completed',
-      title: 'Full Ingestion Complete',
-      message: 'Analyzed all published Reels and Posts across connected channels with zero pagination truncation.',
-      timestamp: '10m ago',
-      read: false,
-      targetTab: 'intelligence',
-    },
-    {
-      id: 'notif-2',
-      type: 'new_insight',
-      title: 'High-Impact Hook Pattern Detected',
-      message: 'Posts with interrogative opening hooks deliver a +3.4% engagement lift over statements.',
-      timestamp: '1h ago',
-      read: false,
-      targetTab: 'intelligence',
-    },
-    {
-      id: 'notif-3',
-      type: 'trend_ready',
-      title: 'New Niche Opportunity Detected',
-      message: 'Emerging short-form breakdown format is showing 2.8x higher share velocity in your niche.',
-      timestamp: '3h ago',
-      read: true,
-      targetTab: 'trends',
-    },
-    {
-      id: 'notif-4',
-      type: 'report_ready',
-      title: 'Weekly Performance Report Ready',
-      message: 'Your cross-channel executive briefing for the last 7 days is prepared and ready for review.',
-      timestamp: '1d ago',
-      read: true,
-      targetTab: 'reports',
-    }
-  ]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   // Sync Flow Modal
   const [syncState, setSyncState] = useState<SyncState>({
@@ -242,50 +205,8 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [onboardingPlatform, setOnboardingPlatform] = useState<PlatformType | null>(null);
   const [permissionReviewPlatform, setPermissionReviewPlatform] = useState<PlatformType | null>(null);
 
-  // Reports
-  const [reports, setReports] = useState<ReportItem[]>([
-    {
-      id: 'rep-1',
-      title: 'Executive Cross-Channel Intelligence Briefing',
-      period: 'Last 7 days',
-      generatedAt: 'Today at 09:30 AM',
-      status: 'Ready',
-      platforms: ['instagram', 'youtube', 'facebook'],
-      executiveSummary: 'Overall reach grew +18.4% week-over-week, propelled primarily by short-form vertical Reels and high-retention video hooks. Engagement rate maintained an above-baseline average of 4.2%.',
-      metrics: {
-        totalReach: 48920,
-        totalViews: 64200,
-        avgEngagement: 4.2,
-        growthRate: 18.4,
-      },
-      highlights: [
-        'Reels generated 68% of total organic impressions.',
-        'Hook questions drove 3.4% higher comment velocity than descriptive statements.',
-        'Friday 3:00 PM publishing window captured peak 48-hour velocity.'
-      ],
-      topPerformerTitle: 'How to build high-retention social content in 2026',
-    },
-    {
-      id: 'rep-2',
-      title: 'Monthly Growth & Retention Audit',
-      period: 'Last 30 days',
-      generatedAt: 'Sep 18, 2026',
-      status: 'Ready',
-      platforms: ['instagram', 'youtube'],
-      executiveSummary: 'Full-month archive audit across 142 published items demonstrated strong baseline stability with carousels driving high bookmark/save rates.',
-      metrics: {
-        totalReach: 194000,
-        totalViews: 248000,
-        avgEngagement: 3.9,
-        growthRate: 24.1,
-      },
-      highlights: [
-        'Carousels averaged 4.8% bookmark save rate.',
-        'Audience retention crossed 62% on videos under 45 seconds.'
-      ],
-      topPerformerTitle: 'The 5 algorithmic shifts every creator must know',
-    }
-  ]);
+  // Reports (Generated strictly from verified media)
+  const [reports, setReports] = useState<ReportItem[]>([]);
 
   const refreshConnections = useCallback(async () => {
     try {
@@ -404,8 +325,44 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSyncState(prev => ({ ...prev, isOpen: false }));
   };
 
-  // Report generation
+  // Report generation strictly grounded in real verified media
   const generateReport = async (period: string, targetPlatforms: string[]): Promise<ReportItem> => {
+    let allMedia: NormalizedMedia[] = [];
+    try {
+      allMedia = await api.getMedia();
+    } catch {
+      allMedia = [];
+    }
+
+    const filtered = allMedia.filter(m => targetPlatforms.includes(m.platform));
+    const targetMedia = filtered.length > 0 ? filtered : allMedia;
+
+    const totalViews = targetMedia.reduce((sum, m) => sum + (m.views || 0), 0);
+    const totalLikes = targetMedia.reduce((sum, m) => sum + (m.likes || 0), 0);
+    const totalComments = targetMedia.reduce((sum, m) => sum + (m.comments || 0), 0);
+    const totalReach = targetMedia.reduce((sum, m) => sum + (m.reach || m.views || 0), 0);
+    const avgEngagement = targetMedia.length > 0
+      ? Number((targetMedia.reduce((sum, m) => sum + m.engagementRate, 0) / targetMedia.length).toFixed(1))
+      : 0;
+
+    const sortedByViews = [...targetMedia].sort((a, b) => b.views - a.views);
+    const topPerformer = sortedByViews[0];
+
+    const highlights: string[] = [];
+    if (targetMedia.length > 0) {
+      highlights.push(`Audited ${targetMedia.length} verified assets across ${targetPlatforms.join(', ')}.`);
+      if (topPerformer) {
+        highlights.push(`Top asset "${topPerformer.title.slice(0, 45)}" achieved ${topPerformer.views.toLocaleString()} verified views and ${topPerformer.engagementRate}% engagement.`);
+      }
+      const shorts = targetMedia.filter(m => m.contentType === 'short' || m.contentType === 'reel');
+      if (shorts.length > 0) {
+        highlights.push(`Short-form media accounts for ${Math.round((shorts.length / targetMedia.length) * 100)}% of your verified library.`);
+      }
+      highlights.push(`Logged ${totalLikes.toLocaleString()} total likes and ${totalComments.toLocaleString()} comments from real audience engagement.`);
+    } else {
+      highlights.push('Awaiting first media synchronization to calculate historical highlights.');
+    }
+
     const newReport: ReportItem = {
       id: `rep-${Date.now()}`,
       title: `Executive Intelligence Report (${period})`,
@@ -413,26 +370,24 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       generatedAt: 'Just now',
       status: 'Ready',
       platforms: targetPlatforms,
-      executiveSummary: `Generated full-archive intelligence evaluation across ${targetPlatforms.join(', ')}. Strongest performance observed in high-velocity short-form media with question opening hooks.`,
+      executiveSummary: targetMedia.length > 0
+        ? `Archive intelligence summary across ${targetPlatforms.join(', ')} encompassing ${targetMedia.length} verified assets. Total views: ${totalViews.toLocaleString()} with average engagement of ${avgEngagement}%.`
+        : `Connect your platform accounts to generate verified executive reports.`,
       metrics: {
-        totalReach: Math.floor(35000 + Math.random() * 25000),
-        totalViews: Math.floor(45000 + Math.random() * 30000),
-        avgEngagement: Number((3.5 + Math.random() * 2).toFixed(1)),
-        growthRate: Number((12 + Math.random() * 10).toFixed(1)),
+        totalReach: totalReach || totalViews,
+        totalViews,
+        avgEngagement,
+        growthRate: targetMedia.length > 0 ? Number(((totalLikes / Math.max(1, totalViews)) * 100).toFixed(1)) : 0,
       },
-      highlights: [
-        'Top quartile reels demonstrated 2.6x higher audience save rates.',
-        'Publishing consistency within recommended hourly window increased reach by +22%.',
-        'Direct question hooks drove +3.8% higher comment-to-view ratio.'
-      ],
-      topPerformerTitle: 'How to scale organic brand distribution with data-backed content',
+      highlights,
+      topPerformerTitle: topPerformer ? topPerformer.title : 'Connect platform to analyze top performer',
     };
 
     setReports(prev => [newReport, ...prev]);
     addNotification({
       type: 'report_ready',
-      title: 'New AI Intelligence Report Generated',
-      message: `Your ${period} performance report across ${targetPlatforms.length} platforms is now available.`,
+      title: 'New Real-Data Report Generated',
+      message: `Your ${period} performance report across ${targetPlatforms.length} platforms is now ready.`,
       targetTab: 'reports',
     });
     return newReport;
@@ -441,6 +396,23 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Auth actions
   const login = async (email: string, pass: string): Promise<boolean> => {
     if (!email || !pass) return false;
+
+    const cleanUser = email.trim().toLowerCase();
+    const cleanPass = pass.trim();
+
+    // Check if user is logging into the Admin Panel
+    if ((cleanUser === 'admin' || cleanUser === 'admin@medianavigator.io' || cleanUser === 'admin@medianavigator.app') && cleanPass === 'password') {
+      setUser(prev => ({
+        ...prev,
+        fullName: 'Chief Admin Officer',
+        email: 'admin@medianavigator.io',
+        organization: 'Media Navigator Global Ops',
+        accountType: 'Other',
+      }));
+      setAppView('admin');
+      return true;
+    }
+
     setUser(prev => ({ ...prev, email }));
     setAppView('app');
     return true;

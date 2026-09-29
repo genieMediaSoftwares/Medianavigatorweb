@@ -365,22 +365,27 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
                           </span>
                         </div>
                         <h2 className="text-lg font-bold text-[#0B132B] tracking-tight">
-                          Exhaustive Archive Audit: {archiveAudit.totalAnalyzed} Total Posts &amp; Reels
+                          Exhaustive Archive Audit: {archiveAudit.totalAnalyzed} Total {archiveAudit.isYouTubeOnly ? 'YouTube Videos & Shorts' : 'Posts & Reels'}
                         </h2>
                         <p className="text-xs text-[#64748B] max-w-2xl leading-relaxed">
-                          Every published reel, video, carousel, and photo has been retrieved directly from platform APIs. All baselines are computed across your entire catalogue.
+                          {archiveAudit.isYouTubeOnly
+                            ? 'Every published YouTube Short and long-form video has been retrieved directly from YouTube Data API v3. All baselines are computed across your entire video catalogue.'
+                            : 'Every published reel, video, carousel, and photo has been retrieved directly from platform APIs. All baselines are computed across your entire catalogue.'}
                         </p>
                       </div>
 
                       <button
                         onClick={() => {
-                          setQuery('Provide an exhaustive diagnostic audit of all our published reels and posts. Detail exact format advantages, hook effectiveness, and a step-by-step roadmap to scale reach based on our full history.');
+                          setQuery(archiveAudit.isYouTubeOnly 
+                            ? 'Provide an exhaustive diagnostic audit of all our published YouTube shorts and videos. Detail exact format advantages, retention drivers, and a step-by-step roadmap to scale YouTube subscribers and views based on our full history.'
+                            : 'Provide an exhaustive diagnostic audit of all our published reels and posts. Detail exact format advantages, hook effectiveness, and a step-by-step roadmap to scale reach based on our full history.'
+                          );
                           handleAskAI({ preventDefault: () => {} } as any);
                         }}
                         className="px-4 py-2 rounded-xl bg-[#0B132B] text-white text-xs font-semibold hover:bg-slate-800 transition-all flex items-center gap-2 shrink-0 shadow-2xs"
                       >
                         <Bot className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>Audit All Posts with AI</span>
+                        <span>Audit {archiveAudit.isYouTubeOnly ? 'YouTube Archive' : 'All Posts'} with AI</span>
                       </button>
                     </div>
 
@@ -394,7 +399,9 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
                           {archiveAudit.totalAnalyzed}
                         </div>
                         <div className="text-[10px] text-[#64748B]">
-                          {archiveAudit.totalReels} Reels · {archiveAudit.totalPostsAndCarousels} Posts
+                          {archiveAudit.isYouTubeOnly 
+                            ? `${archiveAudit.totalShorts || 0} Shorts · ${archiveAudit.totalVideos || 0} Videos`
+                            : `${archiveAudit.totalReels} Reels · ${archiveAudit.totalPostsAndCarousels} Posts`}
                         </div>
                       </div>
 

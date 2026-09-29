@@ -728,6 +728,12 @@ export const Landing: React.FC = () => {
               <span>Privacy Policy</span>
               <span>Terms of Service</span>
               <span>Official API Status</span>
+              <button 
+                onClick={() => setAppView('signin')}
+                className="text-[#00F0FF] hover:underline font-semibold"
+              >
+                Admin Console
+              </button>
             </div>
           </div>
         </div>

@@ -22,10 +22,11 @@ export class YouTubeClient {
     // 1. Fetch real channel
     const channel = await YouTubeDataApi.getChannel(credentials);
 
-    // 2. Fetch real videos if uploads playlist exists
+    // 2. Fetch real videos
     let media: NormalizedMedia[] = [];
-    if (channel.uploadsPlaylistId) {
-      media = await YouTubeDataApi.getVideos(credentials, channel.uploadsPlaylistId);
+    const playlistId = channel.uploadsPlaylistId || (channel.id?.startsWith('UC') ? 'UU' + channel.id.slice(2) : '');
+    if (playlistId || channel.id) {
+      media = await YouTubeDataApi.getVideos({ ...credentials, channelId: channel.id }, playlistId);
     }
 
     // 3. Query analytics if OAuth token available

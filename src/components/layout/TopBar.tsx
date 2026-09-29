@@ -23,6 +23,7 @@ export const TopBar: React.FC<{ onMobileMenuClick?: () => void }> = ({ onMobileM
     setIsNotificationsOpen,
     startSyncFlow,
     currentWorkspace,
+    connections,
     user,
     setAppView
   } = useMedia();
@@ -33,13 +34,17 @@ export const TopBar: React.FC<{ onMobileMenuClick?: () => void }> = ({ onMobileM
   const timeOptions = ['Last 7 days', 'Last 14 days', 'Last 30 days', 'Full Historical Archive'];
   const platformOptions: { id: 'all' | PlatformType; label: string }[] = [
     { id: 'all', label: 'All Channels' },
-    { id: 'instagram', label: 'Instagram' },
     { id: 'youtube', label: 'YouTube' },
+    { id: 'instagram', label: 'Instagram' },
     { id: 'facebook', label: 'Facebook' },
     { id: 'linkedin', label: 'LinkedIn' },
   ];
 
   const currentPlatformLabel = platformOptions.find(p => p.id === selectedPlatform)?.label || 'All Channels';
+  const activeSyncPlatform: PlatformType = selectedPlatform !== 'all'
+    ? selectedPlatform
+    : (connections.find(c => c.connected)?.platform || 'youtube');
+  const activeAccount = connections.find(c => c.platform === activeSyncPlatform)?.accountHandle || activeSyncPlatform;
 
   return (
     <header
@@ -161,12 +166,12 @@ export const TopBar: React.FC<{ onMobileMenuClick?: () => void }> = ({ onMobileM
 
         {/* Live Sync Trigger */}
         <button
-          onClick={() => startSyncFlow('instagram', 'primary_account')}
+          onClick={() => startSyncFlow(activeSyncPlatform, activeAccount)}
           className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-2xs"
-          title="Run archive sync check"
+          title={`Run ${activeSyncPlatform} archive sync check`}
         >
           <RotateCw className="w-3.5 h-3.5 text-[#0284C7]" />
-          <span>Sync All Content</span>
+          <span>Sync {selectedPlatform !== 'all' ? selectedPlatform.toUpperCase() : 'All Content'}</span>
         </button>
 
         {/* Notification Bell Button */}
