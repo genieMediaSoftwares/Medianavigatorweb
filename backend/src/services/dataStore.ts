@@ -19,6 +19,9 @@ import { FacebookClient } from '../integrations/meta/facebook/facebookClient.js'
 import { YouTubeClient } from '../integrations/youtube/youtubeClient.js';
 import { LinkedInAuth } from '../integrations/linkedin/linkedinAuth.js';
 import { LinkedInClient } from '../integrations/linkedin/linkedinClient.js';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 
 interface StoredCredentials {
   accessToken?: string;
@@ -30,6 +33,48 @@ interface StoredCredentials {
 }
 
 export class DataStore {
+  private cacheFilePath: string;
+
+  constructor() {
+    this.cacheFilePath = path.join(os.tmpdir(), 'medianavigator_live_datastore.json');
+    this.loadFromFile();
+  }
+
+  private persistToFile(): void {
+    try {
+      const data = {
+        workspace: this.workspace,
+        connections: Array.from(this.connections.entries()),
+        media: this.media,
+        plannedContent: this.plannedContent,
+        alerts: this.alerts,
+        credentials: Array.from(this.credentialsVault.entries()),
+      };
+      fs.writeFileSync(this.cacheFilePath, JSON.stringify(data), 'utf8');
+    } catch {
+      // Ignore disk write errors in restricted environments
+    }
+  }
+
+  private loadFromFile(): void {
+    try {
+      if (!this.cacheFilePath || !fs.existsSync(this.cacheFilePath)) return;
+      const raw = fs.readFileSync(this.cacheFilePath, 'utf8');
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      if (data && Array.isArray(data.connections)) {
+        if (data.workspace) this.workspace = data.workspace;
+        this.connections = new Map(data.connections);
+        if (Array.isArray(data.media)) this.media = data.media;
+        if (Array.isArray(data.plannedContent)) this.plannedContent = data.plannedContent;
+        if (Array.isArray(data.alerts)) this.alerts = data.alerts;
+        if (Array.isArray(data.credentials)) this.credentialsVault = new Map(data.credentials);
+      }
+    } catch {
+      // Ignore cache corruption
+    }
+  }
+
   private workspace: Workspace = {
     id: 'ws_live_01',
     name: 'My Workspace',
@@ -122,14 +167,23 @@ export class DataStore {
   // -------------------------------------------------------------
 
   getWorkspace(): Workspace {
+    if (this.media.length === 0 && !this.hasAnyConnected()) {
+      this.loadFromFile();
+    }
     return this.workspace;
   }
 
   getConnections(): PlatformConnection[] {
+    if (this.media.length === 0 && !this.hasAnyConnected()) {
+      this.loadFromFile();
+    }
     return Array.from(this.connections.values());
   }
 
   getConnection(platform: PlatformType): PlatformConnection | undefined {
+    if (this.media.length === 0 && !this.hasAnyConnected()) {
+      this.loadFromFile();
+    }
     return this.connections.get(platform);
   }
 
@@ -199,7 +253,8 @@ export class DataStore {
         conn.dataPointsCount = realMedia.length;
 
         this.generateRealAlerts();
-        return { success: true, message: conn.statusMessage, connection: conn };
+        this.persistToFile();
+        return { success: true, message: conn.statusMessage, connection: conn, media: realMedia, mediaCount: realMedia.length } as any;
       }
 
       if (platform === 'facebook') {
@@ -235,7 +290,8 @@ export class DataStore {
         conn.dataPointsCount = realPosts.length;
 
         this.generateRealAlerts();
-        return { success: true, message: conn.statusMessage, connection: conn };
+        this.persistToFile();
+        return { success: true, message: conn.statusMessage, connection: conn, media: realPosts, mediaCount: realPosts.length } as any;
       }
 
       if (platform === 'youtube') {
@@ -274,7 +330,8 @@ export class DataStore {
         conn.dataPointsCount = result.media.length;
 
         this.generateRealAlerts();
-        return { success: true, message: conn.statusMessage, connection: conn };
+        this.persistToFile();
+        return { success: true, message: conn.statusMessage, connection: conn, media: result.media, mediaCount: result.media.length } as any;
       }
 
       if (platform === 'linkedin') {
@@ -315,7 +372,8 @@ export class DataStore {
         conn.dataPointsCount = realPosts.length;
 
         this.generateRealAlerts();
-        return { success: true, message: conn.statusMessage || 'Connected successfully', connection: conn };
+        this.persistToFile();
+        return { success: true, message: conn.statusMessage || 'Connected successfully', connection: conn, media: realPosts, mediaCount: realPosts.length } as any;
       }
 
       return { success: false, message: 'Unsupported platform', connection: conn };
@@ -357,6 +415,7 @@ export class DataStore {
     // Remove media belonging to this platform
     this.media = this.media.filter((m) => m.platform !== platform);
     this.generateRealAlerts();
+    this.persistToFile();
 
     return conn;
   }
@@ -366,6 +425,9 @@ export class DataStore {
   // -------------------------------------------------------------
 
   getMedia(platform?: string): NormalizedMedia[] {
+    if (this.media.length === 0 && !this.hasAnyConnected()) {
+      this.loadFromFile();
+    }
     if (platform && platform !== 'all') {
       return this.media.filter((m) => m.platform === platform);
     }

@@ -1,7 +1,6 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
-import { createServer as createViteServer } from 'vite';
 import { dataStore } from './backend/src/services/dataStore.js';
 import { askMediaNavigator, generateContentInsight, deepDiagnosePostAI } from './backend/src/services/geminiService.js';
 
@@ -11,6 +10,21 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// CORS & Path Normalization (Ensures seamless routing on Vercel and reverse proxies)
+app.use((req, res, next) => {
+  // If Vercel or a reverse proxy forwards without /api prefix
+  if (req.url.startsWith('/v1/')) {
+    req.url = '/api' + req.url;
+  }
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
 // API Response Helper
 function jsonResponse(res: express.Response, data: any, message = 'Success', status = 200) {
@@ -51,7 +65,11 @@ app.post('/api/v1/connections/:platform/connect', async (req, res) => {
     if (!result.success) {
       return errorResponse(res, result.message, 'CONNECTION_FAILED', 400);
     }
-    jsonResponse(res, result.connection, result.message);
+    jsonResponse(res, {
+      ...result.connection,
+      media: (result as any).media || [],
+      mediaCount: (result as any).mediaCount || 0,
+    }, result.message);
   } catch (err: any) {
     errorResponse(res, err.message || `Failed to connect ${platform}`, 'CONNECTION_ERROR', 500);
   }
@@ -66,7 +84,11 @@ app.post('/api/v1/connections/:platform/sync', async (req, res) => {
     if (!result.success) {
       return errorResponse(res, result.message, 'SYNC_FAILED', 400);
     }
-    jsonResponse(res, result.connection, result.message);
+    jsonResponse(res, {
+      ...result.connection,
+      media: (result as any).media || [],
+      mediaCount: (result as any).mediaCount || 0,
+    }, result.message);
   } catch (err: any) {
     errorResponse(res, err.message || `Failed to sync ${platform}`, 'SYNC_ERROR', 500);
   }
@@ -307,12 +329,17 @@ app.post('/api/v1/alerts/:id/dismiss', (req, res) => {
 
 // Vite & Static Serving Setup
 async function startServer() {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+    try {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (e) {
+      console.warn('Vite middleware initialization skipped or failed:', e);
+    }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
