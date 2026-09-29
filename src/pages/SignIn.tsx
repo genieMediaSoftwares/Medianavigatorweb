@@ -71,12 +71,6 @@ export const SignIn: React.FC = () => {
     setLoading(false);
   };
 
-  const handleDemoSignIn = async () => {
-    setLoading(true);
-    await login('demo@medianavigator.io', 'password123');
-    setLoading(false);
-  };
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative selection:bg-[#0284C7]/20">
       {/* Background glow accent */}
@@ -185,22 +179,12 @@ export const SignIn: React.FC = () => {
 
               <button
                 type="button"
-                onClick={handleDemoSignIn}
-                disabled={loading}
-                className="w-full py-2.5 rounded-xl bg-[#0284C7]/10 text-[#0284C7] border border-[#0284C7]/20 text-xs font-semibold hover:bg-[#0284C7]/15 transition-colors flex items-center justify-center gap-2"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Instant Demo Workspace Access</span>
-              </button>
-
-              <button
-                type="button"
                 onClick={handleAdminSignIn}
                 disabled={loading}
-                className="w-full py-2.5 rounded-xl bg-[#0B132B]/5 text-[#0B132B] border border-slate-300 text-xs font-bold hover:bg-[#0B132B]/10 transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 rounded-xl bg-[#0B132B] text-white border border-[#1C2541] text-xs font-bold hover:bg-[#1C2541] transition-colors flex items-center justify-center gap-2 shadow-xs"
               >
                 <ShieldCheck className="w-4 h-4 text-[#00F0FF]" />
-                <span>Sign In as Admin (admin / password)</span>
+                <span>Sign In as Super Admin (admin / password)</span>
               </button>
             </div>
           </form>

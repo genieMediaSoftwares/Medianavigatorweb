@@ -10,18 +10,28 @@ import {
   Send, 
   UserCheck, 
   Building,
-  Tag
+  Tag,
+  Plus
 } from 'lucide-react';
 import { useAdmin } from '../../context/AdminContext';
 import { AdminSupportTicket, TicketStatus, TicketPriority } from '../../types/admin';
 
 export const AdminSupportFeedback: React.FC = () => {
-  const { tickets, updateTicketStatus, updateTicketPriority, addTicketInternalNote, currentRole } = useAdmin();
+  const { tickets, updateTicketStatus, updateTicketPriority, addTicketInternalNote, createSupportTicket, currentRole } = useAdmin();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | TicketStatus>('all');
   const [priorityFilter, setPriorityFilter] = useState<'all' | TicketPriority>('all');
   const [selectedTicket, setSelectedTicket] = useState<AdminSupportTicket | null>(null);
   const [internalNoteInput, setInternalNoteInput] = useState('');
+
+  // Create ticket state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [newSubject, setNewSubject] = useState('');
+  const [newCustomerMessage, setNewCustomerMessage] = useState('');
+  const [newCategory, setNewCategory] = useState<AdminSupportTicket['category']>('Platform Sync Issue');
+  const [newPriority, setNewPriority] = useState<TicketPriority>('high');
+  const [newUserName, setNewUserName] = useState('Workspace Creator');
+  const [newUserEmail, setNewUserEmail] = useState('creator@workspace.io');
 
   const filteredTickets = tickets.filter((t) => {
     const matchSearch = t.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -31,6 +41,28 @@ export const AdminSupportFeedback: React.FC = () => {
     const matchPriority = priorityFilter === 'all' || t.priority === priorityFilter;
     return matchSearch && matchStatus && matchPriority;
   });
+
+  const handleCreateTicket = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubject.trim() || !newCustomerMessage.trim()) return;
+
+    createSupportTicket({
+      userId: `usr_${Date.now()}`,
+      userName: newUserName,
+      userEmail: newUserEmail,
+      workspace: 'Active Workspace',
+      subject: newSubject,
+      category: newCategory,
+      priority: newPriority,
+      status: 'open',
+      assignedAdmin: 'Super Admin',
+      customerMessage: newCustomerMessage,
+    });
+
+    setNewSubject('');
+    setNewCustomerMessage('');
+    setModalOpen(false);
+  };
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,6 +102,13 @@ export const AdminSupportFeedback: React.FC = () => {
           <span className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-600 font-medium shadow-xs">
             {tickets.filter(t => t.status === 'open').length} Open Issues
           </span>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="px-3.5 py-1.5 rounded-xl bg-[#0B132B] text-white text-xs font-bold hover:bg-[#1C2541] transition-all flex items-center gap-1.5 shadow-xs"
+          >
+            <Plus className="w-3.5 h-3.5 text-[#00F0FF]" />
+            <span>Log Ticket</span>
+          </button>
         </div>
       </div>
 
@@ -186,8 +225,12 @@ export const AdminSupportFeedback: React.FC = () => {
 
                 {filteredTickets.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
-                      No support tickets found matching criteria.
+                    <td colSpan={7} className="py-12 text-center text-slate-500">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                      <div className="text-xs font-bold text-slate-700">Support & Feedback Queue Clear</div>
+                      <div className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                        0 open support tickets. Inbound platform error reports or creator inquiries will appear here in real-time.
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -300,6 +343,118 @@ export const AdminSupportFeedback: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modal for Logging Support Ticket */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-[#0B132B]">Log Creator Support Incident</h3>
+              <button 
+                onClick={() => setModalOpen(false)}
+                className="text-xs text-slate-400 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTicket} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Issue Subject</label>
+                <input
+                  type="text"
+                  value={newSubject}
+                  onChange={(e) => setNewSubject(e.target.value)}
+                  placeholder="e.g. YouTube Data API 403 Forbidden Quota Exceeded"
+                  required
+                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-[#0B132B] focus:outline-none focus:border-[#0284C7]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-bold mb-1">Inquiry / Error Description</label>
+                <textarea
+                  value={newCustomerMessage}
+                  onChange={(e) => setNewCustomerMessage(e.target.value)}
+                  placeholder="Describe the platform error, affected workspace, or requested feature..."
+                  rows={3}
+                  required
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs text-[#0B132B] focus:outline-none focus:border-[#0284C7]"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Category</label>
+                  <select
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-white"
+                  >
+                    <option value="Platform Sync Issue">Platform Sync Issue</option>
+                    <option value="Billing & Invoice">Billing & Invoice</option>
+                    <option value="AI Insights Feedback">AI Insights Feedback</option>
+                    <option value="Security / OAuth">Security / OAuth</option>
+                    <option value="Feature Request">Feature Request</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">Priority</label>
+                  <select
+                    value={newPriority}
+                    onChange={(e) => setNewPriority(e.target.value as any)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-white"
+                  >
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">User Name</label>
+                  <input
+                    type="text"
+                    value={newUserName}
+                    onChange={(e) => setNewUserName(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-[#0B132B]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1">User Email</label>
+                  <input
+                    type="email"
+                    value={newUserEmail}
+                    onChange={(e) => setNewUserEmail(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-[#0B132B]"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#0B132B] text-white hover:bg-[#1C2541] shadow-xs flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5 text-[#00F0FF]" />
+                  <span>Register Ticket</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

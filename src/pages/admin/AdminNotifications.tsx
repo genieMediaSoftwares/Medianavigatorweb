@@ -122,6 +122,15 @@ export const AdminNotifications: React.FC = () => {
                   </td>
                 </tr>
               ))}
+              {broadcasts.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-10 text-center text-slate-400">
+                    <Radio className="w-7 h-7 text-slate-300 mx-auto mb-2" />
+                    <span className="text-xs font-semibold text-slate-600 block">No System Broadcasts Dispatched</span>
+                    <span className="text-[11px] text-slate-400">Use the button above to publish system maintenance, outage alerts, or product announcements.</span>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

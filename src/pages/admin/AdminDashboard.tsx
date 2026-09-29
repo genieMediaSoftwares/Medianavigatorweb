@@ -31,7 +31,7 @@ import { AdminSupportFeedback } from './AdminSupportFeedback';
 import { AdminAuditLogsSettings } from './AdminAuditLogsSettings';
 
 export const AdminDashboard: React.FC = () => {
-  const { currentTab, setCurrentTab, currentRole, setCurrentRole, hasPermission, adminProfile } = useAdmin();
+  const { currentTab, setCurrentTab, adminProfile } = useAdmin();
   const { setAppView } = useMedia();
 
   const navigationOrder: { id: AdminTab; label: string; icon: any }[] = [
@@ -89,24 +89,17 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
 
-          {/* RBAC Role Switcher (Section 2 Spec Simulator) */}
+          {/* Super Admin Status Badge */}
           <div className="p-3 mx-3 my-3 rounded-xl bg-[#1C2541]/80 border border-[#1C2541] space-y-1">
             <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center justify-between">
-              <span>RBAC Role Profile</span>
-              <Shield className="w-3 h-3 text-[#00F0FF]" />
+              <span>Authority Level</span>
+              <Shield className="w-3.5 h-3.5 text-[#00F0FF]" />
             </div>
-            <select
-              value={currentRole}
-              onChange={(e) => setCurrentRole(e.target.value as AdminRole)}
-              className="w-full bg-[#0B132B] text-[#00F0FF] border border-[#1C2541] rounded-lg px-2 py-1.5 text-xs font-semibold focus:outline-none focus:border-[#00F0FF]"
-            >
-              <option value="super_admin">Super Admin (Full Access)</option>
-              <option value="operations">Operations (Users/Sync/Logs)</option>
-              <option value="support">Support (Feedback/Tickets)</option>
-              <option value="content_trend">Content / Trend Lead</option>
-              <option value="finance">Finance (Billing & Subs)</option>
-              <option value="read_only">Read-Only Observer</option>
-            </select>
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="w-2 h-2 rounded-full bg-[#00F0FF] animate-pulse"></span>
+              <span className="text-xs font-black text-white tracking-wide">SUPER ADMIN</span>
+            </div>
+            <div className="text-[10px] text-[#00F0FF] font-medium">Full Governance & SecOps Privileges</div>
           </div>
 
           {/* Final Product Navigation Order (Section 6 Spec) */}
@@ -116,9 +109,6 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             {navigationOrder.map((nav) => {
-              const isPermitted = hasPermission(nav.id);
-              if (!isPermitted) return null; // In RBAC spec: "Unauthorized navigation items are completely hidden"
-
               const Icon = nav.icon;
               const isActive = currentTab === nav.id;
 
@@ -169,7 +159,7 @@ export const AdminDashboard: React.FC = () => {
               {navigationOrder.find(n => n.id === currentTab)?.label.replace(/^\d+\.\s*/, '') || 'Admin Console'}
             </h1>
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#1C2541] text-[#00F0FF] uppercase font-mono">
-              ROLE: {currentRole}
+              ROLE: SUPER ADMIN
             </span>
           </div>
 

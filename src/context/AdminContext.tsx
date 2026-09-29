@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
   AdminRole, 
   AdminTab, 
@@ -24,6 +24,7 @@ import {
   INITIAL_ADMIN_AUDIT_LOGS,
   INITIAL_ADMIN_BROADCASTS 
 } from '../data/adminMockData';
+import { useMedia } from './MediaContext';
 
 interface AdminContextType {
   currentTab: AdminTab;
@@ -50,6 +51,7 @@ interface AdminContextType {
   updateTicketStatus: (id: string, status: TicketStatus) => void;
   updateTicketPriority: (id: string, priority: TicketPriority) => void;
   addTicketInternalNote: (id: string, note: string) => void;
+  createSupportTicket: (ticket: Omit<AdminSupportTicket, 'id' | 'ticketNumber' | 'createdAt' | 'lastUpdated' | 'internalNotes'>) => void;
 
   // Subscriptions
   subscriptions: AdminSubscriptionRecord[];
@@ -85,6 +87,8 @@ interface AdminContextType {
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, connections, refreshConnections } = useMedia();
+
   const [currentTab, setCurrentTab] = useState<AdminTab>('dashboard');
   const [currentRole, setCurrentRole] = useState<AdminRole>('super_admin');
 
@@ -95,6 +99,41 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [subscriptions, setSubscriptions] = useState<AdminSubscriptionRecord[]>(INITIAL_ADMIN_SUBSCRIPTIONS);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLog[]>(INITIAL_ADMIN_AUDIT_LOGS);
   const [broadcasts, setBroadcasts] = useState<AdminNotificationBroadcast[]>(INITIAL_ADMIN_BROADCASTS);
+
+  // Synchronize users and social streams with real live system state
+  useEffect(() => {
+    if (connections && connections.length > 0) {
+      setSocialAccounts(connections.map((c) => {
+        const isHealthy = c.connected && c.status !== 'sync_failed' && c.status !== 'permission_required';
+        const isWarning = c.connected && c.status === 'permission_required';
+        return {
+          id: `soc_${c.platform}`,
+          userId: 'usr_admin',
+          userName: user?.fullName || 'Workspace Owner',
+          userEmail: user?.email || 'admin@medianavigator.io',
+          platform: c.platform,
+          accountHandle: c.connected ? c.accountHandle : 'Not connected',
+          accountId: c.accountInfo?.id || `api.${c.platform}.com`,
+          authType: c.platform === 'youtube' ? 'Data API Key' : 'OAuth 2.0 PKCE',
+          status: isHealthy ? 'healthy' : isWarning ? 'warning' : 'failed',
+          lastSyncAt: c.lastSyncedAt || 'Awaiting sync',
+          tokenExpiresIn: c.connected ? 'Active Token' : 'Not configured',
+          errorMessage: !c.connected ? `No active ${c.name} credentials configured.` : undefined,
+          errorCode: !c.connected ? 'AWAITING_AUTH' : undefined,
+          dataPointsIngested: c.dataPointsCount || 0,
+          autoSyncEnabled: c.connected,
+        };
+      }));
+
+      // Reflect real connected platforms in the user record
+      const connectedPlatforms = connections.filter(c => c.connected).map(c => c.platform);
+      setUsers(prev => prev.map(u => ({
+        ...u,
+        connectedPlatforms,
+        workspaceName: user?.organization || u.workspaceName,
+      })));
+    }
+  }, [connections, user]);
 
   const [adminProfile, setAdminProfile] = useState({
     name: 'Chief Admin Officer',
@@ -312,30 +351,40 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   };
 
-  // RBAC Matrix as specified in Section 2 of PDF
-  const hasPermission = (module: AdminTab): boolean => {
-    if (currentRole === 'super_admin') return true;
+  const createSupportTicket = (ticket: Omit<AdminSupportTicket, 'id' | 'ticketNumber' | 'createdAt' | 'lastUpdated' | 'internalNotes'>) => {
+    const newTicket: AdminSupportTicket = {
+      ...ticket,
+      id: `tkt_${Date.now()}`,
+      ticketNumber: `NAV-${Math.floor(1000 + Math.random() * 9000)}`,
+      createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+      lastUpdated: 'Just now',
+      internalNotes: [
+        {
+          author: adminProfile.name,
+          timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16),
+          note: 'Ticket registered by Super Admin into operational triage queue.',
+        }
+      ],
+    };
+    setTickets(prev => [newTicket, ...prev]);
+    logAuditEvent({
+      actor: adminProfile.email,
+      actorEmail: adminProfile.email,
+      role: currentRole,
+      action: 'SUPPORT_TICKET_CREATED',
+      resource: `Ticket: ${newTicket.ticketNumber} (${newTicket.subject})`,
+      result: 'Success',
+      severity: 'info',
+      ipAddress: '192.168.1.1',
+      location: 'Admin Console',
+      workspace: 'Global Admin',
+      metadata: { ticketId: newTicket.id, priority: newTicket.priority, category: newTicket.category },
+    });
+  };
 
-    switch (module) {
-      case 'dashboard':
-        return true;
-      case 'users':
-        return currentRole === 'operations' || currentRole === 'support' || currentRole === 'finance' || currentRole === 'read_only';
-      case 'social_accounts':
-        return currentRole === 'operations' || currentRole === 'support' || currentRole === 'content_trend' || currentRole === 'read_only';
-      case 'trend_management':
-        return currentRole === 'content_trend' || currentRole === 'operations' || currentRole === 'read_only';
-      case 'subscriptions':
-        return currentRole === 'finance' || currentRole === 'read_only';
-      case 'notifications':
-        return currentRole === 'operations' || currentRole === 'support';
-      case 'support_feedback':
-        return currentRole === 'support' || currentRole === 'operations' || currentRole === 'read_only';
-      case 'audit_logs':
-        return currentRole === 'operations';
-      default:
-        return true;
-    }
+  // RBAC Permission: Super Admin has full unrestricted access across all 8 modules
+  const hasPermission = (_module: AdminTab): boolean => {
+    return true;
   };
 
   return (
@@ -357,6 +406,7 @@ export const AdminProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateTicketStatus,
         updateTicketPriority,
         addTicketInternalNote,
+        createSupportTicket,
         subscriptions,
         cancelSubscription,
         refundSubscription,

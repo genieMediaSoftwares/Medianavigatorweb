@@ -270,6 +270,14 @@ export const AdminDashboardOverview: React.FC = () => {
                 </div>
               </div>
             ))}
+
+            {tickets.length === 0 && (
+              <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 rounded-xl">
+                <CheckCircle2 className="w-6 h-6 text-emerald-500 mx-auto mb-1.5" />
+                <span className="font-semibold text-slate-700 block mb-0.5">Support Queue Clear</span>
+                <span>0 open creator support tickets. Real-time inquiries will populate here.</span>
+              </div>
+            )}
           </div>
         </div>
       </div>

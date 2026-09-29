@@ -188,8 +188,12 @@ export const AdminTrendManagement: React.FC = () => {
 
                 {filteredTrends.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-slate-400">
-                      No trend records found matching criteria.
+                    <td colSpan={6} className="py-12 text-center text-slate-500">
+                      <TrendingUp className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                      <div className="text-xs font-bold text-slate-700">No Algorithmic Trends Pending Review</div>
+                      <div className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                        0 trends pending. Once content is synchronized from connected channels, statistical format velocity and retention hooks will appear here for review.
+                      </div>
                     </td>
                   </tr>
                 )}
