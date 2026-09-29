@@ -35,6 +35,7 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
   const { setCurrentTab, connections } = useMedia();
   const [activeSubTab, setActiveSubTab] = useState<'archive' | 'insights' | 'top' | 'bottom' | 'patterns'>(defaultSubTab || 'archive');
   const [diagnoseMedia, setDiagnoseMedia] = useState<NormalizedMedia | null>(null);
+  const [diagnoseStatus, setDiagnoseStatus] = useState<'working' | 'underperforming' | undefined>(undefined);
 
   useEffect(() => {
     if (defaultSubTab) {
@@ -99,7 +100,8 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
     }
   };
 
-  const handleDiagnosePerformer = (item: PerformerAnalysis) => {
+  const handleDiagnosePerformer = (item: PerformerAnalysis, forcedStatus?: 'working' | 'underperforming') => {
+    setDiagnoseStatus(forcedStatus);
     setDiagnoseMedia({
       id: item.id,
       workspaceId: 'default',
@@ -120,7 +122,7 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
       primarySignal: {
         label: 'Performance',
         value: item.baselineComparison,
-        status: 'Strong',
+        status: forcedStatus === 'underperforming' ? 'Declining' : 'Strong',
       },
       explanation: {
         observedFact: item.baselineComparison,
@@ -725,7 +727,7 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
                           <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0]">
                             <button
                               id={`analyze-top-${item.id}`}
-                              onClick={() => handleDiagnosePerformer(item)}
+                              onClick={() => handleDiagnosePerformer(item, 'working')}
                               className="py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#0284C7] to-[#06B6D4] hover:from-[#0369a1] hover:to-[#0891b2] transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
                             >
                               <Sparkles className="w-3.5 h-3.5 text-sky-100" />
@@ -887,7 +889,7 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
                           <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0]">
                             <button
                               id={`analyze-bottom-${item.id}`}
-                              onClick={() => handleDiagnosePerformer(item)}
+                              onClick={() => handleDiagnosePerformer(item, 'underperforming')}
                               className="py-1.5 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
                             >
                               <Sparkles className="w-3.5 h-3.5 text-amber-100" />
@@ -1107,7 +1109,11 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
       {/* Deep AI Post Diagnosis Modal */}
       <PostAIDiagnosisModal
         media={diagnoseMedia}
-        onClose={() => setDiagnoseMedia(null)}
+        forcedStatus={diagnoseStatus}
+        onClose={() => {
+          setDiagnoseMedia(null);
+          setDiagnoseStatus(undefined);
+        }}
       />
     </div>
   );

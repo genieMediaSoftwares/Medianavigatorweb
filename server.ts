@@ -241,7 +241,7 @@ app.post('/api/v1/intelligence/analyze-item', async (req, res) => {
 // Deep AI Post Diagnosis (Why it worked / Why it didn't work)
 app.post('/api/v1/intelligence/diagnose-post', async (req, res) => {
   try {
-    const { mediaId, media: clientMedia } = req.body || {};
+    const { mediaId, media: clientMedia, forcedStatus } = req.body || {};
     if (!mediaId && !clientMedia) {
       return errorResponse(res, 'mediaId is required', 'BAD_REQUEST', 400);
     }
@@ -255,11 +255,15 @@ app.post('/api/v1/intelligence/diagnose-post', async (req, res) => {
     const totalEng = allMedia.reduce((sum, m) => sum + (m.engagementRate || 0), 0);
     const avgEngagement = allMedia.length > 0 ? totalEng / allMedia.length : (media.engagementRate || 3.5);
 
-    const diagnosis = await deepDiagnosePostAI(media, {
-      avgViews,
-      avgEngagement,
-      totalAnalyzed: allMedia.length || 1,
-    });
+    const diagnosis = await deepDiagnosePostAI(
+      media, 
+      {
+        avgViews,
+        avgEngagement,
+        totalAnalyzed: allMedia.length || 1,
+      },
+      forcedStatus
+    );
     jsonResponse(res, diagnosis);
   } catch (err: any) {
     errorResponse(res, err.message || 'Failed to diagnose media post');

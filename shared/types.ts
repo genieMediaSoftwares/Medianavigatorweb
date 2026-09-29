@@ -241,5 +241,5 @@ export interface PostAIDiagnosis {
   suggestedHookAlternative: string;
   recommendedFormatAndTiming: string;
   actionableChecklist: string[];
-  source: 'Gemini 3.8 Flash' | 'Media Intelligence Engine';
+  source: string;
 }

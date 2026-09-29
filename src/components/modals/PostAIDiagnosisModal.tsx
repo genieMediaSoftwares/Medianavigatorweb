@@ -27,11 +27,13 @@ import { useMedia } from '../../context/MediaContext';
 
 interface PostAIDiagnosisModalProps {
   media: NormalizedMedia | null;
+  forcedStatus?: 'working' | 'underperforming' | 'average';
   onClose: () => void;
 }
 
 export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
   media,
+  forcedStatus,
   onClose,
 }) => {
   const { setCurrentTab } = useMedia();
@@ -47,7 +49,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
     setLoading(true);
     setError(null);
 
-    api.diagnosePostAI(media.id)
+    api.diagnosePostAI(media.id, media, forcedStatus)
       .then((data) => {
         if (isMounted) {
           setDiagnosis(data);
@@ -65,7 +67,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [media]);
+  }, [media, forcedStatus]);
 
   if (!media) return null;
 

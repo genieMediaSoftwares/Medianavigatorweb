@@ -26,12 +26,48 @@ function getAIClient(): GoogleGenAI | null {
   return aiClient;
 }
 
+// Executes with Gemini models, trying gemini-3.1-flash-lite first (fast, reliable quota)
+// followed by gemini-3.8-flash.
+async function callGemini(
+  prompt: string, 
+  systemInstruction?: string
+): Promise<{ text: string; source: 'Gemini 3.1 Flash' | 'Gemini 3.8 Flash' } | null> {
+  const ai = getAIClient();
+  if (!ai) return null;
+
+  const modelsToTry = [
+    { name: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash' as const },
+    { name: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' as const },
+  ];
+
+  for (const m of modelsToTry) {
+    try {
+      const response = await ai.models.generateContent({
+        model: m.name,
+        contents: prompt,
+        config: {
+          systemInstruction,
+          responseMimeType: 'application/json',
+        },
+      });
+
+      if (response && response.text) {
+        return { text: response.text, source: m.label };
+      }
+    } catch (err: any) {
+      console.warn(`[Gemini Engine] ${m.name} invocation error:`, err?.message || err);
+    }
+  }
+
+  return null;
+}
+
 export interface AIAnalysisResult {
   observedFact: string;
   possibleReason: string;
   actionableRecommendations: string[];
   confidence: 'High' | 'Medium';
-  answeredBy: 'Gemini 3.8 Flash' | 'Media Intelligence Engine';
+  answeredBy: string;
 }
 
 export async function generateContentInsight(params: {
@@ -44,65 +80,57 @@ export async function generateContentInsight(params: {
   contentType: string;
   context?: string;
 }): Promise<AIAnalysisResult> {
-  const ai = getAIClient();
+  const prompt = `You are the lead intelligence analyst for Media Navigator, evaluating an asset from ${params.platform.toUpperCase()}.
+Asset Metadata:
+- Title / Hook: "${params.title}"
+- Format: ${params.contentType}
+- Platform: ${params.platform}
+- Verified Views: ${params.views.toLocaleString()}
+- Total Reach: ${params.reach.toLocaleString()}
+- Engagement Rate: ${params.engagementRate}%
+- Shares / Saves: ${params.shares.toLocaleString()}
+- Context: ${params.context || 'Library performance review'}
 
-  if (ai) {
-    try {
-      const prompt = `You are the lead intelligence analyst for Media Navigator, a premium business media command center.
-Analyze the following media asset performance:
-Platform: ${params.platform}
-Format: ${params.contentType}
-Title: "${params.title}"
-Views: ${params.views.toLocaleString()}
-Reach: ${params.reach.toLocaleString()}
-Engagement Rate: ${params.engagementRate}%
-Shares: ${params.shares.toLocaleString()}
-Context: ${params.context || 'General weekly review'}
-
-STRICT RULES:
-1. Distinguish OBSERVED FACTS from INFERRED EXPLANATIONS. Do NOT claim you know private platform algorithm secrets. Use cautious, professional language like "Observed: ...", "Possible reason: ...".
-2. Keep it concise, calm, and actionable (Linear / Notion / Stripe tone).
-3. Return valid JSON only with keys:
+Deliver an objective forensic diagnostic analysis.
+1. Distinguish OBSERVED FACTS from INFERRED CAUSES.
+2. Return JSON only with keys:
 {
-  "observedFact": "...",
-  "possibleReason": "...",
-  "actionableRecommendations": ["...", "..."],
+  "observedFact": "Forensic statement of what the metrics show...",
+  "possibleReason": "Strategic algorithm & viewer retention explanation...",
+  "actionableRecommendations": ["Concrete action 1", "Concrete action 2"],
   "confidence": "High"
 }`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
+  const res = await callGemini(
+    prompt, 
+    'You are a senior algorithmic growth consultant who provides forensic, non-generic social media insights.'
+  );
 
-      if (response.text) {
-        const parsed = JSON.parse(response.text);
-        return {
-          observedFact: parsed.observedFact || `Engagement rate of ${params.engagementRate}% is above historical median.`,
-          possibleReason: parsed.possibleReason || 'Clear format pacing and high upfront value density.',
-          actionableRecommendations: parsed.actionableRecommendations || [
-            'Maintain similar narrative hooks in future releases',
-            'Repurpose high-performing segment into carousel or short',
-          ],
-          confidence: parsed.confidence || 'High',
-          answeredBy: 'Gemini 3.8 Flash',
-        };
-      }
-    } catch (err) {
-      console.warn('Gemini API call failed, falling back to local intelligence engine:', err);
+  if (res) {
+    try {
+      const parsed = JSON.parse(res.text);
+      return {
+        observedFact: parsed.observedFact || `Engagement rate of ${params.engagementRate}% across ${params.views.toLocaleString()} verified views.`,
+        possibleReason: parsed.possibleReason || 'High retention velocity and direct utility resonance.',
+        actionableRecommendations: parsed.actionableRecommendations || [
+          'Replicate opening hook pattern in upcoming tests',
+          'Repurpose top segment into carousel or short',
+        ],
+        confidence: parsed.confidence || 'High',
+        answeredBy: res.source,
+      };
+    } catch (e) {
+      console.warn('Failed to parse Gemini content insight JSON:', e);
     }
   }
 
-  // Fallback engine: deterministic, high-fidelity analyst logic
+  // Fallback if API keys are inactive
   return {
-    observedFact: `Observed: ${params.title} generated a ${params.engagementRate}% engagement rate across ${params.reach.toLocaleString()} reach, marking an above-average performance curve.`,
-    possibleReason: `Possible reason: The concise format combined with concrete educational utility appears to reduce viewer scroll-away velocity.`,
+    observedFact: `Observed: "${params.title}" registered ${params.engagementRate}% engagement rate across ${params.views.toLocaleString()} views on ${params.platform}.`,
+    possibleReason: `Audience retention dynamics and share velocity indicate concentrated topic resonance.`,
     actionableRecommendations: [
-      `Package the core takeaway of "${params.title}" into a follow-up test during the peak Tuesday evening window.`,
-      `Structure the next release with a similar 3-second problem statement and visual text reinforcement.`,
+      `Package the key premise into a follow-up test during peak active audience window.`,
+      `Structure the next release with a high-contrast opening frame in the first 2 seconds.`,
     ],
     confidence: 'High',
     answeredBy: 'Media Intelligence Engine',
@@ -113,48 +141,37 @@ export async function askMediaNavigator(question: string, contextSummary: string
   answer: string;
   observedSignal: string;
   suggestedAction: string;
-  source: 'Gemini 3.8 Flash' | 'Media Intelligence Engine';
+  source: string;
 }> {
-  const ai = getAIClient();
+  const prompt = `User Query: "${question}"
 
-  if (ai) {
-    try {
-      const prompt = `You are Media Navigator, an intelligent media command center for businesses.
-The user is asking: "${question}".
-
-Current Workspace Context:
+Account Library Context:
 ${contextSummary}
 
-Instructions:
-- Write a concise, intelligent, calm executive response (2-3 paragraphs max).
-- Core philosophy: Don't make users navigate their media. Let Media Navigator navigate it for them.
-- Distinguish between observed facts and reasoned hypotheses.
-- Respond in JSON with keys:
+Respond as Media Navigator's executive AI command center.
+Return valid JSON only:
 {
-  "answer": "Executive analysis...",
-  "observedSignal": "Key data point observed...",
-  "suggestedAction": "Concrete next step..."
+  "answer": "Clear, direct executive breakdown in 1-2 focused paragraphs...",
+  "observedSignal": "Key statistical signal from the verified data...",
+  "suggestedAction": "Concrete immediate step to take in content planning..."
 }`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
+  const res = await callGemini(
+    prompt,
+    'You are Media Navigator, an elite executive social media growth intelligence system. Speak with authority, clarity, and precision.'
+  );
 
-      if (response.text) {
-        const parsed = JSON.parse(response.text);
-        return {
-          answer: parsed.answer,
-          observedSignal: parsed.observedSignal,
-          suggestedAction: parsed.suggestedAction,
-          source: 'Gemini 3.8 Flash',
-        };
-      }
-    } catch (err) {
-      console.warn('Gemini query failed, falling back:', err);
+  if (res) {
+    try {
+      const parsed = JSON.parse(res.text);
+      return {
+        answer: parsed.answer,
+        observedSignal: parsed.observedSignal,
+        suggestedAction: parsed.suggestedAction,
+        source: res.source,
+      };
+    } catch (e) {
+      console.warn('Failed to parse Gemini Ask Navigator JSON:', e);
     }
   }
 
@@ -162,46 +179,47 @@ Instructions:
   const qLower = question.toLowerCase();
   if (qLower.includes('time') || qLower.includes('when') || qLower.includes('schedule')) {
     return {
-      answer: 'Based on your recent 30-day performance signals, your strongest publishing window is consistently Tuesday evening between 6:00 PM and 8:30 PM. Posts released in this window experience 3.1x higher comment velocity in their initial 90 minutes.',
-      observedSignal: 'Peak engagement concentration observed on Tuesday 7:00 PM with 96/100 performance score.',
-      suggestedAction: 'Schedule your upcoming Educational Reel for Tuesday at 7:00 PM in the Content Planner.',
-      source: 'Media Intelligence Engine',
-    };
-  }
-
-  if (qLower.includes('format') || qLower.includes('video') || qLower.includes('reel') || qLower.includes('short')) {
-    return {
-      answer: 'Short-form educational video is your most resilient asset class right now. Viewers are completing 76% of sub-45 second videos on Instagram and YouTube, driving 84% of your top-of-funnel non-follower impressions.',
-      observedSignal: 'Reels and Shorts generate an 8.4% - 8.9% engagement rate, compared with 4.1% on static posts.',
-      suggestedAction: 'Prioritize tactical 30-45s video breakdowns and repurpose winning Instagram Reels directly to YouTube Shorts.',
+      answer: 'Based on your 30-day performance signals, your highest engagement density occurs between 6:00 PM and 8:30 PM on weekdays, where initial comment velocity is 3.1x higher than midday posts.',
+      observedSignal: 'Peak engagement cluster observed during evening discovery windows.',
+      suggestedAction: 'Schedule your upcoming video breakdown for Tuesday or Thursday at 7:00 PM.',
       source: 'Media Intelligence Engine',
     };
   }
 
   return {
-    answer: 'Across your connected channels (Instagram, Facebook, YouTube), your media momentum is positive. Educational breakdowns are driving bookmark and save actions, while evening releases capture your audience during active leisure windows. LinkedIn remains available to connect for professional distribution.',
-    observedSignal: 'Save-to-like ratio reached 3.2x on practical tutorial assets.',
-    suggestedAction: 'Add the recommended Tuesday 7:00 PM Educational Reel to your Content Planner.',
+    answer: 'Your library demonstrates that video assets with immediate problem statements outperform static posts by 2.4x in non-follower reach. Consistent pacing and early curiosity payoff drive algorithm feed distribution.',
+    observedSignal: 'Higher average completion rate on concise sub-45 second video assets.',
+    suggestedAction: 'Prioritize tactical, single-concept Reels and Shorts in your upcoming publishing cycle.',
     source: 'Media Intelligence Engine',
   };
 }
 
 export async function deepDiagnosePostAI(
   media: NormalizedMedia,
-  libraryContext: { avgViews: number; avgEngagement: number; totalAnalyzed: number }
+  accountStats?: {
+    avgViews: number;
+    avgEngagement: number;
+    totalAnalyzed: number;
+  },
+  forcedStatus?: 'working' | 'underperforming' | 'average'
 ): Promise<PostAIDiagnosis> {
-  const avgViews = Math.max(1, libraryContext.avgViews || 1);
-  const avgEng = Math.max(0.1, libraryContext.avgEngagement || 1);
+  const avgViews = accountStats?.avgViews || (media.views > 0 ? media.views : 500);
+  const avgEng = accountStats?.avgEngagement || 3.5;
 
-  const viewsDiff = ((media.views - avgViews) / avgViews) * 100;
-  const engDiff = ((media.engagementRate - avgEng) / avgEng) * 100;
+  const viewsDiff = avgViews > 0 ? ((media.views - avgViews) / avgViews) * 100 : 0;
+  
+  let isWorking = media.views >= avgViews * 1.1 || media.engagementRate >= avgEng * 1.15;
+  let isUnderperforming = !isWorking && (media.views < avgViews * 0.7 || media.engagementRate < avgEng * 0.75);
 
-  const isWorking = media.views >= avgViews * 1.15 || media.engagementRate >= avgEng * 1.2 || media.views > 8000;
-  const isUnderperforming = !isWorking && (media.views < avgViews * 0.7 || media.engagementRate < avgEng * 0.75);
-
-  const status: 'working' | 'underperforming' | 'average' = isWorking 
+  let status: 'working' | 'underperforming' | 'average' = isWorking 
     ? 'working' 
     : (isUnderperforming ? 'underperforming' : 'average');
+
+  if (forcedStatus) {
+    status = forcedStatus;
+    isWorking = forcedStatus === 'working';
+    isUnderperforming = forcedStatus === 'underperforming';
+  }
 
   const baselineComparison = viewsDiff >= 0
     ? `+${viewsDiff.toFixed(0)}% vs library avg views (${avgViews.toLocaleString()})`
@@ -211,120 +229,103 @@ export async function deepDiagnosePostAI(
     ? 'High Performer — Working Above Baseline'
     : (isUnderperforming ? 'Underperforming Asset — Opportunity to Revise' : 'Pacing Near Baseline Average');
 
-  const ai = getAIClient();
+  const prompt = `Conduct a rigorous forensic algorithm & retention diagnostic for this verified ${media.platform.toUpperCase()} asset.
 
-  if (ai) {
-    try {
-      const prompt = `You are the chief social media growth algorithms engineer and content strategist for Media Navigator.
-Conduct a deep diagnostic breakdown of the following real post from ${media.platform.toUpperCase()}:
-
-Post Details:
-- Title / Headline: "${media.title}"
-- Format: ${media.contentType.toUpperCase()}
+Asset Information:
+- Headline / Hook: "${media.title}"
+- Content Format: ${media.contentType.toUpperCase()}
 - Platform: ${media.platform}
-- Full Caption: "${media.caption || 'None'}"
-- Published: ${media.publishedAt}
-- Verified Views / Plays: ${media.views.toLocaleString()}
+- Caption: "${media.caption || 'No caption provided'}"
+- Published Date: ${media.publishedAt}
+- Verified Views: ${media.views.toLocaleString()}
 - Total Reach: ${media.reach.toLocaleString()}
 - Likes: ${media.likes.toLocaleString()}
 - Comments: ${media.comments.toLocaleString()}
-- Saves / Shares: ${media.shares.toLocaleString()}
-- Engagement Rate: ${media.engagementRate}% (Account library avg: ${avgEng.toFixed(2)}%)
-- Baseline Difference: ${baselineComparison}
-- Diagnostic Classification: ${status.toUpperCase()}
+- Shares / Saves: ${media.shares.toLocaleString()}
+- Engagement Rate: ${media.engagementRate}% (Account library average: ${avgEng.toFixed(2)}%)
+- Performance vs Baseline: ${baselineComparison}
+- Diagnostic Tier: ${status.toUpperCase()}
 
 TASK:
-Provide an expert, highly specific, forensic breakdown explaining EXACTLY WHY THIS POST ${status === 'working' ? 'IS WORKING / OUTPERFORMING' : (status === 'underperforming' ? 'WAS NOT WORKING / UNDERPERFORMED' : 'PERFORMED AT AN AVERAGE LEVEL')}.
+Provide an in-depth, authentic forensic breakdown analyzing EXACTLY WHY THIS POST ${status === 'working' ? 'IS WORKING / OUTPERFORMING' : (status === 'underperforming' ? 'WAS NOT WORKING / UNDERPERFORMED' : 'PERFORMED AT BASELINE LEVEL')}.
+Reference the actual title "${media.title.slice(0, 50)}", caption, metrics, and platform algorithmic mechanics directly. DO NOT give generic boilerplate advice.
 
-Return valid JSON with the exact structure:
+Return strictly valid JSON with this structure:
 {
-  "headline": "A punchy 6-12 word diagnostic summary of the post performance",
-  "executiveSummary": "2-3 sentences explaining the core takeaway with numbers",
+  "headline": "A sharp 6-12 word forensic summary specific to this asset",
+  "executiveSummary": "2-3 detailed sentences breaking down why this specific content worked or failed, citing real ratios and viewer psychology.",
   "whyWorking": ${status === 'working' ? `{
-    "hookEffectiveness": "Analysis of the opening 3 seconds / first line and why it captured retention",
-    "retentionDrivers": "Visual pacing, structure, and value delivery that kept viewers watching",
-    "audienceInteractionTriggers": "Why users felt compelled to like, comment, or share",
-    "algorithmDistributionSignal": "How initial view-to-interaction ratio triggered organic browse distribution"
+    "hookEffectiveness": "Forensic breakdown of the opening 3 seconds / title premise and why it stopped the scroll",
+    "retentionDrivers": "Analysis of pacing, visual progression, and information density that sustained watch time",
+    "audienceInteractionTriggers": "Psychological trigger that motivated likes, comments, or shares",
+    "algorithmDistributionSignal": "Specific view-to-interaction and watch-time signals that instructed the platform feed to expand reach"
   }` : 'null'},
   "whyNotWorking": ${status !== 'working' ? `{
-    "dropoffDiagnosis": "Where and why viewers scrolled past or lost interest",
-    "hookFriction": "Why the title or first seconds failed to stop the scroll",
-    "valuePropositionGap": "What was missing in terms of clear payoff or emotional hook",
-    "formattingMismatch": "Pacing, caption length, visual contrast, or audio friction factors"
+    "dropoffDiagnosis": "Where and why viewer attention dropped off early in the asset",
+    "hookFriction": "Why the title, caption, or opening 3 seconds failed to create urgency or a clear curiosity gap",
+    "valuePropositionGap": "What payoff was missing or delayed, causing viewers to scroll away",
+    "formattingMismatch": "Pacing, formatting, text density, or audio factors that created friction on ${media.platform}"
   }` : 'null'},
   "metricBreakdown": {
-    "viewsAnalysis": "Contextual explanation of ${media.views.toLocaleString()} views relative to account",
-    "engagementHealth": "Breakdown of the ${media.engagementRate}% engagement rate and interaction balance",
-    "commentVelocity": "Analysis of ${media.comments} comments and whether conversation was triggered",
-    "shareabilityAnalysis": "Analysis of ${media.shares} saves/shares as an indicator of utility or resonance"
+    "viewsAnalysis": "Contextual analysis of ${media.views.toLocaleString()} views relative to account baseline",
+    "engagementHealth": "Deep dive into the ${media.engagementRate}% engagement rate and comment-to-like balance",
+    "commentVelocity": "Forensic evaluation of ${media.comments} comments and whether debate/discussion was unlocked",
+    "shareabilityAnalysis": "Evaluation of ${media.shares} shares/saves as a signal of high personal utility vs passive browsing"
   },
-  "suggestedHookAlternative": "A punchy, ready-to-test alternative opening hook for this exact topic (e.g. 'Most creators do X. Here is the 10-second fix...')",
-  "recommendedFormatAndTiming": "Concrete format (e.g. 35s Reel, 7-slide Carousel) and optimal publishing window",
+  "suggestedHookAlternative": "A punchy, ready-to-use alternative opening hook written specifically for this topic",
+  "recommendedFormatAndTiming": "Specific recommended format (e.g., 30s Reel with kinetic captions) and optimal publishing slot",
   "actionableChecklist": [
-    "Step 1 to test or replicate",
-    "Step 2 to test or replicate",
-    "Step 3 to test or replicate"
+    "Specific improvement 1 for this content topic",
+    "Specific improvement 2 for this content topic",
+    "Specific improvement 3 for this content topic"
   ]
 }`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
+  const res = await callGemini(
+    prompt,
+    'You are the chief social media algorithms investigator for Media Navigator. Your diagnoses are forensic, mathematically grounded, and deeply tailored to the exact post content.'
+  );
 
-      if (response.text) {
-        const parsed = JSON.parse(response.text);
-        return {
-          mediaId: media.id,
-          status,
-          statusBadge,
-          headline: parsed.headline || `${isWorking ? 'Strong Retention & Browse Momentum' : 'Pacing Bottlenecks & Hook Friction'}`,
-          executiveSummary: parsed.executiveSummary || `This ${media.contentType} generated ${media.views.toLocaleString()} verified views with ${media.likes} likes and ${media.comments} comments (${baselineComparison}).`,
-          baselineComparison,
-          whyWorking: parsed.whyWorking || (isWorking ? {
-            hookEffectiveness: `The opening premise of "${media.title.slice(0, 45)}" presented immediate relevance, front-loading curiosity within the initial scroll window.`,
-            retentionDrivers: `Format structure maintained audience focus with high information density, preventing early swipe-aways.`,
-            audienceInteractionTriggers: `Direct practical utility prompted ${media.likes} likes and ${media.comments} community responses.`,
-            algorithmDistributionSignal: `Strong initial retention velocity signaled positive engagement quality, pushing the asset into wider non-follower feeds.`
-          } : undefined),
-          whyNotWorking: parsed.whyNotWorking || (!isWorking ? {
-            dropoffDiagnosis: `Early viewer drop-off likely occurred in the opening 2-3 seconds before the core value proposition was established.`,
-            hookFriction: `The opening angle lacks an immediate curiosity gap or tension point, making it easy for fast-scrolling users to bypass.`,
-            valuePropositionGap: `The takeaway could be clearer and more concrete upfront rather than requiring viewers to stay till the end.`,
-            formattingMismatch: `Text density or pacing may not align with rapid mobile attention spans on ${media.platform}.`
-          } : undefined),
-          metricBreakdown: parsed.metricBreakdown || {
-            viewsAnalysis: `${media.views.toLocaleString()} verified views represents ${baselineComparison}.`,
-            engagementHealth: `${media.engagementRate}% engagement rate reflects ${media.likes} likes and ${media.comments} comments on ${media.platform}.`,
-            commentVelocity: `${media.comments} comments indicates ${media.comments > 10 ? 'healthy discussion' : 'an opportunity for stronger discussion prompts'}.`,
-            shareabilityAnalysis: `${media.shares} bookmarks/shares reflect save-for-later reference value.`
-          },
-          suggestedHookAlternative: parsed.suggestedHookAlternative || `Stop doing ${media.title.slice(0, 25)}. Here is what actually drives results:`,
-          recommendedFormatAndTiming: parsed.recommendedFormatAndTiming || `Test as a 30-40s concise video breakdown on Tuesday at 7:00 PM.`,
-          actionableChecklist: parsed.actionableChecklist || [
-            'Shorten the opening transition to deliver the first insight within 1.5 seconds',
-            'Add on-screen kinetic captions to capture sound-off viewers',
-            'Include a specific debate or question prompt in the closing line'
-          ],
-          source: 'Gemini 3.8 Flash',
-        };
-      }
+  if (res) {
+    try {
+      const parsed = JSON.parse(res.text);
+      return {
+        mediaId: media.id,
+        status,
+        statusBadge,
+        headline: parsed.headline || `${isWorking ? 'Strong Retention & Algorithmic Momentum' : 'Pacing Bottlenecks & Hook Friction'}`,
+        executiveSummary: parsed.executiveSummary || `This ${media.contentType} logged ${media.views.toLocaleString()} verified views with ${media.likes} likes and ${media.comments} comments (${baselineComparison}).`,
+        baselineComparison,
+        whyWorking: parsed.whyWorking || undefined,
+        whyNotWorking: parsed.whyNotWorking || undefined,
+        metricBreakdown: parsed.metricBreakdown || {
+          viewsAnalysis: `${media.views.toLocaleString()} verified views represents ${baselineComparison}.`,
+          engagementHealth: `${media.engagementRate}% engagement rate reflects ${media.likes} likes and ${media.comments} comments on ${media.platform}.`,
+          commentVelocity: `${media.comments} comments indicates ${media.comments > 5 ? 'active audience engagement' : 'an opportunity for stronger conversational hooks'}.`,
+          shareabilityAnalysis: `${media.shares} bookmarks/shares reflect high reference value.`,
+        },
+        suggestedHookAlternative: parsed.suggestedHookAlternative || `Stop making this mistake with ${media.title.slice(0, 30)}: Here is the 15-second fix`,
+        recommendedFormatAndTiming: parsed.recommendedFormatAndTiming || `Test as a sub-40 second Reel or Carousel during Tuesday 7:00 PM peak activity window.`,
+        actionableChecklist: parsed.actionableChecklist || [
+          'Deliver the primary premise in the first 1.5 seconds without introductory lag',
+          'Add bold on-screen kinetic captions for silent mobile viewers',
+          'Conclude with an explicit question prompt to ignite comment velocity',
+        ],
+        source: res.source,
+      };
     } catch (err) {
-      console.warn('Gemini deep diagnosis failed, falling back to heuristic engine:', err);
+      console.warn('Error parsing deep diagnose JSON from Gemini:', err);
     }
   }
 
-  // Heuristic engine fallback
+  // Dynamic context-aware heuristic fallback
   const isVideo = media.contentType === 'reel' || media.contentType === 'video' || media.contentType === 'short';
   return {
     mediaId: media.id,
     status,
     statusBadge,
     headline: isWorking 
-      ? `High algorithmic velocity driven by ${isVideo ? 'rapid video hook' : 'strong visual contrast'}`
+      ? `Strong algorithmic velocity driven by ${isVideo ? 'rapid video hook' : 'visual resonance'}`
       : `Pacing friction and low initial retention curtailed distribution`,
     executiveSummary: `Generated ${media.views.toLocaleString()} verified views with ${media.likes.toLocaleString()} likes and ${media.comments.toLocaleString()} comments on ${media.platform} (${baselineComparison}).`,
     baselineComparison,
@@ -379,27 +380,18 @@ export async function deepAnalyzeVideoAI(params: {
   caption?: string;
   durationSeconds?: number;
 }): Promise<VideoAnalysisResult> {
-  const ai = getAIClient();
-  if (ai) {
-    try {
-      const prompt = `You are the chief short-form video & Reel algorithms analyst for Media Navigator.
-Analyze this video asset:
+  const prompt = `Analyze this video asset for short-form retention:
 Platform: ${params.platform}
 Title: "${params.title}"
-Caption: "${params.caption || 'N/A'}"
-Views/Plays: ${params.views.toLocaleString()}
+Caption: "${params.caption || 'None'}"
+Views / Plays: ${params.views.toLocaleString()}
 Likes: ${params.likes.toLocaleString()}
 Comments: ${params.comments.toLocaleString()}
 Shares: ${params.shares.toLocaleString()}
 Engagement Rate: ${params.engagementRate}%
 
-Provide a forensic video analysis diagnosing:
-1. Hook strength (0-3 seconds retention)
-2. Audio & speech pacing
-3. Kinetic subtitles for sound-off viewers
-4. Viral replication formula
-
-Return JSON only in format:
+Provide a forensic short-form diagnostic evaluating hook retention, audio pacing, subtitle utility, and viral replication.
+Return JSON only:
 {
   "hookScore": 88,
   "hookQuality": "Exceptional",
@@ -411,19 +403,29 @@ Return JSON only in format:
   "soundOffOptimizationTip": "..."
 }`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-        },
-      });
+  const res = await callGemini(
+    prompt,
+    'You are the chief short-form video & Reel algorithms analyst for Media Navigator.'
+  );
 
-      if (response.text) {
-        return JSON.parse(response.text);
-      }
-    } catch (err) {
-      console.warn('Video AI analysis error, using fallback:', err);
+  if (res) {
+    try {
+      const parsed = JSON.parse(res.text);
+      return {
+        hookScore: typeof parsed.hookScore === 'number' ? parsed.hookScore : 82,
+        hookQuality: parsed.hookQuality || 'Above Average',
+        retentionDropoffPrediction: parsed.retentionDropoffPrediction || 'High initial retention curve with steady completion.',
+        audioPacingFeedback: parsed.audioPacingFeedback || 'Consistent cadence maintaining active viewer engagement.',
+        kineticTextRecommendations: parsed.kineticTextRecommendations || [
+          'High-contrast top-third subtitles for sound-off mobile browsing',
+          'Key term highlights in second 1-3 to lock visual attention',
+        ],
+        viralReplicationConcept: parsed.viralReplicationConcept || `Replicate "${params.title.slice(0, 30)}" using an identical opening curiosity hook.`,
+        testedAlternativeHook: parsed.testedAlternativeHook || `Stop doing this with ${params.title.slice(0, 25)}:`,
+        soundOffOptimizationTip: parsed.soundOffOptimizationTip || 'Over 65% of feed views occur without audio; ensure on-screen kinetic captions display the complete punchline.',
+      };
+    } catch (e) {
+      console.warn('Failed to parse video AI analysis JSON:', e);
     }
   }
 
@@ -433,8 +435,8 @@ Return JSON only in format:
     hookQuality: isHighEng ? 'Exceptional' : 'Above Average',
     retentionDropoffPrediction: isHighEng
       ? 'Strong opening hook maintained over 72% viewer retention past the critical 3-second scroll threshold.'
-      : 'Initial retention experienced standard dropoff between seconds 2 and 4 before core concept was delivered.',
-    audioPacingFeedback: 'Clear voiceover cadence with minimal pauses keeps mobile viewers actively engaged.',
+      : 'Initial retention experienced dropoff between seconds 2 and 4 before core concept was delivered.',
+    audioPacingFeedback: 'Clear cadence with minimal pauses keeps mobile viewers actively engaged.',
     kineticTextRecommendations: [
       'Bold top-third kinetic subtitles in yellow/white contrast for sound-off viewers',
       'Add micro-zoom transition at second 3 to re-engage visual attention',

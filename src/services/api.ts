@@ -545,18 +545,22 @@ ${topItemDesc}
     };
   },
 
-  diagnosePostAI: async (mediaId: string): Promise<PostAIDiagnosis> => {
+  diagnosePostAI: async (
+    mediaId: string,
+    mediaItem?: NormalizedMedia,
+    forcedStatus?: 'working' | 'underperforming' | 'average'
+  ): Promise<PostAIDiagnosis> => {
     const local = getLocalCache();
-    const item = local?.media.find((m) => m.id === mediaId);
+    const item = mediaItem || local?.media.find((m) => m.id === mediaId);
 
     try {
       const res = await fetchJson<PostAIDiagnosis>('/api/v1/intelligence/diagnose-post', {
         method: 'POST',
-        body: JSON.stringify({ mediaId, media: item }),
+        body: JSON.stringify({ mediaId, media: item, forcedStatus }),
       });
       if (res && res.executiveSummary) return res;
-    } catch {
-      //
+    } catch (err) {
+      console.warn('Backend diagnose-post call failed, checking fallback:', err);
     }
     const fallbackItem = item || {
       id: mediaId,
