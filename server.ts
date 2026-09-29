@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
 import { dataStore } from './backend/src/services/dataStore.js';
-import { askMediaNavigator, generateContentInsight, deepDiagnosePostAI } from './backend/src/services/geminiService.js';
+import { askMediaNavigator, generateContentInsight, deepDiagnosePostAI, deepAnalyzeVideoAI } from './backend/src/services/geminiService.js';
 
 dotenv.config();
 
@@ -170,7 +170,7 @@ app.get('/api/v1/intelligence/archive-audit', (req, res) => {
 // Ask Media Navigator (AI Q&A based on REAL data)
 app.post('/api/v1/intelligence/ask', async (req, res) => {
   try {
-    const { question } = req.body;
+    const { question, contextSummary: clientContext } = req.body;
     if (!question || typeof question !== 'string') {
       return errorResponse(res, 'Question is required', 'BAD_REQUEST', 400);
     }
@@ -178,20 +178,21 @@ app.post('/api/v1/intelligence/ask', async (req, res) => {
     const connected = dataStore.getConnections().filter(c => c.connected);
     const media = dataStore.getMedia();
 
-    let contextSummary = '';
-    if (connected.length === 0 || media.length === 0) {
-      contextSummary = 'No media accounts connected or no media posts found yet. Media Navigator has 0 connected channels and 0 analyzed assets.';
-    } else {
-      const archive = dataStore.getComprehensiveArchiveAnalysis();
-      const topItems = [...media].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 5);
-      const bottomItems = [...media].sort((a, b) => a.engagementRate - b.engagementRate).slice(0, 5);
+    let contextSummary = clientContext || '';
+    if (!contextSummary) {
+      if (connected.length === 0 || media.length === 0) {
+        contextSummary = 'No media accounts connected or no media posts found yet. Media Navigator has 0 connected channels and 0 analyzed assets.';
+      } else {
+        const archive = dataStore.getComprehensiveArchiveAnalysis();
+        const topItems = [...media].sort((a, b) => b.engagementRate - a.engagementRate).slice(0, 5);
+        const bottomItems = [...media].sort((a, b) => a.engagementRate - b.engagementRate).slice(0, 5);
 
-      const topItemDesc = topItems.map((t, idx) => `#${idx + 1}: "${t.title}" (${t.platform} ${t.contentType}, ${t.engagementRate}% eng, ${t.views} views, ${t.likes} likes, ${t.comments} comments)`).join('\n');
-      const bottomItemDesc = bottomItems.map((b, idx) => `#${idx + 1}: "${b.title}" (${b.platform} ${b.contentType}, ${b.engagementRate}% eng, ${b.views} views, ${b.likes} likes, ${b.comments} comments)`).join('\n');
+        const topItemDesc = topItems.map((t, idx) => `#${idx + 1}: "${t.title}" (${t.platform} ${t.contentType}, ${t.engagementRate}% eng, ${t.views} views, ${t.likes} likes, ${t.comments} comments)`).join('\n');
+        const bottomItemDesc = bottomItems.map((b, idx) => `#${idx + 1}: "${b.title}" (${b.platform} ${b.contentType}, ${b.engagementRate}% eng, ${b.views} views, ${b.likes} likes, ${b.comments} comments)`).join('\n');
 
-      const formatBreakdown = archive.formats.map(f => `${f.format.toUpperCase()}: ${f.count} items (${f.percentageOfLibrary}% of library), avg eng: ${f.avgEngagement}%, avg views: ${f.avgViews}, avg comments: ${f.avgComments}`).join('; ');
+        const formatBreakdown = archive.formats.map(f => `${f.format.toUpperCase()}: ${f.count} items (${f.percentageOfLibrary}% of library), avg eng: ${f.avgEngagement}%, avg views: ${f.avgViews}, avg comments: ${f.avgComments}`).join('; ');
 
-      contextSummary = `
+        contextSummary = `
 Connected Channels: ${connected.map(c => `${c.name} (@${c.accountHandle || c.name})`).join(', ')}
 Total Published Assets Analyzed (Complete Archive): ${archive.totalAnalyzed} (Reels: ${archive.totalReels}, Posts/Carousels: ${archive.totalPostsAndCarousels})
 Aggregate Verified Views: ${archive.totalVerifiedViews.toLocaleString()}
@@ -204,6 +205,7 @@ ${topItemDesc}
 Bottom 5 Performing Assets:
 ${bottomItemDesc}
 `;
+      }
     }
 
     const result = await askMediaNavigator(question, contextSummary);
@@ -216,8 +218,8 @@ ${bottomItemDesc}
 // Deep dive item analysis
 app.post('/api/v1/intelligence/analyze-item', async (req, res) => {
   try {
-    const { mediaId } = req.body;
-    const media = dataStore.getMediaById(mediaId);
+    const { mediaId, media: clientMedia } = req.body || {};
+    const media = dataStore.getMediaById(mediaId) || clientMedia;
     if (!media) {
       return errorResponse(res, 'Media not found', 'NOT_FOUND', 404);
     }
@@ -239,28 +241,42 @@ app.post('/api/v1/intelligence/analyze-item', async (req, res) => {
 // Deep AI Post Diagnosis (Why it worked / Why it didn't work)
 app.post('/api/v1/intelligence/diagnose-post', async (req, res) => {
   try {
-    const { mediaId } = req.body;
-    if (!mediaId) {
+    const { mediaId, media: clientMedia } = req.body || {};
+    if (!mediaId && !clientMedia) {
       return errorResponse(res, 'mediaId is required', 'BAD_REQUEST', 400);
     }
-    const media = dataStore.getMediaById(mediaId);
+    const media = dataStore.getMediaById(mediaId) || clientMedia;
     if (!media) {
       return errorResponse(res, 'Media not found', 'NOT_FOUND', 404);
     }
     const allMedia = dataStore.getMedia();
     const totalViews = allMedia.reduce((sum, m) => sum + (m.views || 0), 0);
-    const avgViews = allMedia.length > 0 ? Math.round(totalViews / allMedia.length) : media.views;
+    const avgViews = allMedia.length > 0 ? Math.round(totalViews / allMedia.length) : (media.views || 100);
     const totalEng = allMedia.reduce((sum, m) => sum + (m.engagementRate || 0), 0);
-    const avgEngagement = allMedia.length > 0 ? totalEng / allMedia.length : media.engagementRate;
+    const avgEngagement = allMedia.length > 0 ? totalEng / allMedia.length : (media.engagementRate || 3.5);
 
     const diagnosis = await deepDiagnosePostAI(media, {
       avgViews,
       avgEngagement,
-      totalAnalyzed: allMedia.length,
+      totalAnalyzed: allMedia.length || 1,
     });
     jsonResponse(res, diagnosis);
   } catch (err: any) {
     errorResponse(res, err.message || 'Failed to diagnose media post');
+  }
+});
+
+// Video & Reel AI Diagnostic Engine
+app.post('/api/v1/intelligence/analyze-video', async (req, res) => {
+  try {
+    const params = req.body || {};
+    if (!params.title) {
+      return errorResponse(res, 'Video title is required', 'BAD_REQUEST', 400);
+    }
+    const analysis = await deepAnalyzeVideoAI(params);
+    jsonResponse(res, analysis);
+  } catch (err: any) {
+    errorResponse(res, err.message || 'Failed to analyze video with AI');
   }
 });
 
