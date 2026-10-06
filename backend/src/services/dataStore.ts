@@ -50,7 +50,16 @@ export class DataStore {
         alerts: this.alerts,
         credentials: Array.from(this.credentialsVault.entries()),
       };
-      fs.writeFileSync(this.cacheFilePath, JSON.stringify(data), 'utf8');
+      const jsonStr = JSON.stringify(data, null, 2);
+      fs.writeFileSync(this.cacheFilePath, jsonStr, 'utf8');
+      try {
+        const seedPath = path.join(process.cwd(), 'backend', 'data', 'datastore_seed.json');
+        if (fs.existsSync(path.dirname(seedPath))) {
+          fs.writeFileSync(seedPath, jsonStr, 'utf8');
+        }
+      } catch {
+        // Read-only filesystem in Vercel serverless environment
+      }
     } catch {
       // Ignore disk write errors in restricted environments
     }
@@ -58,8 +67,23 @@ export class DataStore {
 
   private loadFromFile(): void {
     try {
-      if (!this.cacheFilePath || !fs.existsSync(this.cacheFilePath)) return;
-      const raw = fs.readFileSync(this.cacheFilePath, 'utf8');
+      let raw: string | null = null;
+      if (this.cacheFilePath && fs.existsSync(this.cacheFilePath)) {
+        raw = fs.readFileSync(this.cacheFilePath, 'utf8');
+      }
+      if (!raw) {
+        // Fall back to bundled project seed file (essential for Vercel Serverless deployments)
+        const possibleSeedPaths = [
+          path.join(process.cwd(), 'backend', 'data', 'datastore_seed.json'),
+          path.join(process.cwd(), 'data', 'datastore_seed.json'),
+        ];
+        for (const p of possibleSeedPaths) {
+          if (fs.existsSync(p)) {
+            raw = fs.readFileSync(p, 'utf8');
+            break;
+          }
+        }
+      }
       if (!raw) return;
       const data = JSON.parse(raw);
       if (data && Array.isArray(data.connections)) {

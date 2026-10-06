@@ -13,10 +13,37 @@ app.use(express.json());
 
 // CORS & Path Normalization (Ensures seamless routing on Vercel and reverse proxies)
 app.use((req, res, next) => {
-  // If Vercel or a reverse proxy forwards without /api prefix
+  // 1. Recover path from Vercel matched path or original URL headers if stripped by rewrite
+  const matchedPath = (req.headers['x-matched-path'] || req.headers['x-vercel-matched-path'] || req.headers['x-forwarded-url']) as string | undefined;
+  if (matchedPath && (matchedPath.startsWith('/api/v1') || matchedPath.startsWith('/v1')) && !req.url.startsWith('/api/v1') && !req.url.startsWith('/v1')) {
+    req.url = matchedPath.startsWith('/v1') ? '/api' + matchedPath : matchedPath;
+  }
+
+  // 2. Recover path from Vercel query parameter (e.g. rewrite ?path=$1 or ?__path=$1)
+  if (req.query && (req.query.path || req.query.__path)) {
+    const rawPath = req.query.path || req.query.__path;
+    const p = Array.isArray(rawPath) ? rawPath.join('/') : String(rawPath);
+    if (p && !req.url.includes(p)) {
+      req.url = '/api/' + p.replace(/^\//, '');
+    }
+  }
+
+  // 3. Normalize url: if it starts with /v1/, prefix with /api
   if (req.url.startsWith('/v1/')) {
     req.url = '/api' + req.url;
   }
+
+  // 4. Root API status & health check endpoint
+  if (req.url === '/api' || req.url === '/api/' || req.url === '/api/health') {
+    return res.status(200).json({
+      success: true,
+      status: 'ok',
+      service: 'Media Navigator Live API',
+      version: '1.0.0',
+      connectedPlatforms: dataStore.getConnections().filter(c => c.connected).map(c => c.platform)
+    });
+  }
+
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
