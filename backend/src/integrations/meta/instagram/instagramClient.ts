@@ -221,7 +221,12 @@ export class InstagramClient extends MetaClient {
   /**
    * Fetches real media and real insights from Instagram Graph API across ALL pages
    */
-  async fetchMedia(accessToken: string, instagramAccountId: string, accountInfo?: InstagramAccountInfo): Promise<NormalizedMedia[]> {
+  async fetchMedia(
+    accessToken: string, 
+    instagramAccountId: string, 
+    accountInfo?: InstagramAccountInfo,
+    existingMediaMap?: Map<string, NormalizedMedia>
+  ): Promise<NormalizedMedia[]> {
     let rawItems: any[] = [];
     const fields = 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}';
 
@@ -367,9 +372,10 @@ export class InstagramClient extends MetaClient {
     });
 
     /**
-     * Resilient insights retriever with multiple fallback groups
-     * Handles Meta API changes across v20.0, v21.0, v22.0 (views vs plays vs impressions)
+     * Resilient insights retriever with fast permission-detection
      */
+    let insightsSupported = true;
+
     const fetchItemInsights = async (itemId: string, isVideoOrReel: boolean): Promise<{
       views: number;
       reach: number;
@@ -385,38 +391,32 @@ export class InstagramClient extends MetaClient {
       let shares = 0;
       let hasRealInsights = false;
 
-      // Metric combinations in order of version compatibility
+      if (!insightsSupported) {
+        return { views, reach, impressions, saved, shares, hasRealInsights };
+      }
+
+      // Best 2 metric combinations to keep API calls minimal and rapid
       const metricGroups = isVideoOrReel
-        ? [
-            'views,reach,saved,shares',
-            'plays,reach,saved,shares',
-            'views,reach',
-            'plays,reach',
-            'reach,saved',
-            'views',
-            'plays',
-            'reach',
-          ]
-        : [
-            'views,reach,saved,shares',
-            'impressions,reach,saved,shares',
-            'impressions,reach,saved',
-            'reach,saved',
-            'views',
-            'impressions',
-            'reach',
-          ];
+        ? ['views,reach,saved,shares', 'reach,saved']
+        : ['impressions,reach,saved,shares', 'reach,saved'];
 
       for (const metrics of metricGroups) {
+        if (!insightsSupported) break;
         try {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 2000);
+          const timeout = setTimeout(() => controller.abort(), 1800);
 
           let res = await fetch(
             `https://graph.facebook.com/v21.0/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
             { signal: controller.signal }
           );
           if (!res.ok) {
+            const errData = await res.json().catch(() => null);
+            if (errData?.error?.code === 10 || errData?.error?.message?.includes('permission')) {
+              insightsSupported = false;
+              clearTimeout(timeout);
+              break;
+            }
             res = await fetch(
               `https://graph.instagram.com/v21.0/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
               { signal: controller.signal }
@@ -426,6 +426,10 @@ export class InstagramClient extends MetaClient {
 
           if (res.ok) {
             const data = await res.json();
+            if (data?.error?.code === 10) {
+              insightsSupported = false;
+              break;
+            }
             if (data.data && Array.isArray(data.data) && data.data.length > 0) {
               for (const m of data.data) {
                 // Support both new lifetime 'total_value.value' and legacy 'values[0].value'
@@ -459,7 +463,6 @@ export class InstagramClient extends MetaClient {
                   hasRealInsights = true;
                 }
               }
-              // If we obtained real insights with at least reach or views, no need to query further groups
               if (views > 0 || reach > 0) {
                 break;
               }
@@ -492,12 +495,19 @@ export class InstagramClient extends MetaClient {
             childMedia?.media_url || 
             'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=600&q=80';
 
-          // Retrieve live verified insights
-          const insights = await fetchItemInsights(item.id, isReel);
+          // Check if we already have verified insights in existingMediaMap
+          const existing = existingMediaMap?.get(item.id) || existingMediaMap?.get(`ig_${item.id}`);
+          let views = (existing && existing.views > 0) ? existing.views : 0;
+          let reach = (existing && existing.reach > 0) ? existing.reach : 0;
+          let shares = (existing && existing.shares > 0) ? existing.shares : 0;
 
-          let views = insights.views;
-          let reach = insights.reach;
-          let shares = insights.shares || insights.saved;
+          if (views === 0) {
+            // Retrieve live verified insights for new or unmeasured item
+            const insights = await fetchItemInsights(item.id, isReel);
+            views = insights.views;
+            reach = insights.reach;
+            shares = insights.shares || insights.saved;
+          }
 
           // If views was not directly provided by insights but reach was, use reach
           if (views === 0 && reach > 0) {
@@ -582,7 +592,7 @@ export class InstagramClient extends MetaClient {
     };
 
     const normalizedList: NormalizedMedia[] = [];
-    const BATCH_SIZE = 10;
+    const BATCH_SIZE = 25;
     for (let i = 0; i < uniqueRawItems.length; i += BATCH_SIZE) {
       const batch = uniqueRawItems.slice(i, i + BATCH_SIZE);
       const batchResults = await processBatch(batch);

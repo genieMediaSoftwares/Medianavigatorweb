@@ -75,12 +75,13 @@ app.post('/api/v1/connections/:platform/connect', async (req, res) => {
   }
 });
 
-// Sync platform using saved credentials
+// Sync platform using saved or provided credentials
 app.post('/api/v1/connections/:platform/sync', async (req, res) => {
   const { platform } = req.params;
+  const clientCreds = req.body || {};
 
   try {
-    const result = await dataStore.syncPlatform(platform as any);
+    const result = await dataStore.syncPlatform(platform as any, clientCreds);
     if (!result.success) {
       return errorResponse(res, result.message, 'SYNC_FAILED', 400);
     }
@@ -91,6 +92,32 @@ app.post('/api/v1/connections/:platform/sync', async (req, res) => {
     }, result.message);
   } catch (err: any) {
     errorResponse(res, err.message || `Failed to sync ${platform}`, 'SYNC_ERROR', 500);
+  }
+});
+
+// Sync all connected platforms
+app.post('/api/v1/connections/sync-all', async (req, res) => {
+  try {
+    const connections = dataStore.getConnections().filter(c => c.connected);
+    let totalSynced = 0;
+    for (const c of connections) {
+      try {
+        const resSync = await dataStore.syncPlatform(c.platform as any);
+        if (resSync.success) {
+          totalSynced += (resSync as any).mediaCount || (resSync as any).media?.length || 0;
+        }
+      } catch (e) {
+        console.warn(`[Sync All] Failed to sync ${c.platform}:`, e);
+      }
+    }
+    const currentMedia = dataStore.getMedia();
+    jsonResponse(res, {
+      connections: dataStore.getConnections(),
+      media: currentMedia,
+      mediaCount: currentMedia.length,
+    }, `Successfully synchronized ${currentMedia.length} verified media assets.`);
+  } catch (err: any) {
+    errorResponse(res, err.message || 'Failed to sync all channels', 'SYNC_ALL_ERROR', 500);
   }
 });
 

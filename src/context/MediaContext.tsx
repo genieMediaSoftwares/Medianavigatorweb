@@ -24,11 +24,12 @@ export interface NotificationItem {
 
 export interface SyncState {
   isOpen: boolean;
-  platform?: PlatformType;
+  platform?: PlatformType | 'all';
   step: number;
   isSyncing: boolean;
   isCompleted: boolean;
   accountName?: string;
+  syncedCount?: number;
   errorMessage?: string;
 }
 
@@ -72,7 +73,7 @@ interface MediaContextType {
 
   // Modals & Flows
   syncState: SyncState;
-  startSyncFlow: (platform: PlatformType, accountName?: string) => void;
+  startSyncFlow: (platform?: PlatformType | 'all', accountName?: string) => Promise<void>;
   closeSyncFlow: () => void;
   onboardingPlatform: PlatformType | null;
   setOnboardingPlatform: (p: PlatformType | null) => void;
@@ -279,46 +280,79 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   // Live Synchronizing Flow
-  const startSyncFlow = (platform: PlatformType, accountName?: string) => {
+  const startSyncFlow = async (platform: PlatformType | 'all' = 'all', accountName?: string) => {
     setSyncState({
       isOpen: true,
       platform,
       step: 1,
       isSyncing: true,
       isCompleted: false,
-      accountName: accountName || `${platform}_creator`,
+      accountName: accountName || (platform === 'all' ? 'All Channels' : `${platform}_account`),
+      syncedCount: 0,
     });
 
-    // Run realistic 7-step sequence matching Screen 09 specifications
-    const stepIntervals = [600, 700, 800, 900, 750, 700, 600];
-    let currentStepIndex = 1;
+    try {
+      // Step 1: Connecting
+      await new Promise(r => setTimeout(r, 350));
+      setSyncState(prev => ({ ...prev, step: 2 }));
 
-    const advanceStep = () => {
-      if (currentStepIndex < 7) {
-        currentStepIndex++;
-        setSyncState(prev => ({
-          ...prev,
-          step: currentStepIndex,
-        }));
-        setTimeout(advanceStep, stepIntervals[currentStepIndex - 1]);
+      // Step 2: Ingesting Profile
+      await new Promise(r => setTimeout(r, 400));
+      setSyncState(prev => ({ ...prev, step: 3 }));
+
+      // Step 3: Fetching Media from API
+      await new Promise(r => setTimeout(r, 450));
+      setSyncState(prev => ({ ...prev, step: 4 }));
+
+      // Step 4: Live Ingestion API call
+      let realCount = 0;
+      if (platform === 'all') {
+        const syncRes = await api.syncAllConnections();
+        realCount = syncRes.mediaCount || syncRes.media?.length || 0;
       } else {
-        setSyncState(prev => ({
-          ...prev,
-          step: 7,
-          isSyncing: false,
-          isCompleted: true,
-        }));
-        refreshConnections();
-        addNotification({
-          type: 'sync_completed',
-          title: `${platform.toUpperCase()} Ingestion Finished`,
-          message: `Successfully indexed content and verified real reach metrics for @${accountName || platform}.`,
-          targetTab: 'overview',
-        });
+        const syncRes = await api.syncConnection(platform);
+        realCount = (syncRes as any).mediaCount || (syncRes as any).dataPointsCount || (syncRes as any).media?.length || 0;
       }
-    };
 
-    setTimeout(advanceStep, stepIntervals[0]);
+      // Step 5: Processing
+      setSyncState(prev => ({ ...prev, step: 5, syncedCount: realCount }));
+      await new Promise(r => setTimeout(r, 400));
+
+      // Step 6: Computing AI Baselines
+      setSyncState(prev => ({ ...prev, step: 6 }));
+      await new Promise(r => setTimeout(r, 400));
+
+      // Step 7: Completed
+      setSyncState(prev => ({
+        ...prev,
+        step: 7,
+        isSyncing: false,
+        isCompleted: true,
+        syncedCount: realCount,
+      }));
+
+      await refreshConnections();
+
+      // Trigger a window event so any open views (Overview, Content, Intelligence) immediately re-fetch
+      window.dispatchEvent(new CustomEvent('media-synced', { detail: { platform, count: realCount } }));
+
+      addNotification({
+        type: 'sync_completed',
+        title: `${platform.toUpperCase()} Ingestion Complete`,
+        message: `Successfully synchronized ${realCount} verified posts and live audience metrics.`,
+        targetTab: 'content',
+      });
+    } catch (err: any) {
+      console.error('Sync flow error:', err);
+      setSyncState(prev => ({
+        ...prev,
+        step: 7,
+        isSyncing: false,
+        isCompleted: true,
+        errorMessage: err.message || 'Sync encountered an issue.',
+      }));
+      await refreshConnections();
+    }
   };
 
   const closeSyncFlow = () => {

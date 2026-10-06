@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   CheckCircle2, 
   RotateCw, 
@@ -36,13 +36,15 @@ export const Connections: React.FC = () => {
 
   const handleSync = async (platform: PlatformType, handle: string) => {
     startSyncFlow(platform, handle);
-    try {
-      await api.syncConnection(platform);
-      await refreshConnections();
-    } catch (err: any) {
-      console.error(err);
-    }
   };
+
+  useEffect(() => {
+    const handleEvent = () => {
+      refreshConnections();
+    };
+    window.addEventListener('media-synced', handleEvent);
+    return () => window.removeEventListener('media-synced', handleEvent);
+  }, [refreshConnections]);
 
   const handleDisconnect = async (platform: string) => {
     if (!confirm(`Are you sure you want to disconnect ${platform}? All synchronized data will be cleared.`)) {
@@ -296,7 +298,7 @@ export const Connections: React.FC = () => {
           <span>Strict OAuth 2.0 Read-Only Architecture</span>
         </div>
         <p className="text-xs text-[#64748B] leading-relaxed">
-          Media Navigator integrates directly via Meta Graph API v20.0, YouTube Data API v3 & YouTube Analytics API, and LinkedIn REST APIs. We strictly request read-only permissions. Media Navigator will never post, edit, or delete content from your accounts.
+          Media Navigator integrates directly via official platform APIs. We strictly request read-only permissions. Media Navigator will never post, edit, or delete content from your accounts.
         </p>
       </div>
 

@@ -224,7 +224,7 @@ export const ContentDetailModal: React.FC<ContentDetailModalProps> = ({ media, o
                     className="flex-1 py-2 px-3 rounded-xl text-xs font-semibold bg-[#0B132B] hover:bg-[#1C2541] text-white transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
                   >
                     <Bot className="w-3.5 h-3.5 text-[#06B6D4]" />
-                    <span>{isAnalyzing ? 'Evaluating via Gemini AI...' : 'Quick AI Insight'}</span>
+                    <span>{isAnalyzing ? 'Evaluating Content AI...' : 'Quick AI Insight'}</span>
                   </button>
 
                   <button

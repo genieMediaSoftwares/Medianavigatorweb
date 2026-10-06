@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   ArrowRight, 
   RotateCw,
@@ -14,13 +14,15 @@ import {
   MessageSquare,
   ExternalLink,
   ShieldCheck,
-  TrendingUp
+  TrendingUp,
+  AlertTriangle,
+  Film
 } from 'lucide-react';
 import { useMedia } from '../context/MediaContext';
 import { api } from '../services/api';
 import { NormalizedMedia } from '../types';
 import { ContentDetailModal } from '../components/modals/ContentDetailModal';
-import { PostAIDiagnosisModal } from '../components/modals/PostAIDiagnosisModal';
+import { PostAIDiagnosisModal, DiagnosisTab } from '../components/modals/PostAIDiagnosisModal';
 import { EmptyState } from '../components/common/EmptyState';
 
 type SortCriteria = 'views' | 'likes' | 'comments' | 'engagement' | 'date';
@@ -30,26 +32,51 @@ export const ContentIntelligence: React.FC = () => {
   const [mediaList, setMediaList] = useState<NormalizedMedia[]>([]);
   const [selectedItem, setSelectedItem] = useState<NormalizedMedia | null>(null);
   const [aiDiagnoseMedia, setAiDiagnoseMedia] = useState<NormalizedMedia | null>(null);
+  const [aiDiagnoseStatus, setAiDiagnoseStatus] = useState<'working' | 'underperforming' | 'average' | undefined>(undefined);
+  const [aiDiagnoseTab, setAiDiagnoseTab] = useState<DiagnosisTab>('working');
+  const [performerIds, setPerformerIds] = useState<{ topIds: Set<string>; bottomIds: Set<string> }>({
+    topIds: new Set(),
+    bottomIds: new Set()
+  });
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortCriteria>('views');
 
-  useEffect(() => {
-    let mounted = true;
+  const loadMediaData = useCallback(() => {
     setLoading(true);
     api.getMedia(selectedPlatform)
       .then((data) => {
-        if (mounted) {
-          setMediaList(data);
-          setLoading(false);
-        }
+        setMediaList(data);
+        setLoading(false);
       })
       .catch((err) => {
         console.error('Failed to load media:', err);
-        if (mounted) setLoading(false);
+        setLoading(false);
       });
-    return () => { mounted = false; };
-  }, [selectedPlatform, connections]);
+
+    api.getPerformers()
+      .then((res) => {
+        if (res) {
+          setPerformerIds({
+            topIds: new Set((res.top || []).map(p => p.id)),
+            bottomIds: new Set((res.bottom || []).map(p => p.id))
+          });
+        }
+      })
+      .catch(() => {});
+  }, [selectedPlatform]);
+
+  useEffect(() => {
+    loadMediaData();
+  }, [loadMediaData, connections]);
+
+  useEffect(() => {
+    const handleSync = () => {
+      loadMediaData();
+    };
+    window.addEventListener('media-synced', handleSync);
+    return () => window.removeEventListener('media-synced', handleSync);
+  }, [loadMediaData]);
 
   const hasConnectedPlatforms = connections.some((c) => c.connected);
 
@@ -92,6 +119,23 @@ export const ContentIntelligence: React.FC = () => {
   const totalArchiveViews = useMemo(() => {
     return mediaList.reduce((acc, curr) => acc + (curr.views || 0), 0);
   }, [mediaList]);
+
+  const avgViews = useMemo(() => {
+    return mediaList.length > 0 ? totalArchiveViews / mediaList.length : 0;
+  }, [mediaList, totalArchiveViews]);
+
+  const handleOpenDiagnosis = (
+    item: NormalizedMedia,
+    status?: 'working' | 'underperforming' | 'average',
+    tab?: DiagnosisTab
+  ) => {
+    setAiDiagnoseMedia(item);
+    setAiDiagnoseStatus(status);
+    setAiDiagnoseTab(tab || (status === 'underperforming' ? 'not_working' : 'working'));
+  };
+
+  const activeConn = connections.find((c) => selectedPlatform === 'all' ? (c.connected && c.dataPointsCount > 0) : c.platform === selectedPlatform);
+  const activeAccountHandle = activeConn?.connected && activeConn.accountHandle && activeConn.accountHandle !== 'Not connected' ? activeConn.accountHandle : null;
 
   return (
     <div id="content-intelligence-page" className="space-y-6 max-w-6xl mx-auto font-sans">
@@ -136,6 +180,9 @@ export const ContentIntelligence: React.FC = () => {
               }`}
             >
               <span>{c.name}</span>
+              {c.connected && c.accountHandle && c.accountHandle !== 'Not connected' && (
+                <span className="text-[10px] opacity-75">({c.accountHandle})</span>
+              )}
               {c.connected && (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               )}
@@ -247,7 +294,7 @@ export const ContentIntelligence: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between text-xs text-[#64748B] px-1">
             <span>
-              Showing <strong>{filteredAndSortedMedia.length}</strong> posts · Total aggregate views:{' '}
+              Showing <strong>{filteredAndSortedMedia.length}</strong> posts {activeAccountHandle ? <>from <strong>{activeAccountHandle}</strong></> : null} · Total aggregate views:{' '}
               <strong className="text-[#0B132B]">{totalArchiveViews.toLocaleString()}</strong>
             </span>
             <span className="text-[11px] text-emerald-700 flex items-center gap-1 font-semibold">
@@ -257,6 +304,10 @@ export const ContentIntelligence: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {filteredAndSortedMedia.map((item) => {
+              const isTop = performerIds.topIds.has(item.id) || (avgViews > 0 && item.views >= avgViews * 1.25);
+              const isBottom = !isTop && (performerIds.bottomIds.has(item.id) || (avgViews > 0 && item.views < avgViews * 0.75));
+              const isVideo = item.contentType === 'reel' || item.contentType === 'video' || item.contentType === 'short';
+
               return (
                 <div
                   key={item.id}
@@ -279,8 +330,20 @@ export const ContentIntelligence: React.FC = () => {
                       />
                       
                       {/* Top Badges */}
-                      <div className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-md bg-[#0B132B]/80 text-white text-[10px] font-bold uppercase tracking-wider backdrop-blur-xs">
-                        {item.contentType}
+                      <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                        <div className="px-2 py-0.5 rounded-md bg-[#0B132B]/80 text-white text-[10px] font-bold uppercase tracking-wider backdrop-blur-xs">
+                          {item.contentType}
+                        </div>
+                        {isTop && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-600/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-xs backdrop-blur-xs flex items-center gap-1">
+                            <TrendingUp className="w-2.5 h-2.5" /> Top
+                          </span>
+                        )}
+                        {isBottom && (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-600/90 text-white text-[10px] font-bold uppercase tracking-wider shadow-xs backdrop-blur-xs flex items-center gap-1">
+                            <AlertTriangle className="w-2.5 h-2.5" /> Improve
+                          </span>
+                        )}
                       </div>
 
                       <div className="absolute top-2.5 right-2.5 px-2 py-0.5 rounded-md bg-white/90 text-[10px] font-bold text-[#0B132B] uppercase tracking-wider shadow-xs backdrop-blur-xs">
@@ -341,23 +404,69 @@ export const ContentIntelligence: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* View Deep Dive Action */}
+                  {/* Actions Under Cell */}
                   <div className="px-4 pb-4 pt-1 space-y-2">
-                    <button
-                      id={`ai-diagnose-${item.id}`}
-                      onClick={() => setAiDiagnoseMedia(item)}
-                      className="w-full py-2 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#0284C7] via-[#0ea5e9] to-[#06B6D4] hover:from-[#0369a1] hover:to-[#0891b2] transition-all flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs group/btn cursor-pointer"
-                      title="Post Analysis: Deep retention breakdown"
-                    >
-                      <Sparkles className="w-3.5 h-3.5 text-sky-100 group-hover/btn:rotate-12 transition-transform" />
-                      <span>Post Analysis</span>
-                    </button>
+                    {isTop ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          id={`why-in-top-${item.id}`}
+                          onClick={() => handleOpenDiagnosis(item, 'working', 'working')}
+                          className="flex-1 min-w-[110px] py-2 px-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 transition-all flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer"
+                          title="Why It's in Top: 5-8 short bullet points highlighting what clicked"
+                        >
+                          <TrendingUp className="w-3.5 h-3.5 text-emerald-100" />
+                          <span>Why It's in Top</span>
+                        </button>
+
+                        <button
+                          id={`deep-analysis-top-${item.id}`}
+                          onClick={() => handleOpenDiagnosis(item, 'working', 'video')}
+                          className="flex-1 min-w-[110px] py-2 px-2.5 rounded-xl text-xs font-bold text-[#0B132B] bg-slate-100 hover:bg-slate-200 border border-[#CBD5E1] transition-all flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer"
+                          title="Deep Analysis: Second-by-second retention curve & hook breakdown"
+                        >
+                          <Film className="w-3.5 h-3.5 text-[#0284C7]" />
+                          <span>{isVideo ? 'Deep Video Analysis' : 'Deep Analysis'}</span>
+                        </button>
+                      </div>
+                    ) : isBottom ? (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          id={`what-to-improve-${item.id}`}
+                          onClick={() => handleOpenDiagnosis(item, 'underperforming', 'not_working')}
+                          className="flex-1 min-w-[110px] py-2 px-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 transition-all flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer"
+                          title="What to Improve: 5-8 short bullet points highlighting friction & fixes"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-100" />
+                          <span>What to Improve</span>
+                        </button>
+
+                        <button
+                          id={`deep-analysis-bottom-${item.id}`}
+                          onClick={() => handleOpenDiagnosis(item, 'underperforming', 'video')}
+                          className="flex-1 min-w-[110px] py-2 px-2.5 rounded-xl text-xs font-bold text-[#0B132B] bg-slate-100 hover:bg-slate-200 border border-[#CBD5E1] transition-all flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs cursor-pointer"
+                          title="Deep Analysis: Second-by-second retention curve & hook remedies"
+                        >
+                          <Film className="w-3.5 h-3.5 text-rose-600" />
+                          <span>{isVideo ? 'Deep Video Analysis' : 'Deep Analysis'}</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        id={`post-analysis-${item.id}`}
+                        onClick={() => handleOpenDiagnosis(item, 'average', 'working')}
+                        className="w-full py-2 px-3 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#0284C7] via-[#0ea5e9] to-[#06B6D4] hover:from-[#0369a1] hover:to-[#0891b2] transition-all flex items-center justify-center gap-1.5 shadow-2xs hover:shadow-xs group/btn cursor-pointer"
+                        title="Post Analysis: Complete algorithmic audit"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-sky-100 group-hover/btn:rotate-12 transition-transform" />
+                        <span>Post Analysis</span>
+                      </button>
+                    )}
 
                     <div className="flex items-center gap-2">
                       <button
                         id={`view-insight-${item.id}`}
                         onClick={() => setSelectedItem(item)}
-                        className="flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-semibold text-[#64748B] hover:text-[#0B132B] hover:bg-slate-100 border border-[#E2E8F0] transition-all flex items-center justify-center gap-1"
+                        className="flex-1 py-1.5 px-2.5 rounded-lg text-[11px] font-semibold text-[#64748B] hover:text-[#0B132B] hover:bg-slate-100 border border-[#E2E8F0] transition-all flex items-center justify-center gap-1 cursor-pointer"
                       >
                         <span>Metrics &amp; Details</span>
                         <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
@@ -392,6 +501,8 @@ export const ContentIntelligence: React.FC = () => {
       {/* Deep AI Post Diagnosis Modal */}
       <PostAIDiagnosisModal
         media={aiDiagnoseMedia}
+        forcedStatus={aiDiagnoseStatus}
+        initialTab={aiDiagnoseTab}
         onClose={() => setAiDiagnoseMedia(null)}
       />
     </div>

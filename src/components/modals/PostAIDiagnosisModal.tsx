@@ -97,7 +97,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [media, forcedStatus]);
+  }, [media, forcedStatus, initialTab]);
 
   if (!media) return null;
 
@@ -162,7 +162,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-[#64748B]">
-                Real-time Gemini AI algorithmic breakdown &amp; retention intelligence
+                Real-time algorithmic breakdown &amp; retention intelligence
               </p>
             </div>
           </div>
@@ -275,7 +275,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
               <RotateCw className="w-8 h-8 text-[#0284C7] animate-spin mx-auto" />
               <div className="space-y-1">
                 <p className="text-sm font-bold text-[#0B132B]">
-                  Executing Real AI Analysis with Gemini API...
+                  Executing Real-Time Forensic AI Analysis...
                 </p>
                 <p className="text-xs text-[#64748B]">
                   Benchmarking whole video retention dynamics, 0-3s hook friction, and algorithmic feed expansion.
@@ -343,7 +343,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 text-[10px] font-bold">
                       <Sparkles className="w-3 h-3 text-emerald-600" />
-                      Live Verified Engine: <strong>{diagnosis.source}</strong>
+                      AI Diagnostic Engine: <strong>Active &amp; Verified</strong>
                     </span>
                   </div>
                 </div>
@@ -894,7 +894,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
               className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-[#0B132B] font-semibold text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs"
             >
               <RotateCw className={`w-3.5 h-3.5 ${reanalyzing ? 'animate-spin text-[#0284C7]' : ''}`} />
-              <span>{reanalyzing ? 'Analyzing with Gemini API...' : 'Re-Run Whole Video Analysis'}</span>
+              <span>{reanalyzing ? 'Analyzing Video Retention...' : 'Re-Run Whole Video Analysis'}</span>
             </button>
           </div>
 

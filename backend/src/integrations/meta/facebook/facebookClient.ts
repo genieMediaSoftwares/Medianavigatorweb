@@ -8,6 +8,7 @@ export interface FacebookPageInfo {
   followersCount?: number;
   pictureUrl?: string;
   category?: string;
+  pageAccessToken?: string;
 }
 
 export class FacebookClient extends MetaClient {
@@ -15,10 +16,40 @@ export class FacebookClient extends MetaClient {
    * Resolves target Facebook Page
    */
   async resolvePage(accessToken: string, providedPageId?: string): Promise<FacebookPageInfo> {
+    // Check /me/accounts for Page Access Tokens and page list
+    try {
+      const accountsData = await this.get<any>('me/accounts', accessToken, {
+        fields: 'id,name,fan_count,followers_count,picture,category,access_token',
+      });
+
+      if (accountsData.data && accountsData.data.length > 0) {
+        let targetPage = accountsData.data[0];
+        if (providedPageId && providedPageId.trim().length > 0) {
+          const clean = providedPageId.trim();
+          const match = accountsData.data.find(
+            (p: any) => p.id === clean || p.name?.toLowerCase() === clean.toLowerCase()
+          );
+          if (match) targetPage = match;
+        }
+
+        return {
+          id: targetPage.id,
+          name: targetPage.name,
+          fanCount: targetPage.fan_count,
+          followersCount: targetPage.followers_count,
+          pictureUrl: targetPage.picture?.data?.url,
+          category: targetPage.category,
+          pageAccessToken: targetPage.access_token || accessToken,
+        };
+      }
+    } catch {
+      // Fall through to direct page lookup
+    }
+
     if (providedPageId && providedPageId.trim().length > 0) {
       try {
         const page = await this.get<any>(providedPageId, accessToken, {
-          fields: 'id,name,fan_count,followers_count,picture,category',
+          fields: 'id,name,fan_count,followers_count,picture,category,access_token',
         });
         return {
           id: page.id,
@@ -27,48 +58,33 @@ export class FacebookClient extends MetaClient {
           followersCount: page.followers_count,
           pictureUrl: page.picture?.data?.url,
           category: page.category,
+          pageAccessToken: page.access_token || accessToken,
         };
       } catch (err: any) {
         throw new Error(`Failed to resolve Facebook Page ${providedPageId}: ${err.message}`);
       }
     }
 
-    // Auto-discover through /me/accounts
-    const accountsData = await this.get<any>('me/accounts', accessToken, {
-      fields: 'id,name,fan_count,followers_count,picture,category,access_token',
-    });
-
-    if (!accountsData.data || accountsData.data.length === 0) {
-      throw new Error('No managed Facebook Pages found for this user account. Ensure you have administrator or analyst access to at least one Facebook Page.');
-    }
-
-    const firstPage = accountsData.data[0];
-    return {
-      id: firstPage.id,
-      name: firstPage.name,
-      fanCount: firstPage.fan_count,
-      followersCount: firstPage.followers_count,
-      pictureUrl: firstPage.picture?.data?.url,
-      category: firstPage.category,
-    };
+    throw new Error('No managed Facebook Pages found for this user account. Ensure you have administrator access to at least one Facebook Page.');
   }
 
   /**
    * Fetches real Facebook posts, videos, and insights
    */
-  async fetchPosts(accessToken: string, pageId: string): Promise<NormalizedMedia[]> {
+  async fetchPosts(accessToken: string, pageId: string, pageAccessToken?: string): Promise<NormalizedMedia[]> {
+    const effectiveToken = pageAccessToken || accessToken;
     const fields = 'id,message,created_time,full_picture,permalink_url,shares,reactions.summary(total_count),comments.summary(total_count)';
     
     // Fetch all pages using paging.next
     let allPosts: any[] = [];
-    let currentUrl: string | null = `https://graph.facebook.com/v21.0/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(accessToken)}`;
+    let currentUrl: string | null = `https://graph.facebook.com/v21.0/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
     let pageCount = 0;
 
     while (currentUrl && pageCount < 30) {
       pageCount++;
       try {
         const res: Response = await fetch(currentUrl, {
-          headers: { 'Authorization': `Bearer ${accessToken}`, 'Accept': 'application/json' },
+          headers: { 'Authorization': `Bearer ${effectiveToken}`, 'Accept': 'application/json' },
         });
         if (!res.ok) break;
         const json: any = await res.json();
@@ -102,7 +118,7 @@ export class FacebookClient extends MetaClient {
 
       // Query post insights if permissions allow
       try {
-        const insightsRes = await this.get<any>(`${post.id}/insights`, accessToken, {
+        const insightsRes = await this.get<any>(`${post.id}/insights`, effectiveToken, {
           metric: 'post_impressions,post_engaged_users',
         });
         if (insightsRes.data && Array.isArray(insightsRes.data)) {

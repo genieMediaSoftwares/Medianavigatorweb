@@ -54,13 +54,13 @@ function parseJsonSafely<T = any>(raw: string): T | null {
 async function callGemini(
   prompt: string, 
   systemInstruction?: string
-): Promise<{ text: string; source: 'Gemini 3.1 Flash' | 'Gemini 3.8 Flash' } | null> {
+): Promise<{ text: string; source: 'Forensic AI Engine' } | null> {
   const ai = getAIClient();
   if (!ai) return null;
 
   const modelsToTry = [
-    { name: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash' as const },
-    { name: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' as const },
+    { name: 'gemini-3.1-flash-lite', label: 'Forensic AI Engine' as const },
+    { name: 'gemini-3.8-flash', label: 'Forensic AI Engine' as const },
   ];
 
   for (const m of modelsToTry) {

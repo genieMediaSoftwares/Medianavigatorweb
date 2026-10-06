@@ -59,7 +59,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
             { name: 'pages_read_engagement', desc: 'Verify business account association' },
           ],
           guideUrl: 'https://developers.facebook.com/tools/explorer/',
-          guideText: 'Generate token via Meta Graph API Explorer or App Settings with Instagram Graph permissions.',
+          guideText: 'Generate or copy token from your developer portal or account settings with read permissions.',
         };
       case 'facebook':
         return {
@@ -71,18 +71,18 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
             { name: 'read_insights', desc: 'Retrieve Page-level impression analytics' },
           ],
           guideUrl: 'https://developers.facebook.com/tools/explorer/',
-          guideText: 'Generate token via Meta Graph API Explorer for your managed Facebook Page.',
+          guideText: 'Generate or copy token from your app settings for your managed Facebook Page.',
         };
       case 'youtube':
         return {
           name: 'YouTube',
           icon: <Youtube className="w-5 h-5 text-red-600" />,
           requiredPermissions: [
-            { name: 'youtube.readonly', desc: 'YouTube Data API v3: Channel uploads, video statistics' },
-            { name: 'yt-analytics.readonly', desc: 'YouTube Analytics API: Audience retention and watch time' },
+            { name: 'youtube.readonly', desc: 'Read channel uploads and video statistics' },
+            { name: 'yt-analytics.readonly', desc: 'Audience retention and watch time metrics' },
           ],
           guideUrl: 'https://console.cloud.google.com/apis/credentials',
-          guideText: 'Obtain an API Key from Google Cloud Console with YouTube Data API v3 enabled.',
+          guideText: 'Obtain an API Key from your developer console with read access enabled.',
         };
       case 'linkedin':
         return {
@@ -113,7 +113,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
       if (platform === 'youtube' && youtubeAuthMode === 'api_key') {
         if (!apiKey.trim()) {
           setIsSubmitting(false);
-          setErrorMessage('Please enter your YouTube Data API Key.');
+          setErrorMessage('Please enter your API Key.');
           return;
         }
         payload.apiKey = apiKey.trim();
@@ -274,14 +274,14 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                 {/* 1. API Key Input */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-[#0B132B]">YouTube Data API Key</label>
+                    <label className="text-xs font-bold text-[#0B132B]">API Key</label>
                     <a 
                       href="https://console.cloud.google.com/apis/credentials" 
                       target="_blank" 
                       rel="noreferrer"
                       className="text-[11px] text-[#0284C7] hover:underline flex items-center gap-1"
                     >
-                      Google Cloud Console <ExternalLink className="w-3 h-3" />
+                      Developer Console <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
                   <input
@@ -293,7 +293,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs text-[#0B132B] focus:outline-none focus:border-[#0284C7] focus:ring-1 focus:ring-[#0284C7]"
                   />
                   <div className="text-[11px] text-[#64748B]">
-                    Paste your YouTube Data API Key to immediately evaluate media assets and generate executive insights.
+                    Paste your API Key to immediately evaluate media assets and generate executive insights.
                   </div>
                 </div>
 
@@ -315,7 +315,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-[#F8FAFC] border border-[#CBD5E1] text-xs text-[#0B132B] focus:outline-none focus:border-[#0284C7] focus:ring-1 focus:ring-[#0284C7]"
                   />
                   <div className="text-[11px] text-[#64748B]">
-                    Optional: Enter your channel handle (e.g. <strong>@YourChannel</strong>) or channel URL. If left empty, Media Navigator automatically discovers and ingests real YouTube media using your Data API Key.
+                    Optional: Enter your channel handle (e.g. <strong>@YourChannel</strong>) or channel URL. If left empty, Media Navigator automatically discovers and ingests real media using your API Key.
                   </div>
                 </div>
               </div>
@@ -325,12 +325,12 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-[#0B132B]">
                       {platform === 'instagram'
-                        ? 'Instagram Access Token / Data API Key'
+                        ? 'Access Token / API Key'
                         : platform === 'youtube'
-                        ? 'YouTube OAuth Access Token'
+                        ? 'OAuth Access Token'
                         : platform === 'linkedin'
-                        ? 'LinkedIn OAuth Access Token'
-                        : 'Meta User Access Token'}
+                        ? 'OAuth Access Token'
+                        : 'User Access Token'}
                     </label>
                     <a 
                       href={meta.guideUrl} 
@@ -338,7 +338,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                       rel="noreferrer"
                       className="text-[11px] text-[#0284C7] hover:underline flex items-center gap-1 font-medium"
                     >
-                      {platform === 'instagram' ? 'Get Instagram Key' : 'Get Token'} <ExternalLink className="w-3 h-3" />
+                      {platform === 'instagram' ? 'Get Access Key' : 'Get Token'} <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
                   <input
@@ -347,7 +347,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                     onChange={(e) => setAccessToken(e.target.value)}
                     placeholder={
                       platform === 'instagram'
-                        ? 'Paste Instagram Access Token, Meta Key (EAAB... or IGAA...), or API Key'
+                        ? 'Paste Access Token, Key (EAAB... or IGAA...), or API Key'
                         : platform === 'youtube'
                         ? 'ya29...'
                         : platform === 'linkedin'
@@ -359,7 +359,7 @@ export const PlatformConnectModal: React.FC<PlatformConnectModalProps> = ({
                   />
                   <div className="text-[11px] text-[#64748B]">
                     {platform === 'instagram'
-                      ? 'Paste your Instagram User Token, Meta Graph API Key, or Instagram Data API Key to connect your profile and retrieve full post & Reel history with verified views, reach, likes, and comments.'
+                      ? 'Paste your Access Token or API Key to connect your profile and retrieve full post & Reel history with verified views, reach, likes, and comments.'
                       : meta.guideText}
                   </div>
                 </div>

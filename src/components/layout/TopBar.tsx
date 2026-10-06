@@ -8,7 +8,8 @@ import {
   CheckCircle2,
   Calendar,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  Globe
 } from 'lucide-react';
 import { useMedia } from '../../context/MediaContext';
 import { PlatformType } from '../../types';
@@ -22,6 +23,7 @@ export const TopBar: React.FC<{ onMobileMenuClick?: () => void }> = ({ onMobileM
     unreadNotificationCount, 
     setIsNotificationsOpen,
     startSyncFlow,
+    syncState,
     currentWorkspace,
     connections,
     user,
@@ -30,6 +32,7 @@ export const TopBar: React.FC<{ onMobileMenuClick?: () => void }> = ({ onMobileM
 
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
   const [showPlatformDropdown, setShowPlatformDropdown] = useState(false);
+  const [showSyncMenu, setShowSyncMenu] = useState(false);
 
   const timeOptions = ['Last 7 days', 'Last 14 days', 'Last 30 days', 'Full Historical Archive'];
   const platformOptions: { id: 'all' | PlatformType; label: string }[] = [
@@ -164,15 +167,84 @@ export const TopBar: React.FC<{ onMobileMenuClick?: () => void }> = ({ onMobileM
           <span>Landing Page</span>
         </button>
 
-        {/* Live Sync Trigger */}
-        <button
-          onClick={() => startSyncFlow(activeSyncPlatform, activeAccount)}
-          className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 transition-colors shadow-2xs"
-          title={`Run ${activeSyncPlatform} archive sync check`}
-        >
-          <RotateCw className="w-3.5 h-3.5 text-[#0284C7]" />
-          <span>Sync {selectedPlatform !== 'all' ? selectedPlatform.toUpperCase() : 'All Content'}</span>
-        </button>
+        {/* Live Sync Trigger with Two Options */}
+        <div className="relative">
+          <div className="flex items-center rounded-xl bg-white border border-[#CBD5E1] shadow-2xs hover:border-[#0284C7]/60 transition-all overflow-hidden">
+            <button
+              onClick={() => {
+                setShowSyncMenu(false);
+                startSyncFlow(selectedPlatform !== 'all' ? selectedPlatform : 'all');
+              }}
+              disabled={syncState.isSyncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#0B132B] hover:bg-slate-50 transition-colors cursor-pointer disabled:opacity-50"
+              title="Sync now to ingest real posts and metrics"
+            >
+              <RotateCw className={`w-3.5 h-3.5 text-[#0284C7] ${syncState.isSyncing ? 'animate-spin' : ''}`} />
+              <span>{syncState.isSyncing ? 'Syncing...' : 'Sync Now'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowSyncMenu(!showSyncMenu)}
+              disabled={syncState.isSyncing}
+              className="p-1.5 border-l border-[#CBD5E1] hover:bg-slate-100 text-[#64748B] hover:text-[#0B132B] transition-colors cursor-pointer"
+              title="Select sync options"
+              aria-label="Toggle sync options"
+            >
+              <ChevronDown className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Dual Sync Dropdown Menu */}
+          {showSyncMenu && (
+            <>
+              <div 
+                className="fixed inset-0 z-20 cursor-default" 
+                onClick={() => setShowSyncMenu(false)} 
+              />
+              <div className="absolute right-0 mt-1.5 w-64 bg-white rounded-xl shadow-lg border border-[#CBD5E1] py-1 z-30 animate-fadeIn space-y-0.5">
+              <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[#64748B] border-b border-[#F1F5F9]">
+                Choose Sync Scope
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowSyncMenu(false);
+                  startSyncFlow(selectedPlatform !== 'all' ? selectedPlatform : activeSyncPlatform);
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-[#F8FAFC] flex items-start gap-2.5 transition-colors cursor-pointer group"
+              >
+                <RotateCw className="w-4 h-4 text-[#0284C7] mt-0.5 shrink-0 group-hover:rotate-45 transition-transform" />
+                <div>
+                  <div className="font-bold text-[#0B132B]">
+                    Sync Current Channel ({currentPlatformLabel})
+                  </div>
+                  <div className="text-[10px] text-[#64748B]">
+                    Ingest real posts for active platform filter
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowSyncMenu(false);
+                  startSyncFlow('all');
+                }}
+                className="w-full text-left px-3 py-2 text-xs hover:bg-[#F8FAFC] flex items-start gap-2.5 transition-colors cursor-pointer group"
+              >
+                <Globe className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-bold text-[#0B132B]">
+                    Sync All Channels
+                  </div>
+                  <div className="text-[10px] text-[#64748B]">
+                    Parallel ingestion across all connected channels
+                  </div>
+                </div>
+              </button>
+            </div>
+            </>
+          )}
+        </div>
 
         {/* Notification Bell Button */}
         <button

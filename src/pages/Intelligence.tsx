@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Flame, 
   Clock, 
@@ -64,7 +64,7 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
     source: string;
   } | null>(null);
 
-  useEffect(() => {
+  const loadIntelligenceData = useCallback(() => {
     setLoading(true);
     Promise.all([
       api.getIntelligence().catch(() => ({ insights: [] })),
@@ -87,7 +87,19 @@ export const Intelligence: React.FC<{ defaultSubTab?: 'archive' | 'insights' | '
         console.error(err);
         setLoading(false);
       });
-  }, [connections]);
+  }, [performerSortBy]);
+
+  useEffect(() => {
+    loadIntelligenceData();
+  }, [loadIntelligenceData, connections]);
+
+  useEffect(() => {
+    const handleSync = () => {
+      loadIntelligenceData();
+    };
+    window.addEventListener('media-synced', handleSync);
+    return () => window.removeEventListener('media-synced', handleSync);
+  }, [loadIntelligenceData]);
 
   const handleSortChange = async (newSort: SortPerformerBy) => {
     setPerformerSortBy(newSort);

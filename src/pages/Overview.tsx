@@ -36,7 +36,7 @@ const PLATFORM_CONFIG: Record<PlatformType, {
   instagram: {
     name: 'Instagram',
     logo: (variant) => <InstagramLogo size="md" variant={variant} />,
-    apiLabel: 'Meta Graph API v22.0',
+    apiLabel: 'Official Integration',
     ingestDescription: 'Reels · Posts · Reach · Real Views',
     accentBg: 'bg-gradient-to-tr from-amber-500/10 via-rose-500/10 to-purple-500/10',
     accentBorder: 'border-rose-200/60',
@@ -45,7 +45,7 @@ const PLATFORM_CONFIG: Record<PlatformType, {
   youtube: {
     name: 'YouTube',
     logo: (variant) => <YouTubeLogo size="md" variant={variant} />,
-    apiLabel: 'YouTube Data API v3',
+    apiLabel: 'Official Integration',
     ingestDescription: 'Shorts · Retention · Views · Subscribers',
     accentBg: 'bg-red-500/10',
     accentBorder: 'border-red-200/60',
@@ -54,7 +54,7 @@ const PLATFORM_CONFIG: Record<PlatformType, {
   facebook: {
     name: 'Facebook',
     logo: (variant) => <FacebookLogo size="md" variant={variant} />,
-    apiLabel: 'Meta Page Insights API',
+    apiLabel: 'Official Integration',
     ingestDescription: 'Page Posts · Viral Shares · Video Reach',
     accentBg: 'bg-blue-500/10',
     accentBorder: 'border-blue-200/60',
@@ -63,7 +63,7 @@ const PLATFORM_CONFIG: Record<PlatformType, {
   linkedin: {
     name: 'LinkedIn',
     logo: (variant) => <LinkedInLogo size="md" variant={variant} />,
-    apiLabel: 'LinkedIn Community API',
+    apiLabel: 'Official Integration',
     ingestDescription: 'Carousels · B2B Articles · Feed Depth',
     accentBg: 'bg-sky-500/10',
     accentBorder: 'border-sky-200/60',
@@ -102,6 +102,14 @@ export const Overview: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [selectedPlatform, connections]);
+
+  useEffect(() => {
+    const handleSync = () => {
+      loadData();
+    };
+    window.addEventListener('media-synced', handleSync);
+    return () => window.removeEventListener('media-synced', handleSync);
+  }, []);
 
   const handleSignalAction = (target: string) => {
     if (target.startsWith('platform:')) {

@@ -183,7 +183,7 @@ export const Landing: React.FC = () => {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
             <div className="text-[11px] font-semibold text-emerald-600">+28.4% Retention</div>
-            <div className="text-[9px] text-[#64748B] font-mono">Meta Graph v22.0</div>
+            <div className="text-[9px] text-[#64748B] font-mono">Official Sync Verified</div>
           </div>
         </div>
 
@@ -201,7 +201,7 @@ export const Landing: React.FC = () => {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             </div>
             <div className="text-[11px] font-semibold text-[#0284C7]">142k Plays · 84% CTR</div>
-            <div className="text-[9px] text-[#64748B] font-mono">Data API v3 Active</div>
+            <div className="text-[9px] text-[#64748B] font-mono">Channel Sync Active</div>
           </div>
         </div>
 
@@ -539,7 +539,7 @@ export const Landing: React.FC = () => {
               Direct Official Connections to Your Core Channels
             </p>
             <p className="text-xs text-[#64748B] max-w-xl mx-auto">
-              Media Navigator links with read-only scopes through Meta Graph API and Google Data API to analyze every post, reel, and video with verified metrics.
+              Media Navigator links with secure read-only permissions through official platform APIs to analyze every post, reel, and video with verified metrics.
             </p>
           </div>
 
@@ -553,7 +553,7 @@ export const Landing: React.FC = () => {
                 <div>
                   <h3 className="text-base font-bold text-[#0B132B] group-hover:text-rose-600 transition-colors">Instagram</h3>
                   <div className="text-[10px] font-semibold text-rose-600/80 uppercase tracking-wider mt-0.5">
-                    Meta Graph API v22.0
+                    Official Platform Integration
                   </div>
                 </div>
                 <p className="text-xs text-[#64748B] leading-relaxed">
@@ -575,7 +575,7 @@ export const Landing: React.FC = () => {
                 <div>
                   <h3 className="text-base font-bold text-[#0B132B] group-hover:text-red-600 transition-colors">YouTube</h3>
                   <div className="text-[10px] font-semibold text-red-600/80 uppercase tracking-wider mt-0.5">
-                    YouTube Data API v3
+                    Official Platform Integration
                   </div>
                 </div>
                 <p className="text-xs text-[#64748B] leading-relaxed">
@@ -597,7 +597,7 @@ export const Landing: React.FC = () => {
                 <div>
                   <h3 className="text-base font-bold text-[#0B132B] group-hover:text-blue-600 transition-colors">Facebook</h3>
                   <div className="text-[10px] font-semibold text-blue-600/80 uppercase tracking-wider mt-0.5">
-                    Meta Page Insights API
+                    Official Platform Integration
                   </div>
                 </div>
                 <p className="text-xs text-[#64748B] leading-relaxed">
@@ -619,7 +619,7 @@ export const Landing: React.FC = () => {
                 <div>
                   <h3 className="text-base font-bold text-[#0B132B] group-hover:text-sky-600 transition-colors">LinkedIn</h3>
                   <div className="text-[10px] font-semibold text-sky-600/80 uppercase tracking-wider mt-0.5">
-                    LinkedIn Community API
+                    Official Platform Integration
                   </div>
                 </div>
                 <p className="text-xs text-[#64748B] leading-relaxed">

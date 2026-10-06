@@ -32,7 +32,7 @@ export const SyncProgressModal: React.FC = () => {
 
   const handleFinish = () => {
     closeSyncFlow();
-    setCurrentTab('overview');
+    setCurrentTab('content');
   };
 
   return (
@@ -60,6 +60,19 @@ export const SyncProgressModal: React.FC = () => {
             ({syncState.platform?.toUpperCase()})
           </p>
         </div>
+
+        {/* Real Count Callout when completed */}
+        {syncState.isCompleted && (
+          <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
+            <div className="text-xs font-bold text-emerald-800 flex items-center justify-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Successfully Synchronized {syncState.syncedCount || 0} Verified Posts</span>
+            </div>
+            <p className="text-[11px] text-emerald-700">
+              All published media assets indexed with verified views, engagement, and retention signals.
+            </p>
+          </div>
+        )}
 
         {/* Progress Bar */}
         <div className="space-y-1.5">
@@ -122,7 +135,9 @@ export const SyncProgressModal: React.FC = () => {
               onClick={handleFinish}
               className="w-full py-3 rounded-xl bg-[#0B132B] text-white text-xs font-semibold hover:bg-[#1C2541] transition-all flex items-center justify-center gap-2 shadow-md"
             >
-              <span>Explore Dashboard & Performance</span>
+              <span>
+                Explore {syncState.syncedCount && syncState.syncedCount > 0 ? `${syncState.syncedCount} Verified Posts` : 'Dashboard & Performance'}
+              </span>
               <ArrowRight className="w-4 h-4 text-[#06B6D4]" />
             </button>
           ) : (
