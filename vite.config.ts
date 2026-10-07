@@ -12,14 +12,16 @@ function localApiTarget(): string | undefined {
   } catch { return undefined; }
 }
 
+/** Forward /api to the local backend (VITE_DEV_API_PROXY overrides the target). */
+const devProxy = (env: Record<string, string>) => { const target = env.VITE_DEV_API_PROXY || localApiTarget(); return target ? { '/api': { target, changeOrigin: true } } : undefined; };
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), 'VITE_');
   return {
     plugins: [react(), tailwindcss()],
     resolve: { alias: { '@': path.resolve(__dirname, '.') } },
-    server: {
-      // Forward /api to the local backend (VITE_DEV_API_PROXY overrides the target).
-      proxy: (() => { const target = env.VITE_DEV_API_PROXY || localApiTarget(); return target ? { '/api': { target, changeOrigin: true } } : undefined; })(),
-    },
+    server: { proxy: devProxy(env) },
+    // `vite preview` serves the production build; it needs the same /api forwarding.
+    preview: { proxy: devProxy(env) },
   };
 });
