@@ -22,7 +22,7 @@ export const SignIn: React.FC = () => {
     try {
       const ok = await login(email.trim(), password);
       if (!ok) setError('That email and password don’t match, or too many attempts were made. Please try again in a few minutes.');
-    } catch { setError('We couldn’t reach the sign-in service. Check your connection and try again.'); }
+    } catch (err: any) { setError(err?.status ? `The sign-in service answered with an error (${err.status}). Make sure the API is running and try again.` : 'We couldn’t reach the sign-in service. Check your connection, and that the API is running, then try again.'); }
     finally { setLoading(false); }
   };
 
