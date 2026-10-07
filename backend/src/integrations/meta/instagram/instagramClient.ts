@@ -1,3 +1,5 @@
+import { config } from '../../../config/env.js';
+import { httpFetch } from '../../../lib/http.js';
 import { MetaClient } from '../metaClient.js';
 import { NormalizedMedia, PerformanceTier } from '../../../../../shared/types.js';
 
@@ -116,8 +118,8 @@ export class InstagramClient extends MetaClient {
 
     // 3. Try Instagram Graph API direct endpoint (graph.instagram.com/v21.0/me or graph.instagram.com/me)
     try {
-      const igRes = await fetch(
-        `https://graph.instagram.com/v21.0/me?fields=id,user_id,username,name,account_type,media_count&access_token=${encodeURIComponent(accessToken)}`
+      const igRes = await httpFetch(
+        `https://graph.instagram.com/${config.providers.metaApiVersion}/me?fields=id,user_id,username,name,account_type,media_count&access_token=${encodeURIComponent(accessToken)}`
       );
       if (igRes.ok) {
         const igData = await igRes.json();
@@ -137,7 +139,7 @@ export class InstagramClient extends MetaClient {
 
     // 4. Try Instagram Basic Display endpoint (graph.instagram.com/me)
     try {
-      const igRes = await fetch(
+      const igRes = await httpFetch(
         `https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${encodeURIComponent(accessToken)}`
       );
       if (igRes.ok) {
@@ -159,8 +161,8 @@ export class InstagramClient extends MetaClient {
     if (cleanHandle && authorizedIgId) {
       try {
         const bdToken = pageAccessToken || accessToken;
-        const bdRes = await fetch(
-          `https://graph.facebook.com/v21.0/${authorizedIgId}?fields=business_discovery.username(${cleanHandle}){id,username,name,profile_picture_url,followers_count,follows_count,media_count}&access_token=${encodeURIComponent(bdToken)}`
+        const bdRes = await httpFetch(
+          `https://graph.facebook.com/${config.providers.metaApiVersion}/${authorizedIgId}?fields=business_discovery.username(${cleanHandle}){id,username,name,profile_picture_url,followers_count,follows_count,media_count}&access_token=${encodeURIComponent(bdToken)}`
         );
         if (bdRes.ok) {
           const bdData = await bdRes.json();
@@ -188,8 +190,8 @@ export class InstagramClient extends MetaClient {
     // 6. Direct numeric ID check (if cleanHandle is a numeric Instagram Account ID)
     if (cleanHandle && /^\d+$/.test(cleanHandle)) {
       try {
-        const directRes = await fetch(
-          `https://graph.facebook.com/v21.0/${cleanHandle}?fields=id,username,name,profile_picture_url,followers_count,follows_count,media_count&access_token=${encodeURIComponent(accessToken)}`
+        const directRes = await httpFetch(
+          `https://graph.facebook.com/${config.providers.metaApiVersion}/${cleanHandle}?fields=id,username,name,profile_picture_url,followers_count,follows_count,media_count&access_token=${encodeURIComponent(accessToken)}`
         );
         if (directRes.ok) {
           const directData = await directRes.json();
@@ -233,7 +235,7 @@ export class InstagramClient extends MetaClient {
     const effectiveToken = accountInfo?.pageAccessToken || accessToken;
 
     // Helper to fetch all pages following paging.next recursively without partial cutoff
-    const fetchAllPages = async (initialUrl: string, maxPages: number = 200): Promise<any[]> => {
+    const fetchAllPages = async (initialUrl: string, maxPages: number = config.providers.maxPages): Promise<any[]> => {
       const items: any[] = [];
       let currentUrl: string | null = initialUrl;
       let page = 0;
@@ -241,7 +243,7 @@ export class InstagramClient extends MetaClient {
       while (currentUrl && page < maxPages) {
         page++;
         try {
-          const res: Response = await fetch(currentUrl, {
+          const res: Response = await httpFetch(currentUrl, {
             headers: { 'Authorization': `Bearer ${effectiveToken}` },
           });
           if (!res.ok) break;
@@ -270,12 +272,12 @@ export class InstagramClient extends MetaClient {
         let hasMore = true;
         let pageCount = 0;
 
-        while (hasMore && pageCount < 50) {
+        while (hasMore && pageCount < config.providers.maxPages) {
           pageCount++;
           const afterParam: string = afterCursor ? `.after(${afterCursor})` : '';
-          const bdUrl: string = `https://graph.facebook.com/v21.0/${accountInfo.authorizedIgId}?fields=business_discovery.username(${accountInfo.username}){media.limit(100)${afterParam}{id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}}}&access_token=${encodeURIComponent(effectiveToken)}`;
+          const bdUrl: string = `https://graph.facebook.com/${config.providers.metaApiVersion}/${accountInfo.authorizedIgId}?fields=business_discovery.username(${accountInfo.username}){media.limit(100)${afterParam}{id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}}}&access_token=${encodeURIComponent(effectiveToken)}`;
           
-          const bdRes: Response = await fetch(bdUrl);
+          const bdRes: Response = await httpFetch(bdUrl);
           if (!bdRes.ok) break;
 
           const bdData: any = await bdRes.json();
@@ -298,7 +300,7 @@ export class InstagramClient extends MetaClient {
     // Strategy 2: Fetch from graph.facebook.com /{id}/media (All Reels, Posts, Carousels)
     if (rawItems.length === 0 && /^\d+$/.test(instagramAccountId)) {
       try {
-        const initialUrl = `https://graph.facebook.com/v21.0/${instagramAccountId}/media?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
+        const initialUrl = `https://graph.facebook.com/${config.providers.metaApiVersion}/${instagramAccountId}/media?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
         const pagedItems = await fetchAllPages(initialUrl, 100);
         if (pagedItems.length > 0) {
           rawItems = pagedItems;
@@ -311,7 +313,7 @@ export class InstagramClient extends MetaClient {
     // Strategy 3: Check /me/media on graph.facebook.com
     if (rawItems.length === 0) {
       try {
-        const initialUrl = `https://graph.facebook.com/v21.0/me/media?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
+        const initialUrl = `https://graph.facebook.com/${config.providers.metaApiVersion}/me/media?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
         const pagedItems = await fetchAllPages(initialUrl, 50);
         if (pagedItems.length > 0) {
           rawItems = pagedItems;
@@ -325,7 +327,7 @@ export class InstagramClient extends MetaClient {
     if (rawItems.length === 0) {
       try {
         const igFields = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}';
-        const initialUrl = `https://graph.instagram.com/v21.0/me/media?fields=${encodeURIComponent(igFields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
+        const initialUrl = `https://graph.instagram.com/${config.providers.metaApiVersion}/me/media?fields=${encodeURIComponent(igFields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
         const pagedItems = await fetchAllPages(initialUrl, 50);
         if (pagedItems.length > 0) {
           rawItems = pagedItems;
@@ -406,8 +408,8 @@ export class InstagramClient extends MetaClient {
           const controller = new AbortController();
           const timeout = setTimeout(() => controller.abort(), 1800);
 
-          let res = await fetch(
-            `https://graph.facebook.com/v21.0/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
+          let res = await httpFetch(
+            `https://graph.facebook.com/${config.providers.metaApiVersion}/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
             { signal: controller.signal }
           );
           if (!res.ok) {
@@ -417,8 +419,8 @@ export class InstagramClient extends MetaClient {
               clearTimeout(timeout);
               break;
             }
-            res = await fetch(
-              `https://graph.instagram.com/v21.0/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
+            res = await httpFetch(
+              `https://graph.instagram.com/${config.providers.metaApiVersion}/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
               { signal: controller.signal }
             );
           }

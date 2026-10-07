@@ -1,3 +1,5 @@
+import { config } from '../../config/env.js';
+import { httpFetch } from '../../lib/http.js';
 import { NormalizedMedia, PerformanceTier } from '../../../../shared/types.js';
 
 export interface YouTubeChannelDetails {
@@ -13,7 +15,7 @@ export interface YouTubeChannelDetails {
 }
 
 export class YouTubeDataApi {
-  private static readonly API_BASE = 'https://www.googleapis.com/youtube/v3';
+  private static readonly API_BASE = `https://www.googleapis.com/youtube/${config.providers.youtubeApiVersion}`;
 
   private static getHeaders(accessToken?: string): HeadersInit {
     const headers: Record<string, string> = { 'Accept': 'application/json' };
@@ -123,7 +125,7 @@ export class YouTubeDataApi {
       url.searchParams.set('mine', 'true');
       this.appendAuth(url, apiKey);
 
-      const res = await fetch(url.toString(), { headers: this.getHeaders(accessToken) });
+      const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
       const data = await res.json();
 
       if (!res.ok || data.error) {
@@ -149,7 +151,7 @@ export class YouTubeDataApi {
           chartUrl.searchParams.set('maxResults', '5');
           this.appendAuth(chartUrl, apiKey);
 
-          const chartRes = await fetch(chartUrl.toString(), { headers: this.getHeaders(accessToken) });
+          const chartRes = await httpFetch(chartUrl.toString(), { headers: this.getHeaders(accessToken) });
           const chartData = await chartRes.json();
 
           if (chartRes.ok && chartData.items && chartData.items.length > 0) {
@@ -192,7 +194,7 @@ export class YouTubeDataApi {
         vUrl.searchParams.set('id', parsed.videoId);
         this.appendAuth(vUrl, apiKey);
 
-        const vRes = await fetch(vUrl.toString(), { headers: this.getHeaders(accessToken) });
+        const vRes = await httpFetch(vUrl.toString(), { headers: this.getHeaders(accessToken) });
         const vData = await vRes.json();
         if (vRes.ok && vData.items && vData.items.length > 0) {
           const resolvedChannelId = vData.items[0].snippet?.channelId;
@@ -220,7 +222,7 @@ export class YouTubeDataApi {
         url.searchParams.set('forHandle', parsed.handle);
         this.appendAuth(url, apiKey);
 
-        const res = await fetch(url.toString(), { headers: this.getHeaders(accessToken) });
+        const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
         const data = await res.json();
 
         if (res.ok && data.items && data.items.length > 0) {
@@ -238,7 +240,7 @@ export class YouTubeDataApi {
         url.searchParams.set('forHandle', cleanHandle);
         this.appendAuth(url, apiKey);
 
-        const res = await fetch(url.toString(), { headers: this.getHeaders(accessToken) });
+        const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
         const data = await res.json();
 
         if (res.ok && data.items && data.items.length > 0) {
@@ -257,7 +259,7 @@ export class YouTubeDataApi {
         url.searchParams.set('forUsername', parsed.username);
         this.appendAuth(url, apiKey);
 
-        const res = await fetch(url.toString(), { headers: this.getHeaders(accessToken) });
+        const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
         const data = await res.json();
 
         if (res.ok && data.items && data.items.length > 0) {
@@ -278,7 +280,7 @@ export class YouTubeDataApi {
       searchUrl.searchParams.set('maxResults', '3');
       this.appendAuth(searchUrl, apiKey);
 
-      const searchRes = await fetch(searchUrl.toString(), { headers: this.getHeaders(accessToken) });
+      const searchRes = await httpFetch(searchUrl.toString(), { headers: this.getHeaders(accessToken) });
       const searchData = await searchRes.json();
 
       if (!searchRes.ok && searchData.error) {
@@ -313,7 +315,7 @@ export class YouTubeDataApi {
     url.searchParams.set('id', channelId);
     this.appendAuth(url, apiKey);
 
-    const res = await fetch(url.toString(), { headers: this.getHeaders(accessToken) });
+    const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
     const data = await res.json();
 
     if (!res.ok && data.error) {
@@ -368,7 +370,7 @@ export class YouTubeDataApi {
         chartVideosUrl.searchParams.set('maxResults', '50');
         this.appendAuth(chartVideosUrl, apiKey);
 
-        const chartRes = await fetch(chartVideosUrl.toString(), { headers: this.getHeaders(accessToken) });
+        const chartRes = await httpFetch(chartVideosUrl.toString(), { headers: this.getHeaders(accessToken) });
         const chartData = await chartRes.json();
         if (chartRes.ok && chartData.items && Array.isArray(chartData.items) && chartData.items.length > 0) {
           return this.convertYouTubeItemsToNormalizedMedia(chartData.items);
@@ -385,7 +387,7 @@ export class YouTubeDataApi {
       try {
         let nextPageToken: string | undefined = undefined;
         let page = 0;
-        const maxPages = 40; // up to 2,000 videos
+        const maxPages = config.providers.maxPages;
 
         do {
           page++;
@@ -398,7 +400,7 @@ export class YouTubeDataApi {
           }
           this.appendAuth(playlistUrl, apiKey);
 
-          const playlistRes = await fetch(playlistUrl.toString(), { headers: this.getHeaders(accessToken) });
+          const playlistRes = await httpFetch(playlistUrl.toString(), { headers: this.getHeaders(accessToken) });
           const playlistData = await playlistRes.json();
 
           if (!playlistRes.ok || playlistData.error) {
@@ -432,7 +434,7 @@ export class YouTubeDataApi {
         searchUrl.searchParams.set('maxResults', '50');
         this.appendAuth(searchUrl, apiKey);
 
-        const searchRes = await fetch(searchUrl.toString(), { headers: this.getHeaders(accessToken) });
+        const searchRes = await httpFetch(searchUrl.toString(), { headers: this.getHeaders(accessToken) });
         const searchData = await searchRes.json();
 
         if (searchRes.ok && searchData.items && Array.isArray(searchData.items)) {
@@ -464,7 +466,7 @@ export class YouTubeDataApi {
       videosUrl.searchParams.set('id', chunkIds.join(','));
       this.appendAuth(videosUrl, apiKey);
 
-      const videosRes = await fetch(videosUrl.toString(), { headers: this.getHeaders(accessToken) });
+      const videosRes = await httpFetch(videosUrl.toString(), { headers: this.getHeaders(accessToken) });
       const videosData = await videosRes.json();
 
       if (!videosRes.ok || !videosData.items) continue;

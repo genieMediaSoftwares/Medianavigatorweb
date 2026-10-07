@@ -1,3 +1,5 @@
+import { config } from '../../../config/env.js';
+import { httpFetch } from '../../../lib/http.js';
 import { MetaClient } from '../metaClient.js';
 import { NormalizedMedia, PerformanceTier } from '../../../../../shared/types.js';
 
@@ -77,13 +79,13 @@ export class FacebookClient extends MetaClient {
     
     // Fetch all pages using paging.next
     let allPosts: any[] = [];
-    let currentUrl: string | null = `https://graph.facebook.com/v21.0/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
+    let currentUrl: string | null = `https://graph.facebook.com/${config.providers.metaApiVersion}/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
     let pageCount = 0;
 
-    while (currentUrl && pageCount < 30) {
+    while (currentUrl && pageCount < config.providers.maxPages) {
       pageCount++;
       try {
-        const res: Response = await fetch(currentUrl, {
+        const res: Response = await httpFetch(currentUrl, {
           headers: { 'Authorization': `Bearer ${effectiveToken}`, 'Accept': 'application/json' },
         });
         if (!res.ok) break;

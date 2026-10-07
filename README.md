@@ -32,30 +32,31 @@ Dev server starts at `http://localhost:3000`.
 
 ## Project Structure
 ```
-api/                  Vercel serverless entry points (re-export the Express app)
-backend/src/
-  server.ts           Local/prod entry: Vite dev middleware or static serving + listen
-  app.ts              Express app: middleware + /api/v1 routes
-  config/             Environment config
-  middleware/         Path normalization, CORS
-  routes/             One router per API area (connections, media, intelligence, ...)
-  services/           dataStore, ai/geminiService
-  integrations/       Meta, YouTube, LinkedIn clients
-  lib/                Shared helpers (response format)
-shared/               Types shared by frontend and backend
-src/
-  app/                layout (Sidebar, TopBar, ...) and providers (Media/Admin context)
-  features/           One folder per product area (auth, overview, intelligence, admin, ...)
-  components/         Shared UI (common, modals)
-  services/           API client and analytics engine
-  styles/             Global CSS
-docs/                 Architecture, API, integrations, product docs
+backend/              Express + TypeScript API (its own package). See backend/README.md
+  src/{config,middleware,routes,controllers,services,repositories,models,integrations,jobs,lib,validators}
+  tests/              API integration tests against a real MongoDB
+shared/               Types shared by the web client and the API
+src/                  React web app (Vite)
+  app/                layout and providers
+  features/           one folder per product area (auth, overview, intelligence, admin, ...)
+  components/         shared UI
+  services/           API client (auth + data); no provider calls from the browser
+docs/                 architecture, api, authentication, database, deployment, security, integrations, runbook
 ```
 
-## Build & Run
+## Run locally
 ```bash
-npm run lint    # type-check
-npm run build   # vite build + bundle server to dist/server.cjs
-npm start       # run the production bundle
+# API (needs backend/.env, see backend/README.md)
+cd backend && npm install && npm run dev
+
+# Web app (separate terminal)
+npm install
+VITE_API_BASE_URL=http://localhost:<SERVER_PORT> npm run dev
 ```
-Local runtime data (`data/`, `backend/data/`) is git-ignored because it may contain access tokens.
+The web client reads `VITE_API_BASE_URL` (empty = same origin). For a same-origin dev setup set `VITE_DEV_API_PROXY` to forward `/api` to the API.
+
+## Checks
+```bash
+npm run lint && npm run build          # web
+npm --prefix backend run typecheck && npm --prefix backend test && npm --prefix backend run build   # API
+```

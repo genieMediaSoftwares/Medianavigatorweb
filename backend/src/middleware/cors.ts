@@ -1,11 +1,16 @@
-import type { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import { config } from '../config/env.js';
 
-export function cors(req: Request, res: Response, next: NextFunction) {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-  next();
-}
+const allowed = new Set(config.cors.allowedOrigins);
+
+/** Browsers must come from a configured origin. Native mobile clients send no Origin header and are not affected by CORS. */
+export const corsMiddleware = cors({
+  origin(origin, cb) {
+    if (!origin || allowed.has(origin)) return cb(null, true);
+    return cb(null, false);
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
+  exposedHeaders: ['X-Request-Id'],
+  maxAge: 600,
+});

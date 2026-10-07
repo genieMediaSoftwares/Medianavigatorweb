@@ -1,16 +1,16 @@
-import type { Request, Response, NextFunction } from 'express';
-import { dataStore } from '../services/dataStore.js';
+import { Router } from 'express';
+import { asyncHandler } from '../lib/asyncHandler.js';
+import { databaseHealth } from '../db/client.js';
 
-// Root API status & health check endpoint
-export function healthCheck(req: Request, res: Response, next: NextFunction) {
-  if (req.url === '/api' || req.url === '/api/' || req.url === '/api/health') {
-    return res.status(200).json({
-      success: true,
-      status: 'ok',
-      service: 'Media Navigator Live API',
-      version: '1.0.0',
-      connectedPlatforms: dataStore.getConnections().filter(c => c.connected).map(c => c.platform)
-    });
-  }
-  next();
-}
+export const healthRouter = Router();
+
+healthRouter.get('/', (_req, res) => {
+  res.json({ success: true, data: { service: 'Media Navigator API', status: 'running', health: '/health' } });
+});
+
+/** Truthful health: reports the database as connected only after a successful ping. Public output contains no diagnostics. */
+healthRouter.get('/health', asyncHandler(async (_req, res) => {
+  const database = await databaseHealth();
+  const healthy = database === 'connected';
+  res.status(healthy ? 200 : 503).json({ success: healthy, data: { status: healthy ? 'ok' : 'degraded', application: 'running', database, uptimeSeconds: Math.round(process.uptime()) } });
+}));

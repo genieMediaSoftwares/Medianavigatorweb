@@ -1,3 +1,4 @@
+import { httpFetch } from '../../lib/http.js';
 export interface LinkedInAuthValidation {
   isValid: boolean;
   memberId?: string;
@@ -19,7 +20,7 @@ export class LinkedInAuth {
 
     try {
       // First try OpenID userinfo
-      const userinfoRes = await fetch('https://api.linkedin.com/v2/userinfo', {
+      const userinfoRes = await httpFetch('https://api.linkedin.com/v2/userinfo', {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Accept': 'application/json',
@@ -36,7 +37,7 @@ export class LinkedInAuth {
       }
 
       // Fallback to /v2/me endpoint
-      const meRes = await fetch(`${this.API_BASE}/me`, {
+      const meRes = await httpFetch(`${this.API_BASE}/me`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Accept': 'application/json',

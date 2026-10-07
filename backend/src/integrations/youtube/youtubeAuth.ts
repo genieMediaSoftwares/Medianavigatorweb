@@ -1,3 +1,5 @@
+import { config } from '../../config/env.js';
+import { httpFetch } from '../../lib/http.js';
 export interface YouTubeAuthValidation {
   isValid: boolean;
   channelId?: string;
@@ -33,7 +35,7 @@ export class YouTubeAuth {
     // Check OAuth Access Token if provided
     if (accessToken && accessToken.trim().length > 0) {
       try {
-        const tokenInfoRes = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
+        const tokenInfoRes = await httpFetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${encodeURIComponent(accessToken)}`);
         const tokenInfo = await tokenInfoRes.json();
 
         if (!tokenInfoRes.ok || tokenInfo.error) {
@@ -79,10 +81,10 @@ export class YouTubeAuth {
         // If channelId is a 24-character UC ID, test channels endpoint; otherwise test video endpoint to verify key
         const isNumericOrUC = channelId && /^UC[a-zA-Z0-9_-]{22}$/.test(channelId);
         const testUrl = isNumericOrUC
-          ? `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`
-          : `https://www.googleapis.com/youtube/v3/videos?part=snippet&id=Ks-_Mh1QhMc&key=${encodeURIComponent(apiKey)}`;
+          ? `https://www.googleapis.com/youtube/${config.providers.youtubeApiVersion}/channels?part=snippet&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`
+          : `https://www.googleapis.com/youtube/${config.providers.youtubeApiVersion}/videos?part=snippet&id=Ks-_Mh1QhMc&key=${encodeURIComponent(apiKey)}`;
 
-        const testRes = await fetch(testUrl);
+        const testRes = await httpFetch(testUrl);
         const testData = await testRes.json();
 
         if (!testRes.ok || testData.error) {

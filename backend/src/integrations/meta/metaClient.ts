@@ -1,5 +1,7 @@
+import { config } from '../../config/env.js';
+import { httpFetch } from '../../lib/http.js';
 export class MetaClient {
-  protected readonly baseUrl = 'https://graph.facebook.com/v20.0';
+  protected readonly baseUrl = `https://graph.facebook.com/${config.providers.metaApiVersion}`;
 
   protected async get<T>(endpoint: string, accessToken: string, params: Record<string, string> = {}): Promise<T> {
     const url = new URL(`${this.baseUrl}/${endpoint.replace(/^\//, '')}`);
@@ -10,7 +12,7 @@ export class MetaClient {
       }
     }
 
-    const response = await fetch(url.toString(), {
+    const response = await httpFetch(url.toString(), {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

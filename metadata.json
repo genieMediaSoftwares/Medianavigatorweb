@@ -1,6 +1,0 @@
-{
-  "name": "Media Navigator",
-  "description": "AI-powered media command center that connects Instagram, Facebook, YouTube, and LinkedIn to intelligently navigate performance patterns and actionable insights.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

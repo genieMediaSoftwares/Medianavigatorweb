@@ -1,17 +1,31 @@
 import { Router } from 'express';
-import { router as connections } from './connections.routes.js';
-import { router as media } from './media.routes.js';
-import { router as intelligence } from './intelligence.routes.js';
-import { router as recommendations } from './recommendations.routes.js';
-import { router as planner } from './planner.routes.js';
-import { router as alerts } from './alerts.routes.js';
+import { authRouter } from './auth.routes.js';
+import { usersRouter, profilesRouter } from './users.routes.js';
+import { connectionsRouter } from './connections.routes.js';
+import { mediaRouter } from './media.routes.js';
+import { intelligenceRouter } from './intelligence.routes.js';
+import { plannerRouter } from './planner.routes.js';
+import { notificationsRouter } from './notifications.routes.js';
+import { filesRouter } from './files.routes.js';
+import { adminRouter } from './admin.routes.js';
+import { internalRouter } from './internal.routes.js';
+import { legacyRouter } from './legacy.routes.js';
+import { healthRouter } from './health.routes.js';
+import { generalLimiter } from '../middleware/rateLimit.js';
 
-// All routes are mounted under /api/v1 by app.ts
+/** Everything below is mounted under /api/v1 by app.ts. */
 export const apiRouter = Router();
-
-apiRouter.use(connections);
-apiRouter.use(media);
-apiRouter.use(intelligence);
-apiRouter.use(recommendations);
-apiRouter.use(planner);
-apiRouter.use(alerts);
+apiRouter.use(generalLimiter);
+apiRouter.use('/auth', authRouter);
+apiRouter.use('/users', usersRouter);
+apiRouter.use('/profiles', profilesRouter);
+apiRouter.use('/connections', connectionsRouter);
+apiRouter.use('/media', mediaRouter);
+apiRouter.use('/intelligence', intelligenceRouter);
+apiRouter.use('/planner', plannerRouter);
+apiRouter.use('/notifications', notificationsRouter);
+apiRouter.use('/files', filesRouter);
+apiRouter.use('/admin', adminRouter);
+apiRouter.use('/internal', internalRouter);
+apiRouter.use('/health', healthRouter);
+apiRouter.use(legacyRouter);
