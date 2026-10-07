@@ -70,6 +70,7 @@ npm install
 # create backend/.env with the variables above (there is no template file, see the table)
 npm run dev                 # http://localhost:<SERVER_PORT>
 npm run admin:create -- you@example.com   # first administrator (prompts for a password; nothing is auto-created)
+npm run seed:test-accounts                  # DEV ONLY: test@admin.in / test@user.in, password "password" (refuses NODE_ENV=production)
 ```
 Check: `GET /` → `{"success":true,"data":{"service":"Media Navigator API","status":"running","health":"/health"}}` and `GET /health` (503 + `database: "disconnected"` whenever MongoDB is unreachable).
 
