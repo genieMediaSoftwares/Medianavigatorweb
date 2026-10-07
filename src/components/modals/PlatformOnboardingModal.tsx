@@ -14,7 +14,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { PlatformType } from '../../types';
-import { useMedia } from '../../context/MediaContext';
+import { useMedia } from '../../app/providers/MediaContext';
 
 interface PlatformOnboardingModalProps {
   platform: PlatformType | null;

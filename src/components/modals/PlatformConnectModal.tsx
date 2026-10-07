@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { PlatformType, PlatformConnection } from '../../types';
 import { api } from '../../services/api';
-import { useMedia } from '../../context/MediaContext';
+import { useMedia } from '../../app/providers/MediaContext';
 
 interface PlatformConnectModalProps {
   platform: PlatformType | null;
