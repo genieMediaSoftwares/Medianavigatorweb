@@ -140,28 +140,28 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
   const hookQuality = diagnosis?.videoAnalysis?.hookQuality ?? '';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-xs font-sans overflow-y-auto">
-      <div className="w-full max-w-4xl my-6 bg-white rounded-3xl border border-[#E2E8F0] shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/65 backdrop-blur-xs font-sans overflow-y-auto">
+      <div className="w-full max-w-4xl my-6 bg-white rounded-3xl border border-line shadow-2xl overflow-hidden flex flex-col max-h-[94vh]">
         
         {/* Header */}
-        <div className="p-4 md:px-6 md:py-4 border-b border-[#E2E8F0] flex items-center justify-between bg-white shrink-0">
+        <div className="p-4 md:px-6 md:py-4 border-b border-line flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#0284C7] to-[#06B6D4] flex items-center justify-center text-white shadow-2xs">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-brand-400 flex items-center justify-center text-white shadow-2xs">
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-[#0B132B] tracking-tight">
+                <h2 className="text-base font-bold text-ink tracking-tight">
                   Forensic AI Post &amp; Video Diagnostic
                 </h2>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-[#475569] border border-slate-200">
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider bg-stone-100 text-body border border-stone-200">
                   {media.platform}
                 </span>
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-sky-50 text-[#0284C7] border border-sky-200">
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wider bg-orange-50 text-brand-600 border border-orange-200">
                   {media.contentType}
                 </span>
               </div>
-              <p className="text-[11px] text-[#64748B]">
+              <p className="text-xs text-muted">
                 Real-time algorithmic breakdown &amp; retention intelligence
               </p>
             </div>
@@ -169,7 +169,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-[#64748B] hover:text-[#0B132B] hover:bg-slate-100 transition-colors cursor-pointer"
+            className="p-2 rounded-xl text-muted hover:text-ink hover:bg-stone-100 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -178,8 +178,8 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
         {/* Modal Body */}
         <div className="p-5 md:p-6 space-y-5 overflow-y-auto flex-1">
           {/* Post Snippet Card */}
-          <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] flex flex-col sm:flex-row items-start gap-4">
-            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-slate-200 shrink-0 border border-slate-200">
+          <div className="p-4 rounded-2xl bg-canvas border border-line flex flex-col sm:flex-row items-start gap-4">
+            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-stone-200 shrink-0 border border-stone-200">
               <img
                 src={media.thumbnailUrl}
                 alt={media.title}
@@ -189,7 +189,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=600&q=80';
                 }}
               />
-              <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-[#0B132B]/80 text-white backdrop-blur-xs flex items-center gap-1">
+              <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold uppercase bg-ink/80 text-white backdrop-blur-xs flex items-center gap-1">
                 {isVideoFormat && <Play className="w-2 h-2 fill-white" />}
                 <span>{media.contentType}</span>
               </div>
@@ -197,7 +197,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
 
             <div className="space-y-2 flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-sm font-bold text-[#0B132B] leading-snug line-clamp-2">
+                <h3 className="text-sm font-bold text-ink leading-snug line-clamp-2">
                   {media.title}
                 </h3>
                 {media.mediaUrl && (
@@ -205,7 +205,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                     href={media.mediaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1 text-[#64748B] hover:text-[#0284C7] shrink-0"
+                    className="p-1 text-muted hover:text-brand-600 shrink-0"
                     title="Open on platform"
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -214,54 +214,54 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
               </div>
 
               {media.caption && (
-                <p className="text-xs text-[#64748B] line-clamp-2 leading-relaxed italic">
+                <p className="text-xs text-muted line-clamp-2 leading-relaxed italic">
                   "{media.caption}"
                 </p>
               )}
 
               {/* Exact Metrics Row */}
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 text-center">
-                <div className="p-1.5 rounded-lg bg-white border border-[#E2E8F0]">
-                  <div className="text-[9px] font-bold uppercase text-[#64748B] flex items-center justify-center gap-1">
-                    <Eye className="w-2.5 h-2.5 text-[#0284C7]" /> Views
+                <div className="p-1.5 rounded-lg bg-white border border-line">
+                  <div className="text-xs font-bold uppercase text-muted flex items-center justify-center gap-1">
+                    <Eye className="w-2.5 h-2.5 text-brand-600" /> Views
                   </div>
-                  <div className="text-xs font-bold text-[#0B132B] font-mono">
+                  <div className="text-xs font-bold text-ink">
                     {media.views > 0 ? media.views.toLocaleString() : '—'}
                   </div>
                 </div>
 
-                <div className="p-1.5 rounded-lg bg-white border border-[#E2E8F0]">
-                  <div className="text-[9px] font-bold uppercase text-[#64748B] flex items-center justify-center gap-1">
+                <div className="p-1.5 rounded-lg bg-white border border-line">
+                  <div className="text-xs font-bold uppercase text-muted flex items-center justify-center gap-1">
                     <Heart className="w-2.5 h-2.5 text-pink-500" /> Likes
                   </div>
-                  <div className="text-xs font-bold text-[#0B132B] font-mono">
+                  <div className="text-xs font-bold text-ink">
                     {media.likes.toLocaleString()}
                   </div>
                 </div>
 
-                <div className="p-1.5 rounded-lg bg-white border border-[#E2E8F0]">
-                  <div className="text-[9px] font-bold uppercase text-[#64748B] flex items-center justify-center gap-1">
+                <div className="p-1.5 rounded-lg bg-white border border-line">
+                  <div className="text-xs font-bold uppercase text-muted flex items-center justify-center gap-1">
                     <MessageSquare className="w-2.5 h-2.5 text-amber-500" /> Comments
                   </div>
-                  <div className="text-xs font-bold text-[#0B132B] font-mono">
+                  <div className="text-xs font-bold text-ink">
                     {media.comments.toLocaleString()}
                   </div>
                 </div>
 
-                <div className="p-1.5 rounded-lg bg-white border border-[#E2E8F0]">
-                  <div className="text-[9px] font-bold uppercase text-[#64748B] flex items-center justify-center gap-1">
+                <div className="p-1.5 rounded-lg bg-white border border-line">
+                  <div className="text-xs font-bold uppercase text-muted flex items-center justify-center gap-1">
                     <Share2 className="w-2.5 h-2.5 text-emerald-600" /> Saves/Shares
                   </div>
-                  <div className="text-xs font-bold text-[#0B132B] font-mono">
+                  <div className="text-xs font-bold text-ink">
                     {media.shares.toLocaleString()}
                   </div>
                 </div>
 
-                <div className="p-1.5 rounded-lg bg-white border border-[#E2E8F0]">
-                  <div className="text-[9px] font-bold uppercase text-[#64748B] flex items-center justify-center gap-1">
+                <div className="p-1.5 rounded-lg bg-white border border-line">
+                  <div className="text-xs font-bold uppercase text-muted flex items-center justify-center gap-1">
                     <Zap className="w-2.5 h-2.5 text-purple-500" /> Eng Rate
                   </div>
-                  <div className="text-xs font-bold text-[#0284C7] font-mono">
+                  <div className="text-xs font-bold text-brand-600">
                     {media.engagementRate}%
                   </div>
                 </div>
@@ -271,13 +271,13 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
 
           {/* Loading State */}
           {loading && (
-            <div className="p-12 text-center space-y-3 bg-[#F8FAFC] rounded-2xl border border-[#E2E8F0]">
-              <RotateCw className="w-8 h-8 text-[#0284C7] animate-spin mx-auto" />
+            <div className="p-12 text-center space-y-3 bg-canvas rounded-2xl border border-line">
+              <RotateCw className="w-8 h-8 text-brand-600 animate-spin mx-auto" />
               <div className="space-y-1">
-                <p className="text-sm font-bold text-[#0B132B]">
+                <p className="text-sm font-bold text-ink">
                   Executing Real-Time Forensic AI Analysis...
                 </p>
-                <p className="text-xs text-[#64748B]">
+                <p className="text-xs text-muted">
                   Benchmarking whole video retention dynamics, 0-3s hook friction, and algorithmic feed expansion.
                 </p>
               </div>
@@ -315,7 +315,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
             <div className="space-y-5">
               
               {/* Status & Headline Banner */}
-              <div className="p-4 md:p-5 rounded-2xl border bg-gradient-to-r from-slate-50 via-sky-50/50 to-indigo-50/40 border-[#CBD5E1]">
+              <div className="p-4 md:p-5 rounded-2xl border bg-gradient-to-r from-stone-50 via-orange-50/50 to-indigo-50/40 border-line-strong">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
                     <span
@@ -324,7 +324,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                           ? 'bg-emerald-600 text-white shadow-2xs'
                           : diagnosis.status === 'underperforming'
                           ? 'bg-amber-600 text-white shadow-2xs'
-                          : 'bg-[#0284C7] text-white shadow-2xs'
+                          : 'bg-brand-600 text-white shadow-2xs'
                       }`}
                     >
                       {diagnosis.status === 'working' ? (
@@ -335,48 +335,48 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                       <span>{diagnosis.statusBadge}</span>
                     </span>
 
-                    <span className="text-xs font-mono font-bold text-[#0B132B] bg-white px-2 py-0.5 rounded-md border border-[#E2E8F0]">
+                    <span className="text-xs font-bold text-ink bg-white px-2 py-0.5 rounded-md border border-line">
                       {diagnosis.baselineComparison}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 text-[10px] font-bold">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 text-xs font-bold">
                       <Sparkles className="w-3 h-3 text-emerald-600" />
                       {diagnosis.ai && (diagnosis.ai.status === 'ran' || diagnosis.ai.status === 'cached') ? <>AI interpretation: <strong>{diagnosis.ai.status === 'cached' ? 'cached result' : 'generated now'}</strong></> : <>AI interpretation: <strong>not available</strong></>}
                     </span>
                   </div>
                 </div>
 
-                <h4 className="text-sm md:text-base font-bold text-[#0B132B] tracking-tight">
+                <h4 className="text-sm md:text-base font-bold text-ink tracking-tight">
                   {diagnosis.headline}
                 </h4>
 
-                <p className="text-xs text-[#334155] leading-relaxed mt-1.5 font-medium">
+                <p className="text-xs text-ink-soft leading-relaxed mt-1.5 font-medium">
                   {diagnosis.executiveSummary}
                 </p>
 
                 {diagnosis.ai && diagnosis.ai.status !== 'ran' && diagnosis.ai.status !== 'cached' && (
-                  <p className="mt-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                  <p className="mt-2 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
                     AI interpretation was not generated{diagnosis.ai.reason ? ` (${diagnosis.ai.reason})` : ''}. Everything shown here is measured from your synced data.
                   </p>
                 )}
                 {diagnosis.limitations && diagnosis.limitations.length > 0 && (
-                  <ul className="mt-2 text-[11px] text-slate-500 list-disc pl-4 space-y-0.5">
+                  <ul className="mt-2 text-xs text-stone-500 list-disc pl-4 space-y-0.5">
                     {diagnosis.limitations.map((l, i) => <li key={i}>{l}</li>)}
                   </ul>
                 )}
               </div>
 
               {/* INTERACTIVE PERSPECTIVE SWITCHER BAR */}
-              <div className="p-1 rounded-2xl bg-[#F1F5F9] border border-[#CBD5E1] flex flex-wrap sm:flex-nowrap items-center gap-1 shadow-inner">
+              <div className="p-1 rounded-2xl bg-canvas-soft border border-line-strong flex flex-wrap sm:flex-nowrap items-center gap-1 shadow-inner">
                 <button
                   id="tab-why-its-working"
                   onClick={() => setActiveTab('working')}
                   className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activeTab === 'working'
                       ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-[#475569] hover:text-[#0B132B] hover:bg-white/60'
+                      : 'text-body hover:text-ink hover:bg-white/60'
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -389,7 +389,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activeTab === 'not_working'
                       ? 'bg-amber-600 text-white shadow-xs'
-                      : 'text-[#475569] hover:text-[#0B132B] hover:bg-white/60'
+                      : 'text-body hover:text-ink hover:bg-white/60'
                   }`}
                 >
                   <AlertTriangle className="w-3.5 h-3.5" />
@@ -401,8 +401,8 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   onClick={() => setActiveTab('video')}
                   className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activeTab === 'video'
-                      ? 'bg-gradient-to-r from-[#0284C7] to-[#7C3AED] text-white shadow-xs'
-                      : 'text-[#475569] hover:text-[#0B132B] hover:bg-white/60'
+                      ? 'bg-gradient-to-r from-brand-600 to-[#7C3AED] text-white shadow-xs'
+                      : 'text-body hover:text-ink hover:bg-white/60'
                   }`}
                 >
                   <Film className="w-3.5 h-3.5" />
@@ -414,8 +414,8 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   onClick={() => setActiveTab('comparison')}
                   className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     activeTab === 'comparison'
-                      ? 'bg-[#0B132B] text-white shadow-xs'
-                      : 'text-[#475569] hover:text-[#0B132B] hover:bg-white/60'
+                      ? 'bg-ink text-white shadow-xs'
+                      : 'text-body hover:text-ink hover:bg-white/60'
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
@@ -430,18 +430,18 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   {diagnosis.topSuccessDrivers && diagnosis.topSuccessDrivers.length > 0 && (
                     <div className="p-4 rounded-2xl bg-emerald-50/80 border border-emerald-200/90 space-y-2.5 shadow-2xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider flex items-center gap-1.5">
                           <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                           Core Drivers: What Clicked &amp; Drove This to the Top (5-8 Key Factors)
                         </span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-200/70 text-emerald-900">
+                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-emerald-200/70 text-emerald-900">
                           Verified Top Signals
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         {diagnosis.topSuccessDrivers.map((point, idx) => (
                           <div key={idx} className="p-2.5 rounded-xl bg-white/95 border border-emerald-200/70 shadow-2xs flex items-start gap-2">
-                            <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
                               {idx + 1}
                             </span>
                             <span className="text-emerald-950 font-medium leading-relaxed">
@@ -460,48 +460,48 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                         Detailed Algorithmic Momentum &amp; Pacing Factors
                       </h4>
                     </div>
-                    <span className="text-[11px] text-[#64748B]">
+                    <span className="text-xs text-muted">
                       Factors that instructed the algorithm to reward this post
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#0284C7] flex items-center gap-1">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-brand-600 flex items-center gap-1">
                         <Target className="w-3 h-3" />
                         Hook Effectiveness (0-3s)
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.whyWorking.hookEffectiveness}
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-purple-600 flex items-center gap-1">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-purple-600 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         Retention &amp; Pacing
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.whyWorking.retentionDrivers}
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-pink-600 flex items-center gap-1">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-pink-600 flex items-center gap-1">
                         <Heart className="w-3 h-3" />
                         Audience Interaction Triggers
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.whyWorking.audienceInteractionTriggers}
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 flex items-center gap-1">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-amber-600 flex items-center gap-1">
                         <Layers className="w-3 h-3" />
                         Algorithmic Feed Signal
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.whyWorking.algorithmDistributionSignal}
                       </p>
                     </div>
@@ -516,18 +516,18 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   {diagnosis.bottomImprovementPoints && diagnosis.bottomImprovementPoints.length > 0 && (
                     <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 space-y-2.5 shadow-2xs">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
                           <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
                           Actionable Fixes: What Needs Improvement (5-8 Specific Recommendations)
                         </span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200/70 text-amber-900">
+                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-200/70 text-amber-900">
                           Priority Remedies
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                         {diagnosis.bottomImprovementPoints.map((point, idx) => (
                           <div key={idx} className="p-2.5 rounded-xl bg-white/95 border border-amber-200/70 shadow-2xs flex items-start gap-2">
-                            <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                            <span className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
                               {idx + 1}
                             </span>
                             <span className="text-amber-950 font-medium leading-relaxed">
@@ -546,48 +546,48 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                         Friction Points &amp; Missed Algorithmic Triggers
                       </h4>
                     </div>
-                    <span className="text-[11px] text-[#64748B]">
+                    <span className="text-xs text-muted">
                       Where viewer attention decayed and how to revise the asset
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-rose-600 flex items-center gap-1">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-rose-600 flex items-center gap-1">
                         <TrendingDown className="w-3 h-3" />
                         Viewer Drop-off Point
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.whyNotWorking.dropoffDiagnosis}
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-amber-600 flex items-center gap-1">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-amber-600 flex items-center gap-1">
                         <Target className="w-3 h-3" />
                         Hook Friction (0-3s)
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.whyNotWorking.hookFriction}
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600 flex items-center gap-1">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-blue-600 flex items-center gap-1">
                         <HelpCircle className="w-3 h-3" />
                         Value Proposition Gap
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.whyNotWorking.valuePropositionGap}
                       </p>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-1">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-purple-600 flex items-center gap-1">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-1">
+                      <div className="text-xs font-bold uppercase tracking-wider text-purple-600 flex items-center gap-1">
                         <Layers className="w-3 h-3" />
                         Formatting &amp; Pacing Mismatch
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.whyNotWorking.formattingMismatch}
                       </p>
                     </div>
@@ -599,28 +599,28 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
               {activeTab === 'video' && diagnosis.videoAnalysis && (
                 <div className="space-y-4 animate-fadeIn">
                   {/* Hook Score & Quality Hero Card */}
-                  <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white shadow-md border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-stone-900 to-indigo-950 text-white shadow-md border border-stone-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="space-y-1.5 flex-1">
                       <div className="flex items-center gap-2">
                         <Award className="w-4 h-4 text-amber-400" />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-300">
+                        <span className="text-xs font-bold uppercase tracking-wider text-stone-300">
                           Short-Form Hook Quality &amp; Scroll-Stop Audit
                         </span>
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                        <span className="px-2 py-0.5 rounded-md text-xs font-bold uppercase bg-amber-400/20 text-amber-300 border border-amber-400/30">
                           {hookQuality}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-200 leading-relaxed">
+                      <p className="text-xs text-stone-200 leading-relaxed">
                         {diagnosis.videoAnalysis.retentionDropoffPrediction}
                       </p>
                     </div>
 
                     <div className="p-3 rounded-xl bg-white/10 backdrop-blur-xs border border-white/15 flex items-center gap-3 shrink-0">
                       <div className="text-center">
-                        <div className="text-2xl font-black text-white font-mono leading-none">
-                          {hookScore}<span className="text-xs text-slate-400">/100</span>
+                        <div className="text-2xl font-black text-white leading-none">
+                          {hookScore}<span className="text-xs text-stone-400">/100</span>
                         </div>
-                        <div className="text-[9px] uppercase tracking-wider text-slate-300 font-bold mt-1">
+                        <div className="text-xs uppercase tracking-wider text-stone-300 font-bold mt-1">
                           Hook Score
                         </div>
                       </div>
@@ -636,13 +636,13 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   </div>
 
                   {/* SECOND-BY-SECOND TIMELINE RETENTION CURVE */}
-                  <div className="p-4 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-3">
+                  <div className="p-4 rounded-2xl bg-white border border-line shadow-2xs space-y-3">
                     <div className="flex items-center justify-between">
-                      <div className="text-[11px] font-bold uppercase tracking-wider text-[#0B132B] flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-[#0284C7]" />
+                      <div className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-brand-600" />
                         Second-By-Second Timeline Retention Curve
                       </div>
-                      <span className="text-[10px] text-[#64748B]">
+                      <span className="text-xs text-muted">
                         Viewer decay benchmark across critical watch thresholds
                       </span>
                     </div>
@@ -651,19 +651,19 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                       {(diagnosis.videoAnalysis.timelineCurve || []).map((step, idx) => (
                         <div 
                           key={idx} 
-                          className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex flex-col justify-between space-y-2 relative overflow-hidden"
+                          className="p-3 rounded-xl bg-canvas border border-line flex flex-col justify-between space-y-2 relative overflow-hidden"
                         >
                           <div className="flex items-center justify-between">
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-[#0284C7]/10 text-[#0284C7]">
+                            <span className="px-1.5 py-0.5 rounded text-xs font-bold bg-brand-600/10 text-brand-600">
                               {step.secondRange}
                             </span>
-                            <span className="text-[10px] font-bold text-[#0B132B] font-mono">
+                            <span className="text-xs font-bold text-ink">
                               {step.retentionEstimate}
                             </span>
                           </div>
                           <div>
-                            <div className="text-[11px] font-bold text-[#0B132B]">{step.stage}</div>
-                            <p className="text-[10px] text-[#64748B] leading-relaxed mt-0.5">
+                            <div className="text-xs font-bold text-ink">{step.stage}</div>
+                            <p className="text-xs text-muted leading-relaxed mt-0.5">
                               {step.actionableInsight}
                             </p>
                           </div>
@@ -674,28 +674,28 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
 
                   {/* Audio Cadence, Subtitles & Kinetic Text */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-2">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-[#0284C7] flex items-center gap-1.5">
-                        <Volume2 className="w-3.5 h-3.5 text-[#0284C7]" />
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-2">
+                      <div className="text-xs font-bold uppercase tracking-wider text-brand-600 flex items-center gap-1.5">
+                        <Volume2 className="w-3.5 h-3.5 text-brand-600" />
                         Audio Cadence &amp; Voiceover Pacing
                       </div>
-                      <p className="text-[#334155] leading-relaxed">
+                      <p className="text-ink-soft leading-relaxed">
                         {diagnosis.videoAnalysis.audioPacingFeedback}
                       </p>
-                      <div className="p-2.5 rounded-xl bg-sky-50/70 border border-sky-200 text-[11px] text-[#0284C7] font-medium">
+                      <div className="p-2.5 rounded-xl bg-orange-50/70 border border-orange-200 text-xs text-brand-600 font-medium">
                         💡 <strong>Sound-Off Tip: </strong>{diagnosis.videoAnalysis.soundOffOptimizationTip}
                       </div>
                     </div>
 
-                    <div className="p-3.5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs space-y-2">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-purple-600 flex items-center gap-1.5">
+                    <div className="p-3.5 rounded-2xl bg-white border border-line shadow-2xs space-y-2">
+                      <div className="text-xs font-bold uppercase tracking-wider text-purple-600 flex items-center gap-1.5">
                         <Layers className="w-3.5 h-3.5 text-purple-600" />
                         Kinetic Subtitle &amp; Overlay Tactics
                       </div>
-                      <ul className="space-y-1.5 text-[#334155]">
+                      <ul className="space-y-1.5 text-ink-soft">
                         {diagnosis.videoAnalysis.kineticTextRecommendations.map((rec, i) => (
                           <li key={i} className="flex items-start gap-1.5">
-                            <span className="text-[#0284C7] font-bold">✓</span>
+                            <span className="text-brand-600 font-bold">✓</span>
                             <span>{rec}</span>
                           </li>
                         ))}
@@ -706,13 +706,13 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   {/* Viral Replication Concept Card */}
                   <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-purple-600" />
                         Viral Replication Blueprint
                       </span>
                       <button
                         onClick={handleCopyVideoHook}
-                        className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 text-[11px] font-semibold flex items-center gap-1 shadow-2xs cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 text-xs font-semibold flex items-center gap-1 shadow-2xs cursor-pointer"
                       >
                         {copiedVideoHook ? (
                           <>
@@ -727,13 +727,13 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                         )}
                       </button>
                     </div>
-                    <p className="text-xs text-[#0B132B] font-medium leading-relaxed">
+                    <p className="text-xs text-ink font-medium leading-relaxed">
                       {diagnosis.videoAnalysis.viralReplicationConcept}
                     </p>
                     {diagnosis.videoAnalysis.testedAlternativeHook && (
-                      <div className="pt-1 text-[11px] text-[#475569]">
+                      <div className="pt-1 text-xs text-body">
                         <strong>Alternative Hook Line: </strong>
-                        <span className="italic font-serif text-[#0B132B]">
+                        <span className="italic font-serif text-ink">
                           "{diagnosis.videoAnalysis.testedAlternativeHook}"
                         </span>
                       </div>
@@ -743,8 +743,8 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
               )}
 
               {activeTab === 'video' && !diagnosis.videoAnalysis && (
-                <div className="text-xs text-[#334155] bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fadeIn space-y-2">
-                  <p className="font-semibold text-[#0B132B]">Video retention analysis is not available for this post.</p>
+                <div className="text-xs text-ink-soft bg-stone-50 border border-stone-200 rounded-xl p-4 animate-fadeIn space-y-2">
+                  <p className="font-semibold text-ink">Video retention analysis is not available for this post.</p>
                   <p>
                     The platform APIs connected here do not provide audience-retention curves, audio, or frame-level data, so no hook score or retention
                     curve is shown rather than estimating one. Use the measured metrics and the suggested hook alternative on the other tabs.
@@ -753,7 +753,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
               )}
 
               {(activeTab === 'working' && !diagnosis.whyWorking || activeTab === 'not_working' && !diagnosis.whyNotWorking || activeTab === 'comparison' && !(diagnosis.whyWorking && diagnosis.whyNotWorking)) && (
-                <div className="text-xs text-[#334155] bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fadeIn">
+                <div className="text-xs text-ink-soft bg-stone-50 border border-stone-200 rounded-xl p-4 animate-fadeIn">
                   No AI breakdown is available for this view{diagnosis.status === 'working' && activeTab === 'not_working' ? ' (this post is performing above your typical level)' : diagnosis.status === 'underperforming' && activeTab === 'working' ? ' (this post is performing below your typical level)' : ''}.
                   The measured comparison against your own history is shown in the summary above.
                 </div>
@@ -768,17 +768,17 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                       <TrendingUp className="w-4 h-4 text-emerald-600" />
                       What Succeeded (Keep Doing)
                     </div>
-                    <div className="space-y-2 text-[#334155]">
+                    <div className="space-y-2 text-ink-soft">
                       <div>
-                        <strong className="text-emerald-900 block text-[10px] uppercase">Hook Strength:</strong>
+                        <strong className="text-emerald-900 block text-xs uppercase">Hook Strength:</strong>
                         <p>{diagnosis.whyWorking.hookEffectiveness}</p>
                       </div>
                       <div>
-                        <strong className="text-emerald-900 block text-[10px] uppercase">Retention Drivers:</strong>
+                        <strong className="text-emerald-900 block text-xs uppercase">Retention Drivers:</strong>
                         <p>{diagnosis.whyWorking.retentionDrivers}</p>
                       </div>
                       <div>
-                        <strong className="text-emerald-900 block text-[10px] uppercase">Interaction Triggers:</strong>
+                        <strong className="text-emerald-900 block text-xs uppercase">Interaction Triggers:</strong>
                         <p>{diagnosis.whyWorking.audienceInteractionTriggers}</p>
                       </div>
                     </div>
@@ -790,17 +790,17 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                       <TrendingDown className="w-4 h-4 text-amber-600" />
                       Friction to Fix (Revise)
                     </div>
-                    <div className="space-y-2 text-[#334155]">
+                    <div className="space-y-2 text-ink-soft">
                       <div>
-                        <strong className="text-amber-900 block text-[10px] uppercase">Attention Dropoff:</strong>
+                        <strong className="text-amber-900 block text-xs uppercase">Attention Dropoff:</strong>
                         <p>{diagnosis.whyNotWorking.dropoffDiagnosis}</p>
                       </div>
                       <div>
-                        <strong className="text-amber-900 block text-[10px] uppercase">Hook Friction:</strong>
+                        <strong className="text-amber-900 block text-xs uppercase">Hook Friction:</strong>
                         <p>{diagnosis.whyNotWorking.hookFriction}</p>
                       </div>
                       <div>
-                        <strong className="text-amber-900 block text-[10px] uppercase">Pacing / Format Gap:</strong>
+                        <strong className="text-amber-900 block text-xs uppercase">Pacing / Format Gap:</strong>
                         <p>{diagnosis.whyNotWorking.formattingMismatch}</p>
                       </div>
                     </div>
@@ -809,41 +809,41 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
               )}
 
               {/* Metric Breakdown Grid */}
-              <div className="p-4 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-3">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">
+              <div className="p-4 rounded-2xl bg-canvas border border-line space-y-3">
+                <div className="text-xs font-bold uppercase tracking-wider text-muted">
                   Verified Metric Health &amp; Interaction Velocity
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div className="space-y-0.5">
-                    <span className="font-bold text-[#0B132B]">Views vs Baseline: </span>
-                    <span className="text-[#64748B]">{diagnosis.metricBreakdown.viewsAnalysis}</span>
+                    <span className="font-bold text-ink">Views vs Baseline: </span>
+                    <span className="text-muted">{diagnosis.metricBreakdown.viewsAnalysis}</span>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="font-bold text-[#0B132B]">Engagement Health: </span>
-                    <span className="text-[#64748B]">{diagnosis.metricBreakdown.engagementHealth}</span>
+                    <span className="font-bold text-ink">Engagement Health: </span>
+                    <span className="text-muted">{diagnosis.metricBreakdown.engagementHealth}</span>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="font-bold text-[#0B132B]">Comment Velocity: </span>
-                    <span className="text-[#64748B]">{diagnosis.metricBreakdown.commentVelocity}</span>
+                    <span className="font-bold text-ink">Comment Velocity: </span>
+                    <span className="text-muted">{diagnosis.metricBreakdown.commentVelocity}</span>
                   </div>
                   <div className="space-y-0.5">
-                    <span className="font-bold text-[#0B132B]">Shareability: </span>
-                    <span className="text-[#64748B]">{diagnosis.metricBreakdown.shareabilityAnalysis}</span>
+                    <span className="font-bold text-ink">Shareability: </span>
+                    <span className="text-muted">{diagnosis.metricBreakdown.shareabilityAnalysis}</span>
                   </div>
                 </div>
               </div>
 
               {/* Suggested Hook Alternative Callout */}
               {diagnosis.suggestedHookAlternative && (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-50 to-indigo-50 border border-sky-200/80 space-y-2">
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-orange-50 to-indigo-50 border border-orange-200/80 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-[#0284C7] uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-brand-600 uppercase tracking-wider flex items-center gap-1.5">
                       <Sparkles className="w-3.5 h-3.5" />
                       Suggested Alternative Hook (Ready to Test)
                     </span>
                     <button
                       onClick={handleCopyHook}
-                      className="px-2.5 py-1 rounded-lg bg-white border border-sky-200 text-[#0284C7] hover:bg-sky-50 text-[11px] font-semibold flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-white border border-orange-200 text-brand-600 hover:bg-orange-50 text-xs font-semibold flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
                     >
                       {copiedHook ? (
                         <>
@@ -858,7 +858,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                       )}
                     </button>
                   </div>
-                  <p className="text-xs font-serif italic text-[#0B132B] font-medium leading-relaxed">
+                  <p className="text-xs font-serif italic text-ink font-medium leading-relaxed">
                     "{diagnosis.suggestedHookAlternative}"
                   </p>
                 </div>
@@ -866,15 +866,15 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
 
               {/* Recommended Format & Timing */}
               {diagnosis.recommendedFormatAndTiming && (
-                <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-center gap-3 text-xs">
+                <div className="p-3.5 rounded-2xl bg-canvas border border-line flex items-center gap-3 text-xs">
                   <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center shrink-0 text-amber-700">
                     <Calendar className="w-4 h-4" />
                   </div>
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">
+                    <div className="text-xs font-bold uppercase tracking-wider text-muted">
                       Recommended Format &amp; Timing
                     </div>
-                    <div className="font-semibold text-[#0B132B]">
+                    <div className="font-semibold text-ink">
                       {diagnosis.recommendedFormatAndTiming}
                     </div>
                   </div>
@@ -884,19 +884,19 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
               {/* Actionable Next Steps Checklist */}
               {diagnosis.actionableChecklist && diagnosis.actionableChecklist.length > 0 && (
                 <div className="space-y-2">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">
+                  <div className="text-xs font-bold uppercase tracking-wider text-muted">
                     Actionable Next Steps (Forensic Recommendations)
                   </div>
                   <div className="space-y-1.5 text-xs">
                     {diagnosis.actionableChecklist.map((step, idx) => (
                       <div
                         key={idx}
-                        className="p-2.5 rounded-xl bg-white border border-[#E2E8F0] shadow-2xs flex items-start gap-2.5"
+                        className="p-2.5 rounded-xl bg-white border border-line shadow-2xs flex items-start gap-2.5"
                       >
-                        <span className="w-5 h-5 rounded-full bg-slate-100 text-[#0B132B] font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="w-5 h-5 rounded-full bg-stone-100 text-ink font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
                           {idx + 1}
                         </span>
-                        <span className="text-[#334155] leading-relaxed font-medium">
+                        <span className="text-ink-soft leading-relaxed font-medium">
                           {step}
                         </span>
                       </div>
@@ -909,14 +909,14 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 md:px-6 border-t border-[#E2E8F0] bg-[#F8FAFC] flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2 text-xs text-[#64748B]">
+        <div className="p-4 md:px-6 border-t border-line bg-canvas flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2 text-xs text-muted">
             <button
               onClick={handleReanalyzeWholeVideo}
               disabled={reanalyzing || loading}
-              className="px-3 py-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-[#0B132B] font-semibold text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 rounded-xl border border-stone-300 bg-white hover:bg-stone-50 text-ink font-semibold text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-2xs"
             >
-              <RotateCw className={`w-3.5 h-3.5 ${reanalyzing ? 'animate-spin text-[#0284C7]' : ''}`} />
+              <RotateCw className={`w-3.5 h-3.5 ${reanalyzing ? 'animate-spin text-brand-600' : ''}`} />
               <span>{reanalyzing ? 'Analyzing Video Retention...' : 'Re-Run Whole Video Analysis'}</span>
             </button>
           </div>
@@ -924,15 +924,15 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleGoToPlanner}
-              className="px-3 py-1.5 rounded-xl bg-white border border-[#CBD5E1] text-[#0B132B] font-semibold text-xs hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              className="px-3 py-1.5 rounded-xl bg-white border border-line-strong text-ink font-semibold text-xs hover:bg-stone-50 transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
-              <Calendar className="w-3.5 h-3.5 text-[#0284C7]" />
+              <Calendar className="w-3.5 h-3.5 text-brand-600" />
               <span>Add to Content Planner</span>
             </button>
 
             <button
               onClick={onClose}
-              className="px-4 py-1.5 rounded-xl bg-[#0B132B] hover:bg-[#1E293B] text-white font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
+              className="px-4 py-1.5 rounded-xl bg-ink hover:bg-ink-soft text-white font-semibold text-xs transition-colors shadow-2xs cursor-pointer"
             >
               Close
             </button>

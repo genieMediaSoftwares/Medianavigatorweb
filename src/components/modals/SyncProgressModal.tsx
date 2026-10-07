@@ -36,25 +36,25 @@ export const SyncProgressModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-md w-full border border-[#CBD5E1] shadow-2xl overflow-hidden space-y-6 p-6 sm:p-7">
+    <div className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-xs flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-md w-full border border-line-strong shadow-2xl overflow-hidden space-y-6 p-6 sm:p-7">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-[#0284C7]/10 text-[#0284C7] flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-2xl bg-brand-600/10 text-brand-600 flex items-center justify-center mx-auto">
             {syncState.isCompleted ? (
               <CheckCircle2 className="w-7 h-7 text-emerald-600" />
             ) : (
-              <RotateCw className="w-6 h-6 animate-spin text-[#0284C7]" />
+              <RotateCw className="w-6 h-6 animate-spin text-brand-600" />
             )}
           </div>
 
-          <h3 className="text-lg font-bold text-[#0B132B]">
+          <h3 className="text-lg font-bold text-ink">
             {syncState.isCompleted ? 'Synchronization Complete' : 'Synchronizing Account Data'}
           </h3>
 
-          <p className="text-xs text-[#64748B]">
+          <p className="text-xs text-muted">
             Ingesting full content archive for{' '}
-            <span className="font-semibold text-[#0B132B]">
+            <span className="font-semibold text-ink">
               @{syncState.accountName || syncState.platform}
             </span>{' '}
             ({syncState.platform?.toUpperCase()})
@@ -68,7 +68,7 @@ export const SyncProgressModal: React.FC = () => {
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               <span>Successfully Synchronized {syncState.syncedCount || 0} Verified Posts</span>
             </div>
-            <p className="text-[11px] text-emerald-700">
+            <p className="text-xs text-emerald-700">
               All published media assets indexed with verified views, engagement, and retention signals.
             </p>
           </div>
@@ -76,14 +76,14 @@ export const SyncProgressModal: React.FC = () => {
 
         {/* Progress Bar */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-semibold text-[#0B132B]">
+          <div className="flex items-center justify-between text-xs font-semibold text-ink">
             <span>Step {currentStep} of 7</span>
-            <span className="font-mono text-[#0284C7]">{progressPercent}%</span>
+            <span className="font-mono text-brand-600">{progressPercent}%</span>
           </div>
-          <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+          <div className="w-full h-2 rounded-full bg-stone-100 overflow-hidden">
             <div
               className={`h-full transition-all duration-500 rounded-full ${
-                syncState.isCompleted ? 'bg-emerald-600' : 'bg-gradient-to-r from-[#0284C7] to-[#06B6D4]'
+                syncState.isCompleted ? 'bg-emerald-600' : 'bg-gradient-to-r from-brand-600 to-brand-400'
               }`}
               style={{ width: `${progressPercent}%` }}
             />
@@ -101,19 +101,19 @@ export const SyncProgressModal: React.FC = () => {
                 key={s.num}
                 className={`p-2.5 rounded-xl border transition-colors flex items-start gap-3 ${
                   isCurrent
-                    ? 'bg-[#0284C7]/5 border-[#0284C7]/30 text-[#0B132B]'
+                    ? 'bg-brand-600/5 border-brand-600/30 text-ink'
                     : isDone
-                    ? 'bg-white border-[#E2E8F0] text-[#0F172A]'
-                    : 'bg-slate-50/50 border-slate-100 text-slate-400'
+                    ? 'bg-white border-line text-ink'
+                    : 'bg-stone-50/50 border-stone-100 text-stone-400'
                 }`}
               >
                 <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-bold ${
+                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-xs font-bold ${
                     isDone
                       ? 'bg-emerald-600 text-white'
                       : isCurrent
-                      ? 'bg-[#0284C7] text-white animate-pulse'
-                      : 'bg-slate-200 text-slate-500'
+                      ? 'bg-brand-600 text-white animate-pulse'
+                      : 'bg-stone-200 text-stone-500'
                   }`}
                 >
                   {isDone ? <Check className="w-3 h-3" /> : s.num}
@@ -121,7 +121,7 @@ export const SyncProgressModal: React.FC = () => {
 
                 <div className="space-y-0.5 flex-1 min-w-0">
                   <div className="text-xs font-semibold truncate">{s.label}</div>
-                  <div className="text-[10px] text-[#64748B] truncate">{s.desc}</div>
+                  <div className="text-xs text-muted truncate">{s.desc}</div>
                 </div>
               </div>
             );
@@ -129,26 +129,26 @@ export const SyncProgressModal: React.FC = () => {
         </div>
 
         {/* Action Controls */}
-        <div className="pt-2 border-t border-[#E2E8F0]">
+        <div className="pt-2 border-t border-line">
           {syncState.isCompleted ? (
             <button
               onClick={handleFinish}
-              className="w-full py-3 rounded-xl bg-[#0B132B] text-white text-xs font-semibold hover:bg-[#1C2541] transition-all flex items-center justify-center gap-2 shadow-md"
+              className="w-full py-3 rounded-xl bg-ink text-white text-xs font-semibold hover:bg-ink-soft transition-all flex items-center justify-center gap-2 shadow-md"
             >
               <span>
                 Explore {syncState.syncedCount && syncState.syncedCount > 0 ? `${syncState.syncedCount} Verified Posts` : 'Dashboard & Performance'}
               </span>
-              <ArrowRight className="w-4 h-4 text-[#06B6D4]" />
+              <ArrowRight className="w-4 h-4 text-brand-400" />
             </button>
           ) : (
-            <div className="flex items-center justify-between text-xs text-[#64748B]">
-              <span className="flex items-center gap-1.5 text-[11px]">
+            <div className="flex items-center justify-between text-xs text-muted">
+              <span className="flex items-center gap-1.5 text-xs">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                 Live background streaming
               </span>
               <button
                 onClick={closeSyncFlow}
-                className="text-xs text-slate-400 hover:text-slate-600"
+                className="text-xs text-stone-400 hover:text-stone-600"
               >
                 Run in background
               </button>

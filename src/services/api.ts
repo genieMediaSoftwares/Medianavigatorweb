@@ -83,7 +83,19 @@ async function loadAllMedia(platform?: string): Promise<NormalizedMedia[]> {
 
 const post = <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body: body ?? {} });
 
+export interface Profile { fullName: string; organization: string | null; accountType: string | null; timezone: string | null; avatarFileId: string | null; onboardingCompleted: boolean }
+export interface SessionInfo { id: string; current: boolean; userAgent: string | null; ip: string | null; lastUsedAt: string; createdAt: string }
+
 export const api = {
+  updateProfile: (data: Partial<{ fullName: string; organization: string; accountType: string; timezone: string; onboardingCompleted: boolean }>) =>
+    request<{ profile: Profile }>('/api/v1/profiles/me', { method: 'PATCH', body: data }).then((r) => r.profile),
+  getProfile: () => request<{ user: { id: string; email: string; role: string }; profile: Profile | null }>('/api/v1/users/me'),
+  changePassword: (currentPassword: string, newPassword: string) => post<{ changed: boolean }>('/api/v1/auth/change-password', { currentPassword, newPassword }),
+  listSessions: () => request<{ sessions: SessionInfo[] }>('/api/v1/users/me/sessions').then((r) => r.sessions),
+  revokeSession: (id: string) => request<{ revoked: boolean }>(`/api/v1/users/me/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  logoutEverywhere: () => post<{ loggedOut: boolean }>('/api/v1/auth/logout-all'),
+  deleteAccount: (password: string) => request<{ deleted: boolean }>('/api/v1/users/me', { method: 'DELETE', body: { password } }),
+
   getWorkspace: () => request<Workspace>('/api/v1/workspaces'),
   getOverview: () => request<OverviewData>('/api/v1/analytics/overview'),
   getConnections: () => request<PlatformConnection[]>('/api/v1/connections'),

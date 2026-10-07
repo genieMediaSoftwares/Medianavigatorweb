@@ -1,47 +1,31 @@
 import React from 'react';
-import { Compass, BrainCircuit, PlaySquare, CalendarDays, MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { useMedia } from '../providers/MediaContext';
-import { NavigationTab } from '../../types';
+import { NAV_ITEMS } from '../navigation';
 
+/** Phone tab bar: the four primary destinations plus a menu with everything else. */
 export const MobileNav: React.FC<{ onMoreClick: () => void }> = ({ onMoreClick }) => {
   const { currentTab, setCurrentTab } = useMedia();
+  const primary = NAV_ITEMS.filter((n) => n.primaryOnMobile);
+  const moreActive = !primary.some((p) => p.id === currentTab);
 
-  const tabs: { id: NavigationTab | 'more'; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-    { id: 'overview', label: 'Home', icon: Compass },
-    { id: 'intelligence', label: 'Intelligence', icon: BrainCircuit },
-    { id: 'content', label: 'Content', icon: PlaySquare },
-    { id: 'planner', label: 'Planner', icon: CalendarDays },
-    { id: 'more', label: 'More', icon: MoreHorizontal },
-  ];
-
+  const base = 'flex-1 flex flex-col items-center justify-center gap-1 h-full text-xs font-semibold transition-colors';
   return (
-    <nav
-      id="mobile-bottom-nav"
-      className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-[#E2E8F0] flex items-center justify-around z-40 px-2 select-none shadow-lg"
-    >
-      {tabs.map((tab) => {
+    <nav id="mobile-bottom-nav" aria-label="Primary" className="md:hidden fixed bottom-0 inset-x-0 h-[68px] pb-[env(safe-area-inset-bottom)] bg-white/95 backdrop-blur border-t border-line flex z-40">
+      {primary.map((tab) => {
         const Icon = tab.icon;
-        const isActive = tab.id === 'more' ? false : currentTab === tab.id;
-
+        const active = currentTab === tab.id;
         return (
-          <button
-            key={tab.id}
-            onClick={() => {
-              if (tab.id === 'more') {
-                onMoreClick();
-              } else {
-                setCurrentTab(tab.id);
-              }
-            }}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-colors ${
-              isActive ? 'text-[#0284C7] font-bold' : 'text-[#64748B] hover:text-[#0B132B]'
-            }`}
-          >
-            <Icon className={`w-5 h-5 ${isActive ? 'text-[#0284C7]' : 'text-[#64748B]'}`} />
-            <span className="text-[10px] tracking-tight mt-1">{tab.label}</span>
+          <button key={tab.id} onClick={() => setCurrentTab(tab.id)} aria-current={active ? 'page' : undefined} className={`${base} ${active ? 'text-brand-600' : 'text-muted'}`}>
+            <span className={`w-12 h-7 rounded-full flex items-center justify-center transition-colors ${active ? 'bg-brand-50' : ''}`}><Icon className="w-5 h-5" strokeWidth={active ? 2.25 : 1.9} /></span>
+            {tab.label.replace('Content library', 'Library').replace('Content planner', 'Planner').replace('AI insights', 'Insights')}
           </button>
         );
       })}
+      <button onClick={onMoreClick} className={`${base} ${moreActive ? 'text-brand-600' : 'text-muted'}`}>
+        <span className={`w-12 h-7 rounded-full flex items-center justify-center ${moreActive ? 'bg-brand-50' : ''}`}><MoreHorizontal className="w-5 h-5" /></span>
+        More
+      </button>
     </nav>
   );
 };

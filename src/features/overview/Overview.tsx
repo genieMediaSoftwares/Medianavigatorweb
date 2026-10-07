@@ -1,530 +1,285 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ArrowRight, 
-  RotateCw, 
-  Sparkles, 
-  Key,
-  Plus,
-  Settings,
-  CheckCircle2,
-  RefreshCw,
-  ExternalLink,
-  ShieldCheck
-} from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ArrowRight, Eye, Heart, Layers, Plus, RefreshCw, Sparkles, TrendingUp, Trophy, TriangleAlert, FileStack } from 'lucide-react';
 import { useMedia } from '../../app/providers/MediaContext';
 import { api, OverviewData } from '../../services/api';
-import { KeySignal, Observation, PlatformType, PlatformConnection } from '../../types';
+import { PlatformType, PlatformConnection } from '../../types';
 import { PlatformConnectModal } from '../../components/modals/PlatformConnectModal';
-import { 
-  InstagramLogo, 
-  YouTubeLogo, 
-  FacebookLogo, 
-  LinkedInLogo 
-} from '../../components/common/PlatformLogos';
+import { InstagramLogo, YouTubeLogo, FacebookLogo, LinkedInLogo } from '../../components/common/PlatformLogos';
+import { Badge, Delta, Section, Segmented, StatCard, PageSkeleton, timeAgo, compact } from '../../components/ui';
 
-const PLATFORMS_ORDER: PlatformType[] = ['instagram', 'youtube', 'facebook', 'linkedin'];
+const PLATFORMS: PlatformType[] = ['instagram', 'youtube', 'facebook', 'linkedin'];
 
-const PLATFORM_CONFIG: Record<PlatformType, {
-  name: string;
-  logo: (variant?: 'light' | 'subtle' | 'original') => React.ReactNode;
-  apiLabel: string;
-  ingestDescription: string;
-  accentBg: string;
-  accentBorder: string;
-  accentText: string;
-}> = {
-  instagram: {
-    name: 'Instagram',
-    logo: (variant) => <InstagramLogo size="md" variant={variant} />,
-    apiLabel: 'Official Integration',
-    ingestDescription: 'Reels · Posts · Reach · Real Views',
-    accentBg: 'bg-gradient-to-tr from-amber-500/10 via-rose-500/10 to-purple-500/10',
-    accentBorder: 'border-rose-200/60',
-    accentText: 'text-rose-600',
-  },
-  youtube: {
-    name: 'YouTube',
-    logo: (variant) => <YouTubeLogo size="md" variant={variant} />,
-    apiLabel: 'Official Integration',
-    ingestDescription: 'Shorts · Retention · Views · Subscribers',
-    accentBg: 'bg-red-500/10',
-    accentBorder: 'border-red-200/60',
-    accentText: 'text-red-600',
-  },
-  facebook: {
-    name: 'Facebook',
-    logo: (variant) => <FacebookLogo size="md" variant={variant} />,
-    apiLabel: 'Official Integration',
-    ingestDescription: 'Page Posts · Viral Shares · Video Reach',
-    accentBg: 'bg-blue-500/10',
-    accentBorder: 'border-blue-200/60',
-    accentText: 'text-blue-600',
-  },
-  linkedin: {
-    name: 'LinkedIn',
-    logo: (variant) => <LinkedInLogo size="md" variant={variant} />,
-    apiLabel: 'Official Integration',
-    ingestDescription: 'Carousels · B2B Articles · Feed Depth',
-    accentBg: 'bg-sky-500/10',
-    accentBorder: 'border-sky-200/60',
-    accentText: 'text-sky-600',
-  },
+const PLATFORM_META: Record<PlatformType, { name: string; logo: React.ReactNode; blurb: string }> = {
+  instagram: { name: 'Instagram', logo: <InstagramLogo size="md" />, blurb: 'Reels, posts and carousels' },
+  youtube: { name: 'YouTube', logo: <YouTubeLogo size="md" />, blurb: 'Videos and Shorts' },
+  facebook: { name: 'Facebook', logo: <FacebookLogo size="md" />, blurb: 'Page posts and videos' },
+  linkedin: { name: 'LinkedIn', logo: <LinkedInLogo size="md" />, blurb: 'Company page posts' },
+};
+
+type Summary = {
+  dataPeriod: { days: number; current: { count: number; medianEngagementRate: number; totalViews: number; medianViews: number }; previous: { count: number; medianEngagementRate: number } };
+  periodComparison: { engagementRateMedianChangePct: number | null; viewsMedianChangePct: number | null; comparable: boolean };
+  contentTypePerformance: Array<{ platform: string; contentType: string; count: number; medianEngagementRate: number }>;
+  topContent: Array<{ id: string; title: string; platform: string; contentType: string; engagementRate: number; views: number; vsMedianEngagementPct: number | null }>;
+  needsImprovement: Array<{ id: string; title: string; platform: string; contentType: string; engagementRate: number; views: number; vsMedianEngagementPct: number | null }>;
+  platformsIncluded: string[];
+};
+
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+};
+
+const STATUS_BADGE: Record<string, { tone: 'success' | 'warning' | 'danger' | 'neutral' | 'brand'; label: string }> = {
+  sync_complete: { tone: 'success', label: 'Up to date' },
+  syncing: { tone: 'brand', label: 'Syncing' },
+  connecting: { tone: 'brand', label: 'Connecting' },
+  sync_failed: { tone: 'danger', label: 'Sync failed' },
+  permission_required: { tone: 'warning', label: 'Needs permission' },
+  connection_expired: { tone: 'danger', label: 'Reconnect needed' },
+  not_connected: { tone: 'neutral', label: 'Not connected' },
 };
 
 export const Overview: React.FC = () => {
-  const { 
-    selectedPlatform, 
-    setSelectedPlatform, 
-    setCurrentTab, 
-    connections, 
-    refreshConnections,
-    startSyncFlow
-  } = useMedia();
+  const { setCurrentTab, setSelectedPlatform, connections, refreshConnections, startSyncFlow, user, setActiveMedia } = useMedia();
+  const [overview, setOverview] = useState<OverviewData | null>(null);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [days, setDays] = useState<'7' | '30' | '90'>('30');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [connectPlatform, setConnectPlatform] = useState<PlatformType | null>(null);
 
-  const [data, setData] = useState<OverviewData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [selectedObservation, setSelectedObservation] = useState<Observation | null>(null);
-  const [connectModalPlatform, setConnectModalPlatform] = useState<PlatformType | null>(null);
-
-  const loadData = () => {
-    setLoading(true);
-    api.getOverview()
-      .then((res) => {
-        setData(res);
-        setLoading(false);
-      })
-      .catch((err: any) => {
-        console.error(err);
-        setLoading(false);
-      });
+  const load = () => {
+    setError(null);
+    Promise.all([api.getOverview(), api.getSummary({ days: Number(days) })])
+      .then(([o, s]) => { setOverview(o); setSummary(s); })
+      .catch((e: Error) => setError(e.message || 'Could not load your overview.'))
+      .finally(() => setLoading(false));
   };
 
+  useEffect(() => { setLoading(true); load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [days, connections]);
   useEffect(() => {
-    loadData();
-  }, [selectedPlatform, connections]);
+    const h = () => load();
+    window.addEventListener('media-synced', h);
+    return () => window.removeEventListener('media-synced', h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days]);
 
-  useEffect(() => {
-    const handleSync = () => {
-      loadData();
-    };
-    window.addEventListener('media-synced', handleSync);
-    return () => window.removeEventListener('media-synced', handleSync);
-  }, []);
+  const byPlatform = useMemo(() => Object.fromEntries(PLATFORMS.map((p) => [p, connections.find((c) => c.platform === p)])) as Record<PlatformType, PlatformConnection | undefined>, [connections]);
+  const connected = PLATFORMS.filter((p) => byPlatform[p]?.connected);
+  const firstName = (user.fullName || '').split(' ')[0];
 
-  const handleSignalAction = (target: string) => {
-    if (target.startsWith('platform:')) {
-      const p = target.split(':')[1];
-      setSelectedPlatform(p as any);
-      setCurrentTab('content');
-    } else {
-      setCurrentTab(target as any);
-    }
-  };
+  if (loading && !overview) return <PageSkeleton />;
 
-  const hasConnectedPlatforms = connections.some((c) => c.connected);
-
-  // Helper to retrieve connection record for a platform
-  const getConnection = (platform: PlatformType): PlatformConnection => {
-    const found = connections.find((c) => c.platform === platform);
-    if (found) return found;
-    return {
-      platform,
-      name: PLATFORM_CONFIG[platform].name,
-      accountHandle: 'Not connected',
-      connected: false,
-      lastSyncedAt: '',
-      status: 'not_connected',
-      statusMessage: `Connect ${PLATFORM_CONFIG[platform].name} to start analyzing your media.`,
-      primaryStrength: PLATFORM_CONFIG[platform].ingestDescription,
-      dataPointsCount: 0,
-    };
-  };
-
-  if (loading) {
+  if (error && !overview) {
     return (
-      <div className="flex items-center justify-center p-24 text-xs text-[#64748B] bg-white rounded-2xl border border-[#E2E8F0]">
-        <RotateCw className="w-5 h-5 animate-spin text-[#0284C7] mr-2" />
-        Loading real-time media signals...
+      <div className="card p-8 text-center max-w-lg mx-auto">
+        <TriangleAlert className="w-8 h-8 text-amber-500 mx-auto" />
+        <h3 className="mt-3 text-lg font-bold">We couldn’t load your overview</h3>
+        <p className="mt-1 text-sm text-body">{error}</p>
+        <button onClick={() => { setLoading(true); load(); }} className="btn btn-primary mt-5"><RefreshCw className="w-4 h-4" />Try again</button>
       </div>
     );
   }
 
-  // Render Platform Channels Grid Component
-  const renderPlatformGrid = (isCompact = false) => (
-    <section id="platform-channels-section" className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xs font-bold uppercase tracking-wider text-[#0B132B] flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#0284C7]" />
-            <span>Integrated Media Channels &amp; Platform Status</span>
-          </h2>
-          <p className="text-[11px] text-[#64748B] mt-0.5">
-            Direct connections to official APIs with verified read-only scopes. Connect your accounts to analyze all published media.
-          </p>
-        </div>
-        <button
-          onClick={() => setCurrentTab('connections')}
-          className="text-xs font-semibold text-[#0284C7] hover:text-[#0369A1] hover:underline flex items-center gap-1"
-        >
-          <span>All Integrations</span>
-          <ArrowRight className="w-3 h-3" />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {PLATFORMS_ORDER.map((platform) => {
-          const conn = getConnection(platform);
-          const cfg = PLATFORM_CONFIG[platform];
-          const isSelected = selectedPlatform === platform;
-
-          return (
-            <div
-              key={platform}
-              id={`platform-card-${platform}`}
-              className={`p-4 rounded-2xl bg-white border transition-all flex flex-col justify-between space-y-3.5 shadow-2xs hover:shadow-md ${
-                isSelected 
-                  ? 'border-[#0284C7] ring-2 ring-[#0284C7]/15' 
-                  : 'border-[#E2E8F0] hover:border-slate-300'
-              }`}
-            >
-              {/* Top Row: Logo & Status Badge */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className={`w-9 h-9 rounded-xl ${cfg.accentBg} border ${cfg.accentBorder} flex items-center justify-center shrink-0 shadow-2xs`}>
-                      {cfg.logo('light')}
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-[#0B132B] leading-tight flex items-center gap-1.5">
-                        <span>{cfg.name}</span>
-                        {isSelected && (
-                          <span className="text-[9px] font-bold text-[#0284C7] bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200">
-                            Active Filter
-                          </span>
-                        )}
-                      </h3>
-                      <div className="text-[10px] text-[#64748B] font-mono">
-                        {cfg.apiLabel}
-                      </div>
-                    </div>
-                  </div>
-
-                  <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                      conn.connected
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-slate-100 text-[#64748B] border border-slate-200'
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full ${conn.connected ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                    {conn.connected ? 'Active' : 'Not Connected'}
-                  </span>
-                </div>
-
-                {/* Account Details & Ingestion scope */}
-                <div className="space-y-1">
-                  <div className="text-xs font-semibold text-[#0B132B] truncate">
-                    {conn.connected 
-                      ? (conn.accountHandle !== 'Not connected' ? conn.accountHandle : `Connected Account`)
-                      : 'No Account Linked'}
-                  </div>
-                  <div className="text-[11px] text-[#64748B] leading-snug line-clamp-2">
-                    {cfg.ingestDescription}
-                  </div>
-                  {conn.connected && (
-                    <div className="pt-1 text-[10px] text-emerald-600 font-medium flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      <span>{conn.dataPointsCount > 0 ? `${conn.dataPointsCount} assets analyzed` : 'Live API connection ready'}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 border-t border-[#F1F5F9]">
-                {conn.connected ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedPlatform(selectedPlatform === platform ? 'all' : platform);
-                      }}
-                      className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold border transition-all text-center ${
-                        isSelected
-                          ? 'bg-[#0B132B] text-white border-[#0B132B]'
-                          : 'bg-[#F8FAFC] hover:bg-slate-100 text-[#0F172A] border-[#CBD5E1]'
-                      }`}
-                    >
-                      {isSelected ? 'Reset Filter' : 'Filter Feed'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConnectModalPlatform(platform)}
-                      className="py-2 px-3 rounded-xl text-xs font-semibold bg-white hover:bg-slate-50 text-[#0F172A] border border-[#CBD5E1] shadow-2xs flex items-center justify-center gap-1 transition-all"
-                      title="Manage API connection & credentials"
-                    >
-                      <Settings className="w-3.5 h-3.5 text-[#64748B]" />
-                      <span>Manage</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConnectModalPlatform(platform)}
-                    className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-[#0284C7] hover:bg-[#0369A1] text-white transition-all shadow-2xs flex items-center justify-center gap-1.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Connect {cfg.name}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </section>
-  );
-
-  return (
-    <div id="overview-screen" className="space-y-6 max-w-6xl mx-auto font-sans">
-      {/* If no media data exists, display clean state with platform channels hub */}
-      {(!data || !data.hasData || data.signals.length === 0) ? (
-        <div className="space-y-6">
-          <div className="p-8 rounded-3xl bg-white border border-[#E2E8F0] shadow-2xs space-y-3">
-            <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-xs font-semibold bg-[#0284C7]/10 text-[#0284C7] border border-[#0284C7]/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#0284C7]" />
-              {hasConnectedPlatforms ? 'Channels Connected — Awaiting Media Assets' : 'Connect Your Media Accounts'}
-            </div>
-            <h1 className="text-xl md:text-3xl font-bold text-[#0B132B] tracking-tight">
-              {hasConnectedPlatforms 
-                ? 'Your account is connected. Synchronize to ingest media assets.' 
-                : 'Connect YouTube, Instagram, Facebook, or LinkedIn to unlock Media Intelligence.'}
-            </h1>
-            <p className="text-sm text-[#64748B] leading-relaxed max-w-2xl">
-              {hasConnectedPlatforms
-                ? 'We established secure read access to your platform API. Click below to synchronize your published posts, reels, and video metrics.'
-                : 'Media Navigator performs deep forensic intelligence and retention breakdowns across all your channels. Connect your accounts using the buttons below to begin.'}
+  // ---------- First run: nothing connected ----------
+  if (connected.length === 0) {
+    return (
+      <div className="space-y-8">
+        <div className="card relative overflow-hidden p-8 md:p-12">
+          <div aria-hidden="true" className="absolute -right-24 -top-24 w-80 h-80 rounded-full bg-brand-100/70 blur-3xl" />
+          <div className="relative max-w-2xl">
+            <Badge tone="brand">Step 1 of 2 · Connect an account</Badge>
+            <h2 className="mt-4 font-display text-4xl md:text-5xl font-medium tracking-tight leading-[1.05]">
+              {firstName ? `Welcome, ${firstName}.` : 'Welcome.'} Let’s find out what’s working.
+            </h2>
+            <p className="mt-4 text-lg text-body leading-relaxed">
+              Connect a social account and Media Navigator will pull in your posts, compare each one with your own history, and show you what to repeat and what to fix.
             </p>
           </div>
-
-          {/* Quick Platform Connection Cards with Connect Buttons */}
-          {renderPlatformGrid(false)}
         </div>
-      ) : (
-        <>
-          {/* 1. HERO INSIGHT CARD */}
-          <section
-            id="hero-insight-card"
-            className="relative overflow-hidden p-6 md:p-8 rounded-3xl bg-white border border-[#E2E8F0] shadow-2xs"
-          >
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
-              <div className="md:col-span-8 space-y-3">
-                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  {data.hero.badge}
-                </div>
 
-                <h1 className="text-2xl md:text-3xl font-bold text-[#0B132B] tracking-tight leading-snug">
-                  {data.hero.heading}
-                </h1>
+        <Section title="Choose a platform" description="You can add the others any time.">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {PLATFORMS.map((p) => (
+              <button key={p} onClick={() => setConnectPlatform(p)} className="card card-interactive p-5 flex items-center gap-4 text-left">
+                <span className="w-12 h-12 rounded-2xl bg-canvas-soft flex items-center justify-center shrink-0">{PLATFORM_META[p].logo}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block font-bold text-ink">{PLATFORM_META[p].name}</span>
+                  <span className="block text-sm text-muted">{PLATFORM_META[p].blurb}</span>
+                </span>
+                <span className="btn btn-secondary btn-sm"><Plus className="w-4 h-4" />Connect</span>
+              </button>
+            ))}
+          </div>
+        </Section>
 
-                <p className="text-sm text-[#64748B] leading-relaxed max-w-2xl font-normal">
-                  {data.hero.summary}
-                </p>
+        {connectPlatform && (
+          <PlatformConnectModal platform={connectPlatform} connection={byPlatform[connectPlatform]} onClose={() => setConnectPlatform(null)}
+            onSuccess={async () => { await refreshConnections(); load(); }} />
+        )}
+      </div>
+    );
+  }
 
-                <div className="pt-2 flex items-center gap-3 text-xs text-[#64748B]">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#0284C7]" />
-                    Real-time cross-platform signals
-                  </span>
-                  <span className="text-[#CBD5E1]">•</span>
-                  <span className="text-[#64748B]/80 font-mono">Confidence: {data.hero.confidence}</span>
-                </div>
+  const hasData = Boolean(overview?.hasData && summary && summary.dataPeriod.current.count + summary.dataPeriod.previous.count >= 0 && (summary.topContent.length + summary.needsImprovement.length > 0 || summary.contentTypePerformance.length > 0));
+  const bestFormat = summary?.contentTypePerformance.find((c) => c.count >= 3) ?? summary?.contentTypePerformance[0];
+  const cur = summary?.dataPeriod.current;
+  const cmp = summary?.periodComparison;
+
+  return (
+    <div className="space-y-8">
+      {/* Greeting + headline */}
+      <div className="card relative overflow-hidden p-6 md:p-8">
+        <div aria-hidden="true" className="absolute -right-16 -top-20 w-72 h-72 rounded-full bg-brand-100/60 blur-3xl" />
+        <div className="relative">
+          <div className="max-w-3xl">
+            <div className="eyebrow">{greeting()}{firstName ? `, ${firstName}` : ''}</div>
+            <h2 className="mt-2 font-display text-3xl md:text-[40px] font-medium tracking-tight leading-[1.1] text-ink">
+              {overview?.hero.heading}
+            </h2>
+            <p className="mt-3 text-[15px] text-body leading-relaxed">{overview?.hero.summary}</p>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <button onClick={() => startSyncFlow('all')} className="btn btn-primary"><RefreshCw className="w-4 h-4" />Sync now</button>
+            <button onClick={() => setCurrentTab('intelligence')} className="btn btn-secondary"><Sparkles className="w-4 h-4 text-brand-600" />Ask the AI</button>
+          </div>
+        </div>
+      </div>
+
+      {/* KPIs */}
+      {hasData && summary && cur && (
+        <section aria-label="Key numbers">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h3 className="text-lg font-bold tracking-tight">Performance</h3>
+            <Segmented ariaLabel="Period" value={days} onChange={setDays} options={[{ value: '7', label: '7 days' }, { value: '30', label: '30 days' }, { value: '90', label: '90 days' }]} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            <StatCard icon={<FileStack className="w-[18px] h-[18px]" />} label="Posts published" value={cur.count} hint={cmp?.comparable ? `vs ${summary.dataPeriod.previous.count} before` : `in the last ${days} days`} />
+            <StatCard icon={<Eye className="w-[18px] h-[18px]" />} label="Views" value={compact(cur.totalViews)} hint={`typical post: ${compact(cur.medianViews)}`} delta={cmp?.comparable ? cmp.viewsMedianChangePct : null} />
+            <StatCard icon={<Heart className="w-[18px] h-[18px]" />} label="Typical engagement" value={`${cur.medianEngagementRate.toFixed(1)}%`} hint="median per post" delta={cmp?.comparable ? cmp.engagementRateMedianChangePct : null} />
+            <StatCard icon={<Layers className="w-[18px] h-[18px]" />} label="Strongest format" value={<span className="capitalize">{bestFormat ? bestFormat.contentType : '—'}</span>} hint={bestFormat ? `${bestFormat.medianEngagementRate.toFixed(1)}% median on ${bestFormat.platform}` : 'Needs more posts'} />
+          </div>
+          {!cmp?.comparable && <p className="mt-3 text-sm text-muted">Change versus the previous period appears once both periods have at least 3 posts.</p>}
+        </section>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="xl:col-span-2 space-y-8">
+          {/* Signals */}
+          {overview && overview.signals.length > 0 && (
+            <Section title="What to know right now" description="Short takeaways computed from your synced posts.">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {overview.signals.map((s) => (
+                  <article key={s.id} className="card p-5 flex flex-col">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-brand-700"><span aria-hidden="true">{s.icon}</span>{s.category}</div>
+                    <h4 className="mt-2 text-base font-bold leading-snug text-ink">{s.title}</h4>
+                    <p className="mt-1.5 text-sm text-body leading-relaxed flex-1">{s.description}</p>
+                    <button onClick={() => setCurrentTab(s.actionTarget as never)} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:text-brand-800 self-start">
+                      {s.actionText}<ArrowRight className="w-4 h-4" />
+                    </button>
+                  </article>
+                ))}
               </div>
+            </Section>
+          )}
 
-              {/* Right side abstract visualization */}
-              <div className="md:col-span-4 flex justify-center md:justify-end">
-                <div className="relative w-44 h-36 flex items-center justify-center p-3 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0]">
-                  <svg viewBox="0 0 160 120" className="w-full h-full">
-                    <line x1="10" y1="30" x2="150" y2="30" stroke="#E2E8F0" strokeDasharray="3 3" strokeWidth="1" />
-                    <line x1="10" y1="60" x2="150" y2="60" stroke="#E2E8F0" strokeDasharray="3 3" strokeWidth="1" />
-                    <line x1="10" y1="90" x2="150" y2="90" stroke="#E2E8F0" strokeDasharray="3 3" strokeWidth="1" />
-                    <path
-                      d="M 20 85 C 50 80, 80 50, 140 25"
-                      fill="none"
-                      stroke="#0284C7"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    />
-                    <circle cx="20" cy="85" r="3.5" fill="#FFFFFF" stroke="#0284C7" strokeWidth="2" />
-                    <circle cx="80" cy="50" r="3.5" fill="#FFFFFF" stroke="#0284C7" strokeWidth="2" />
-                    <circle cx="140" cy="25" r="4.5" fill="#059669" stroke="#FFFFFF" strokeWidth="1.5" />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* 2. CHANNELS INTEGRATION & STATUS HUB (ALWAYS VISIBLE ON OVERVIEW) */}
-          {renderPlatformGrid(false)}
-
-          {/* 3. KEY SIGNALS */}
-          <section id="key-signals-section" className="space-y-4">
-            <div>
-              <h2 className="text-base font-bold text-[#0B132B] tracking-tight">
-                Key Signals
-              </h2>
-              <p className="text-xs text-[#64748B]">
-                Real-world momentum identified across your verified media posts.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {data.signals.map((sig: KeySignal) => (
-                <div
-                  key={sig.id}
-                  id={`key-signal-${sig.id}`}
-                  className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs flex flex-col justify-between hover:border-[#0284C7]/40 transition-all group"
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">
-                        {sig.category}
-                      </span>
-                      <span className="text-xl">{sig.icon}</span>
-                    </div>
-                    <h3 className="text-base font-bold text-[#0B132B] tracking-tight mb-1.5">
-                      {sig.title}
-                    </h3>
-                    <p className="text-xs text-[#64748B] leading-relaxed mb-5 font-normal">
-                      {sig.description}
-                    </p>
+          {/* Top + needs attention */}
+          {summary && (summary.topContent.length > 0 || summary.needsImprovement.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {([['Top posts', 'top_performers', summary.topContent, Trophy, 'text-emerald-600 bg-emerald-50'], ['Needs attention', 'bottom_performers', summary.needsImprovement, TriangleAlert, 'text-amber-600 bg-amber-50']] as const).map(([title, tab, items, Icon, tint]) => (
+                <div key={title} className="card p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold flex items-center gap-2"><span className={`w-8 h-8 rounded-lg flex items-center justify-center ${tint}`}><Icon className="w-4 h-4" /></span>{title}</h3>
+                    <button onClick={() => setCurrentTab(tab)} className="text-sm font-semibold text-brand-700 hover:underline">See all</button>
                   </div>
-                  <button
-                    onClick={() => handleSignalAction(sig.actionTarget)}
-                    className="w-full py-2 px-3 rounded-xl text-xs font-semibold bg-[#0284C7] hover:bg-[#0369A1] text-white transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
-                  >
-                    <span>{sig.actionText}</span>
-                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-                  </button>
+                  {items.length === 0 ? <p className="text-sm text-muted py-4">Nothing here yet. This fills in once you have at least 5 posts on a platform.</p> : (
+                    <ul className="divide-y divide-line">
+                      {items.slice(0, 3).map((p) => (
+                        <li key={p.id}>
+                          <button onClick={async () => { try { setActiveMedia(await api.getMediaById(p.id)); } catch { setCurrentTab('content'); } }} className="w-full text-left py-3 flex items-center gap-3 hover:bg-canvas rounded-lg -mx-2 px-2 transition-colors">
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-ink truncate">{p.title}</span>
+                              <span className="block text-xs text-muted capitalize">{p.platform} · {p.contentType} · {compact(p.views)} views</span>
+                            </span>
+                            <span className="text-right shrink-0">
+                              <span className="block text-sm font-bold tabular">{p.engagementRate.toFixed(1)}%</span>
+                              {p.vsMedianEngagementPct !== null && <Delta value={p.vsMedianEngagementPct} />}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>
-          </section>
+          )}
 
-          {/* 4. “WHAT HAPPENED?” OBSERVATIONS */}
-          {data.observations.length > 0 && (
-            <section id="what-happened-section" className="space-y-4">
-              <div>
-                <h2 className="text-base font-bold text-[#0B132B] tracking-tight">
-                  What happened?
-                </h2>
-                <p className="text-xs text-[#64748B]">
-                  Intelligent observations distilled from verified platform data.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {data.observations.map((obs: Observation) => (
-                  <div
-                    key={obs.id}
-                    id={`observation-${obs.id}`}
-                    className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-2xs flex flex-col justify-between hover:border-[#0284C7]/40 transition-colors"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="p-1.5 rounded-lg bg-[#0284C7]/10 text-[#0284C7] border border-[#0284C7]/20">
-                          <Sparkles className="w-3.5 h-3.5" />
-                        </span>
-                        <h3 className="text-sm font-bold text-[#0B132B] tracking-tight">
-                          {obs.title}
-                        </h3>
-                      </div>
-
-                      <p className="text-xs text-[#64748B] leading-relaxed mb-4">
-                        {obs.explanation}
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => setSelectedObservation(obs)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-[#0284C7] hover:text-[#0369A1] transition-colors pt-2 border-t border-[#E2E8F0]"
-                    >
-                      <span>View details</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
-                  </div>
+          {/* Observations */}
+          {overview && overview.observations.length > 0 && (
+            <Section title="Baselines by platform">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {overview.observations.map((o) => (
+                  <article key={o.id} className="card p-5">
+                    <div className="flex items-center gap-2 font-bold"><span aria-hidden="true">{o.icon}</span>{o.title.replace(/ Performance Baseline/i, '')}</div>
+                    <p className="mt-2 text-sm text-body leading-relaxed">{o.explanation}</p>
+                    <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                      <div><dt className="text-muted">Analysed</dt><dd className="font-semibold">{o.details.trend}</dd></div>
+                      <div><dt className="text-muted">Reach</dt><dd className="font-semibold">{o.details.impact}</dd></div>
+                    </dl>
+                  </article>
                 ))}
               </div>
-            </section>
+            </Section>
           )}
-        </>
-      )}
-
-      {/* OBSERVATION DETAIL MODAL */}
-      {selectedObservation && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
-          <div className="w-full max-w-lg p-6 rounded-3xl bg-white border border-[#E2E8F0] shadow-xl space-y-4 font-sans">
-            <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <div className="flex items-center gap-2">
-                <span className="p-1.5 rounded-lg bg-[#0284C7]/10 text-[#0284C7] border border-[#0284C7]/20">
-                  <Sparkles className="w-4 h-4" />
-                </span>
-                <h3 className="text-base font-bold text-[#0B132B]">
-                  {selectedObservation.title}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedObservation(null)}
-                className="text-xs text-[#64748B] hover:text-[#0B132B] p-1"
-              >
-                ✕ Close
-              </button>
-            </div>
-
-            <p className="text-sm text-[#64748B] leading-relaxed">
-              {selectedObservation.explanation}
-            </p>
-
-            <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-2">
-              <div className="text-xs">
-                <span className="font-semibold text-[#0B132B]">Observed Trend: </span>
-                <span className="text-[#64748B]">{selectedObservation.details.trend}</span>
-              </div>
-              <div className="text-xs">
-                <span className="font-semibold text-[#0B132B]">Business Impact: </span>
-                <span className="text-[#64748B]">{selectedObservation.details.impact}</span>
-              </div>
-              <div className="text-xs">
-                <span className="font-semibold text-[#0B132B]">Underlying Signal: </span>
-                <span className="text-[#64748B]">{selectedObservation.details.observedSignal}</span>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                onClick={() => setSelectedObservation(null)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0284C7] hover:bg-[#0369A1] text-white"
-              >
-                Acknowledged
-              </button>
-            </div>
-          </div>
         </div>
-      )}
 
-      {/* Connect Modal */}
-      {connectModalPlatform && (
-        <PlatformConnectModal
-          platform={connectModalPlatform}
-          connection={connections.find((c) => c.platform === connectModalPlatform)}
-          onClose={() => setConnectModalPlatform(null)}
-          onSuccess={async () => {
-            await refreshConnections();
-            loadData();
-            setCurrentTab('intelligence');
-          }}
-        />
+        {/* Channels */}
+        <aside className="space-y-4" aria-label="Connected channels">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-bold tracking-tight">Channels</h3>
+            <button onClick={() => setCurrentTab('connections')} className="text-sm font-semibold text-brand-700 hover:underline">Manage</button>
+          </div>
+          <ul className="space-y-3">
+            {PLATFORMS.map((p) => {
+              const c = byPlatform[p];
+              const live = Boolean(c?.connected);
+              const st = STATUS_BADGE[c?.status ?? 'not_connected'] ?? STATUS_BADGE.not_connected;
+              return (
+                <li key={p} className="card p-4">
+                  <div className="flex items-center gap-3">
+                    <span className="w-10 h-10 rounded-xl bg-canvas-soft flex items-center justify-center shrink-0">{PLATFORM_META[p].logo}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-ink truncate">{live ? c!.accountHandle : PLATFORM_META[p].name}</div>
+                      <div className="text-xs text-muted">{live ? `${c!.dataPointsCount} posts · synced ${timeAgo(c!.lastSyncedAt)}` : 'Not connected'}</div>
+                    </div>
+                    {live ? <Badge tone={st.tone} dot>{st.label}</Badge> : (
+                      <button onClick={() => setConnectPlatform(p)} className="btn btn-secondary btn-sm"><Plus className="w-4 h-4" />Connect</button>
+                    )}
+                  </div>
+                  {live && (c!.status === 'connection_expired' || c!.status === 'permission_required' || c!.status === 'sync_failed') && (
+                    <button onClick={() => setConnectPlatform(p)} className="mt-3 w-full btn btn-secondary btn-sm">{c!.status === 'sync_failed' ? 'Review' : 'Reconnect'}</button>
+                  )}
+                  {live && (
+                    <button onClick={() => { setSelectedPlatform(p); setCurrentTab('content'); }} className="mt-3 text-sm font-semibold text-brand-700 hover:underline inline-flex items-center gap-1">
+                      View posts<ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <div className="card-flat p-4 flex gap-3 text-sm text-body bg-brand-50/60 border-brand-100">
+            <TrendingUp className="w-5 h-5 text-brand-600 shrink-0 mt-0.5" />
+            <p>Numbers update when a sync completes. Last synced times are shown on each channel.</p>
+          </div>
+        </aside>
+      </div>
+
+      {connectPlatform && (
+        <PlatformConnectModal platform={connectPlatform} connection={byPlatform[connectPlatform]} onClose={() => setConnectPlatform(null)}
+          onSuccess={async () => { await refreshConnections(); load(); }} />
       )}
     </div>
   );

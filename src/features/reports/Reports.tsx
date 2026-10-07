@@ -1,341 +1,124 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  Download, 
-  Share2, 
-  Printer, 
-  Calendar, 
-  Check, 
-  Sparkles, 
-  TrendingUp, 
-  Clock, 
-  Trophy, 
-  AlertTriangle,
-  RotateCw,
-  Layers,
-  ChevronDown
-} from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Printer, Copy, Check, Loader2 } from 'lucide-react';
 import { useMedia } from '../../app/providers/MediaContext';
-import { ReportItem } from '../../types';
+import { api } from '../../services/api';
+import { EmptyState } from '../../components/common/EmptyState';
+import { Delta, PageSkeleton, Segmented, compact, platformName, typeLabel } from '../../components/ui';
+
+type Post = { id: string; title: string; platform: string; contentType: string; engagementRate: number; views: number; vsMedianEngagementPct: number | null };
+type Report = {
+  dataPeriod: { days: number; current: { from: string; to: string; count: number; medianEngagementRate: number; meanEngagementRate: number; totalViews: number; medianViews: number }; previous: { count: number } };
+  periodComparison: { engagementRateMedianChangePct: number | null; viewsMedianChangePct: number | null; comparable: boolean };
+  contentTypePerformance: Array<{ platform: string; contentType: string; count: number; medianEngagementRate: number }>;
+  topContent: Post[]; needsImprovement: Post[];
+  platformsIncluded: string[]; timezone: string; lastSyncedAt: string | null; classificationMethod: string;
+  contentIdeas: { generatedBy: string; items: Array<{ idea: string; basedOn: string }> };
+};
+
+const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' });
 
 export const Reports: React.FC = () => {
-  const { reports, generateReport, connections, timeframe, currentWorkspace } = useMedia();
-  const [selectedReportId, setSelectedReportId] = useState<string>(reports[0]?.id || '');
-  const [period, setPeriod] = useState('Last 7 days');
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(['instagram', 'youtube', 'facebook']);
-  const [generating, setGenerating] = useState(false);
+  const { connections, selectedPlatform, user } = useMedia();
+  const [days, setDays] = useState<'7' | '30' | '90' | '365'>('30');
+  const [scope, setScope] = useState<string>(selectedPlatform);
+  const [report, setReport] = useState<Report | null>(null);
+  const [window_, setWindow] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const live = connections.filter((c) => c.connected);
 
-  const activeReport = reports.find(r => r.id === selectedReportId) || reports[0];
+  const load = useCallback(() => {
+    setLoading(true); setError(null);
+    Promise.all([api.getSummary({ days: Number(days), platform: scope === 'all' ? undefined : scope }), api.getTiming().catch(() => null)])
+      .then(([r, t]) => { setReport(r); setWindow(t?.strongestWindow ? `${t.strongestWindow.label}, ${t.strongestWindow.timeSlot}` : null); })
+      .catch((e: Error) => setError(e.message)).finally(() => setLoading(false));
+  }, [days, scope]);
+  useEffect(() => { load(); }, [load, connections]);
 
-  // Auto-generate initial real-data report if platforms are connected and no reports exist
-  useEffect(() => {
-    if (reports.length === 0 && connections.some(c => c.connected)) {
-      generateReport(period, selectedPlatforms).then((rep) => {
-        setSelectedReportId(rep.id);
-      }).catch(() => {});
-    }
-  }, [connections, reports.length]);
-
-  const handleCreateReport = async () => {
-    if (generating) return;
-    setGenerating(true);
-    try {
-      const rep = await generateReport(period, selectedPlatforms);
-      setSelectedReportId(rep.id);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setGenerating(false);
-    }
+  const text = () => {
+    if (!report) return '';
+    const c = report.dataPeriod.current;
+    return [
+      `Media Navigator report · ${fmtDate(c.from)} – ${fmtDate(c.to)}`,
+      `Posts: ${c.count} · Views: ${c.totalViews.toLocaleString()} · Typical engagement: ${c.medianEngagementRate}% (median)`,
+      ...report.topContent.slice(0, 3).map((p, i) => `Top ${i + 1}: ${p.title} (${p.engagementRate}%)`),
+    ].join('\n');
   };
+  const copy = async () => { try { await navigator.clipboard.writeText(text()); setCopied(true); setTimeout(() => setCopied(false), 1800); } catch { /* clipboard blocked */ } };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  if (live.length === 0) return <EmptyState type="no_connection" title="Connect an account to build reports" description="Reports summarize your synced posts for any period." />;
 
-  const togglePlatform = (p: string) => {
-    if (selectedPlatforms.includes(p)) {
-      if (selectedPlatforms.length > 1) {
-        setSelectedPlatforms(selectedPlatforms.filter(x => x !== p));
-      }
-    } else {
-      setSelectedPlatforms([...selectedPlatforms, p]);
-    }
-  };
-
+  const c = report?.dataPeriod.current;
   return (
-    <div className="space-y-6 pb-12">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="text-xs font-semibold text-[#0284C7] uppercase tracking-wider">
-            Executive Growth Reporting
-          </div>
-          <h1 className="text-2xl font-extrabold text-[#0B132B] tracking-tight">
-            Cross-Channel Performance Reports
-          </h1>
-          <p className="text-xs text-[#64748B] mt-0.5">
-            Shareable, client-ready intelligence summaries with verifiable organic metrics and AI recommendations.
-          </p>
+    <div className="space-y-6 max-w-4xl pb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 print:hidden">
+        <div className="flex flex-wrap gap-2">
+          <Segmented ariaLabel="Period" value={days} onChange={setDays} options={[{ value: '7', label: '7 days' }, { value: '30', label: '30 days' }, { value: '90', label: '90 days' }, { value: '365', label: 'Year' }]} />
+          <select value={scope} onChange={(e) => setScope(e.target.value)} className="input !h-10 !w-auto" aria-label="Platform">
+            <option value="all">All connected channels</option>
+            {live.map((p) => <option key={p.platform} value={p.platform}>{platformName(p.platform)}</option>)}
+          </select>
         </div>
-
-        <div className="flex items-center gap-2 print:hidden">
-          <button
-            onClick={handlePrint}
-            className="px-3.5 py-2 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-2xs"
-          >
-            <Printer className="w-3.5 h-3.5 text-[#64748B]" />
-            <span>Print / PDF</span>
-          </button>
-
-          <button
-            onClick={() => alert('Report shareable link copied to clipboard: https://app.medianavigator.io/reports/' + (activeReport?.id || 'latest'))}
-            className="px-3.5 py-2 rounded-xl bg-white border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-2xs"
-          >
-            <Share2 className="w-3.5 h-3.5 text-[#64748B]" />
-            <span>Share Link</span>
-          </button>
+        <div className="flex gap-2">
+          <button onClick={copy} disabled={!report} className="btn btn-secondary btn-sm">{copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}{copied ? 'Copied' : 'Copy summary'}</button>
+          <button onClick={() => window.print()} disabled={!report} className="btn btn-primary btn-sm"><Printer className="w-4 h-4" />Print or save as PDF</button>
         </div>
       </div>
 
-      {/* Report Generator Controls (Hidden in Print) */}
-      <div className="p-5 rounded-2xl bg-white border border-[#E2E8F0] shadow-xs space-y-4 print:hidden">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-[#0B132B] uppercase tracking-wider flex items-center gap-1.5">
-            <FileText className="w-4 h-4 text-[#0284C7]" />
-            Generate New Intelligence Report
-          </span>
-          <span className="text-xs text-[#64748B]">
-            {reports.length} reports archived
-          </span>
-        </div>
+      {loading && !report ? <PageSkeleton /> : error ? (
+        <EmptyState type="no_data" title="We couldn’t build the report" description={error} actionText="Try again" onAction={load} />
+      ) : report && c ? (
+        <article className="card p-6 md:p-10 print:shadow-none print:border-0 print:p-0" aria-busy={loading}>
+          {loading && <Loader2 className="w-4 h-4 animate-spin text-brand-600 float-right" />}
+          <header className="border-b border-line pb-6">
+            <div className="eyebrow">Performance report</div>
+            <h2 className="mt-1 font-display text-4xl font-medium tracking-tight">{user.organization || user.fullName || 'Your content'}</h2>
+            <p className="mt-2 text-body">{fmtDate(c.from)} – {fmtDate(c.to)} · {report.platformsIncluded.length ? report.platformsIncluded.map(platformName).join(', ') : 'no posts in this scope'}</p>
+          </header>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-[11px] font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">
-              Report Period
-            </label>
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A] bg-[#F8FAFC]"
-            >
-              <option value="Last 7 days">Last 7 days</option>
-              <option value="Last 14 days">Last 14 days</option>
-              <option value="Last 30 days">Last 30 days</option>
-              <option value="Full Historical Archive">Full Historical Archive</option>
-            </select>
-          </div>
+          <section className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-6" aria-label="Summary">
+            {[
+              { k: 'Posts published', v: String(c.count), d: null as number | null },
+              { k: 'Views', v: compact(c.totalViews), d: report.periodComparison.comparable ? report.periodComparison.viewsMedianChangePct : null },
+              { k: 'Typical engagement', v: `${c.medianEngagementRate.toFixed(1)}%`, d: report.periodComparison.comparable ? report.periodComparison.engagementRateMedianChangePct : null },
+              { k: 'Typical views per post', v: compact(c.medianViews), d: null },
+            ].map((s) => (
+              <div key={s.k}><div className="text-sm text-muted">{s.k}</div><div className="mt-1 font-display text-4xl tabular">{s.v}</div><div className="mt-1 min-h-5">{s.d !== null && <Delta value={s.d} />}</div></div>
+            ))}
+          </section>
+          {!report.periodComparison.comparable && <p className="mt-4 text-sm text-muted">Comparison with the previous period needs at least 3 posts in each period.</p>}
 
-          <div>
-            <label className="block text-[11px] font-semibold text-[#64748B] uppercase tracking-wider mb-1.5">
-              Included Channels
-            </label>
-            <div className="flex items-center gap-2">
-              {['instagram', 'youtube', 'facebook', 'linkedin'].map((plat) => (
-                <button
-                  key={plat}
-                  type="button"
-                  onClick={() => togglePlatform(plat)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold capitalize border transition-all ${
-                    selectedPlatforms.includes(plat)
-                      ? 'bg-[#0B132B] text-white border-[#0B132B]'
-                      : 'bg-[#F8FAFC] text-[#64748B] border-[#E2E8F0]'
-                  }`}
-                >
-                  {plat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={handleCreateReport}
-              disabled={generating}
-              className="w-full py-2.5 rounded-xl bg-[#0284C7] text-white text-xs font-semibold hover:bg-[#0369A1] transition-all flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
-            >
-              {generating ? (
-                <>
-                  <RotateCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Compiling Intelligence...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Generate Report</span>
-                </>
+          {c.count === 0 ? <p className="mt-8 text-body">No posts were published in this period.</p> : (
+            <>
+              {report.contentTypePerformance.length > 0 && (
+                <section className="mt-10"><h3 className="text-lg font-bold">Formats</h3>
+                  <table className="mt-3 w-full text-sm"><thead><tr className="text-left text-muted border-b border-line"><th className="py-2 font-semibold">Format</th><th className="py-2 font-semibold">Posts</th><th className="py-2 font-semibold text-right">Typical engagement</th></tr></thead>
+                    <tbody>{report.contentTypePerformance.map((f) => <tr key={`${f.platform}-${f.contentType}`} className="border-b border-line last:border-0"><td className="py-2.5 font-semibold">{typeLabel(f.contentType)} <span className="text-muted font-normal">· {platformName(f.platform)}</span></td><td className="py-2.5 tabular">{f.count}</td><td className="py-2.5 text-right font-bold tabular">{f.medianEngagementRate.toFixed(1)}%</td></tr>)}</tbody></table>
+                </section>
               )}
-            </button>
-          </div>
-        </div>
-
-        {/* Existing reports selector tabs */}
-        <div className="pt-2 border-t border-[#E2E8F0] flex items-center gap-2 overflow-x-auto">
-          <span className="text-[11px] font-semibold text-[#64748B] shrink-0">Archived Briefs:</span>
-          {reports.map((r) => (
-            <button
-              key={r.id}
-              onClick={() => setSelectedReportId(r.id)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium shrink-0 transition-colors ${
-                r.id === activeReport?.id
-                  ? 'bg-[#0B132B] text-white'
-                  : 'bg-slate-100 text-[#64748B] hover:text-[#0B132B]'
-              }`}
-            >
-              {r.period} · {r.generatedAt}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Rendered Executive Report (Printable Document Card) */}
-      {activeReport ? (
-        <div className="bg-white rounded-2xl border border-[#CBD5E1] shadow-xl overflow-hidden p-8 md:p-10 space-y-8">
-          {/* Document Header */}
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-6 border-b border-[#E2E8F0]">
-            <div className="space-y-1.5">
-              <div className="inline-flex items-center gap-2 text-xs font-semibold text-[#0284C7] uppercase tracking-wider">
-                <span>Media Navigator</span>
-                <span aria-hidden="true">·</span>
-                <span>Executive Intelligence Report</span>
-                <span aria-hidden="true">·</span>
-                <span>Verified Official Data</span>
-              </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[#0B132B]">
-                {activeReport.title}
-              </h2>
-              <div className="text-xs text-[#64748B] flex items-center gap-4 pt-1">
-                <span>Period: <strong className="text-[#0B132B]">{activeReport.period}</strong></span>
-                <span>Generated: <strong className="text-[#0B132B]">{activeReport.generatedAt}</strong></span>
-                <span>Platforms: <strong className="text-[#0B132B] uppercase">{activeReport.platforms.join(', ')}</strong></span>
-              </div>
-            </div>
-
-            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-right shrink-0">
-              <div className="text-[10px] uppercase font-bold text-slate-500">Report Status</div>
-              <div className="text-xs font-bold text-emerald-700 flex items-center justify-end gap-1 mt-0.5">
-                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                Verified Complete
-              </div>
-            </div>
-          </div>
-
-          {/* Key Executive Metrics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-              <div className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">
-                Total Reach
-              </div>
-              <div className="text-2xl font-extrabold text-[#0B132B] font-mono">
-                {activeReport.metrics.totalReach.toLocaleString()}
-              </div>
-              <div className="text-xs text-emerald-600 font-semibold">
-                +{activeReport.metrics.growthRate}% Growth
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-              <div className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">
-                Verified Views
-              </div>
-              <div className="text-2xl font-extrabold text-[#0284C7] font-mono">
-                {activeReport.metrics.totalViews.toLocaleString()}
-              </div>
-              <div className="text-xs text-[#64748B]">
-                Across all formats
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-              <div className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">
-                Avg Engagement
-              </div>
-              <div className="text-2xl font-extrabold text-emerald-600 font-mono">
-                {activeReport.metrics.avgEngagement}%
-              </div>
-              <div className="text-xs text-[#64748B]">
-                Baseline: 2.8%
-              </div>
-            </div>
-
-            <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-              <div className="text-[10px] font-semibold text-[#64748B] uppercase tracking-wider">
-                Top Asset
-              </div>
-              <div className="text-xs font-bold text-[#0B132B] line-clamp-2">
-                "{activeReport.topPerformerTitle}"
-              </div>
-              <div className="text-[10px] text-[#0284C7] font-semibold">
-                #1 Winning Format
-              </div>
-            </div>
-          </div>
-
-          {/* Executive Summary */}
-          <div className="p-5 rounded-2xl bg-[#0284C7]/5 border border-[#0284C7]/20 space-y-2">
-            <div className="text-xs font-bold text-[#0284C7] uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-4 h-4 text-[#0284C7]" />
-              Executive Growth Summary
-            </div>
-            <p className="text-sm text-[#0B132B] leading-relaxed font-medium">
-              {activeReport.executiveSummary}
-            </p>
-          </div>
-
-          {/* Strategic Highlights */}
-          <div className="space-y-3">
-            <h3 className="text-xs font-bold text-[#0B132B] uppercase tracking-wider">
-              Strategic Observations & Algorithmic Patterns
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {activeReport.highlights.map((h, i) => (
-                <div key={i} className="p-4 rounded-xl bg-white border border-[#E2E8F0] space-y-1 shadow-2xs">
-                  <div className="text-xs font-bold text-[#0284C7]">Insight 0{i + 1}</div>
-                  <p className="text-xs text-[#475569] leading-relaxed">{h}</p>
-                </div>
+              {(['topContent', 'needsImprovement'] as const).map((key) => report[key].length > 0 && (
+                <section key={key} className="mt-10"><h3 className="text-lg font-bold">{key === 'topContent' ? 'Top posts' : 'Needs attention'}</h3>
+                  <ol className="mt-3 divide-y divide-line">{report[key].slice(0, 5).map((p) => (
+                    <li key={p.id} className="py-3 flex items-center gap-4"><span className="flex-1 min-w-0"><span className="block font-semibold truncate">{p.title}</span><span className="block text-sm text-muted">{platformName(p.platform)} · {typeLabel(p.contentType)} · {compact(p.views)} views</span></span><span className="text-right"><span className="block font-bold tabular">{p.engagementRate.toFixed(1)}%</span>{p.vsMedianEngagementPct !== null && <Delta value={p.vsMedianEngagementPct} />}</span></li>
+                  ))}</ol>
+                </section>
               ))}
-            </div>
-          </div>
+              {window_ && <section className="mt-10"><h3 className="text-lg font-bold">Best time to post</h3><p className="mt-2 text-body">{window_} ({report.timezone}).</p></section>}
+              {report.contentIdeas.items.length > 0 && (
+                <section className="mt-10"><h3 className="text-lg font-bold">Suggested next steps</h3><p className="text-sm text-muted">Rule-based suggestions from the numbers above, not AI.</p>
+                  <ul className="mt-3 space-y-3">{report.contentIdeas.items.map((i, n) => <li key={n}><span className="font-semibold">{i.idea}</span><span className="block text-sm text-muted">{i.basedOn}</span></li>)}</ul>
+                </section>
+              )}
+            </>
+          )}
 
-          {/* Actionable Next Steps */}
-          <div className="p-6 rounded-2xl bg-[#0B132B] text-white space-y-3">
-            <div className="text-xs font-bold text-[#06B6D4] uppercase tracking-wider">
-              Recommended Editorial Action Plan for Next Period
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              <div className="space-y-1">
-                <div className="font-semibold text-slate-200">1. Prioritize Vertical Reels</div>
-                <p className="text-slate-400">Increase short-form publishing cadence to 3x weekly, targeting the highest-converting 3:00 PM window.</p>
-              </div>
-              <div className="space-y-1">
-                <div className="font-semibold text-slate-200">2. Test Question Opening Hooks</div>
-                <p className="text-slate-400">Adopt the verified question-hook structure to maintain algorithmic comment velocity above 4.0%.</p>
-              </div>
-              <div className="space-y-1">
-                <div className="font-semibold text-slate-200">3. Repurpose Underperformers</div>
-                <p className="text-slate-400">Convert single image posts below baseline into 5-slide educational carousels with visual takeaways.</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Signature & Disclaimer */}
-          <div className="pt-6 border-t border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#64748B]">
-            <div>Prepared for: <strong>{currentWorkspace || 'Primary Workspace'}</strong></div>
-            <div className="text-[11px] text-slate-400">
-              Generated by Media Navigator AI Intelligence Engine · Confidential
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="p-12 text-center bg-white rounded-2xl border border-[#E2E8F0] space-y-3">
-          <FileText className="w-8 h-8 text-[#0284C7] mx-auto opacity-70" />
-          <h3 className="text-sm font-bold text-[#0B132B]">No Executive Brief Generated Yet</h3>
-          <p className="text-xs text-[#64748B] max-w-md mx-auto">
-            Click &quot;Generate Report&quot; above to compile an executive briefing calculated directly from your verified platform data.
-          </p>
-        </div>
-      )}
+          <footer className="mt-10 pt-5 border-t border-line text-xs text-muted space-y-1">
+            <p>Typical values are medians. Top posts and posts needing attention are judged against your own history on the same platform ({report.classificationMethod.split(':')[0].toLowerCase()}).</p>
+            <p>Data last synced {report.lastSyncedAt ? new Date(report.lastSyncedAt).toLocaleString() : 'never'} · times in {report.timezone}.</p>
+          </footer>
+        </article>
+      ) : null}
     </div>
   );
 };

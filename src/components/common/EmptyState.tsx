@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, Link2, AlertCircle, RefreshCw, Key } from 'lucide-react';
+import { ShieldAlert, Link2, RefreshCw, PlugZap, ArrowRight } from 'lucide-react';
 import { PlatformType } from '../../types';
 
 interface EmptyStateProps {
@@ -11,78 +11,24 @@ interface EmptyStateProps {
   onAction?: () => void;
 }
 
-export const EmptyState: React.FC<EmptyStateProps> = ({
-  type = 'no_connection',
-  title,
-  description,
-  platform,
-  actionText,
-  onAction,
-}) => {
-  const getDefaultContent = () => {
-    switch (type) {
-      case 'no_connection':
-        return {
-          title: title || 'Connect your account to unlock Media Intelligence.',
-          description: description || 'Media Navigator operates exclusively on verified live platform data. Connect your Instagram, Facebook, YouTube, or LinkedIn accounts to analyze real audience momentum.',
-          actionText: actionText || 'Connect Platform',
-          icon: <Link2 className="w-6 h-6 text-[#0284C7]" />,
-        };
-      case 'no_data':
-        return {
-          title: title || 'Your account is connected, but no analyzable media data is currently available.',
-          description: description || 'We successfully verified your account connection, but no published posts, videos, or reels were returned from the platform API.',
-          actionText: actionText || 'Sync Channel Again',
-          icon: <RefreshCw className="w-6 h-6 text-[#0284C7]" />,
-        };
-      case 'connection_expired':
-        return {
-          title: title || 'Your connection has expired. Reconnect to continue analyzing your media.',
-          description: description || 'The OAuth security token for this platform has expired. Re-authenticate to resume real-time synchronization.',
-          actionText: actionText || 'Reconnect Account',
-          icon: <AlertCircle className="w-6 h-6 text-rose-500" />,
-        };
-      case 'permission_missing':
-        return {
-          title: title || 'Additional platform permissions are required to retrieve this data.',
-          description: description || 'Your account is authorized, but the required analytics or insights scopes (such as yt-analytics.readonly or r_organization_social) have not been granted.',
-          actionText: actionText || 'Update Permissions',
-          icon: <ShieldAlert className="w-6 h-6 text-amber-500" />,
-        };
-    }
-  };
+const DEFAULTS = {
+  no_connection: { title: 'Connect an account to get started', description: 'Link Instagram, YouTube, Facebook or LinkedIn and your results will appear here once the first sync finishes.', action: 'Connect an account', Icon: Link2, tint: 'bg-brand-50 text-brand-600' },
+  no_data: { title: 'No posts yet', description: 'Your account is connected but the platform returned no posts. Try syncing again in a few minutes.', action: 'Sync again', Icon: RefreshCw, tint: 'bg-brand-50 text-brand-600' },
+  connection_expired: { title: 'Your connection expired', description: 'The platform’s access has expired or was revoked. Reconnect to keep your numbers up to date.', action: 'Reconnect', Icon: PlugZap, tint: 'bg-rose-50 text-rose-600' },
+  permission_missing: { title: 'More permission is needed', description: 'Your account is connected, but the platform hasn’t granted access to this data. Reconnect and approve the requested permissions.', action: 'Review permissions', Icon: ShieldAlert, tint: 'bg-amber-50 text-amber-600' },
+} as const;
 
-  const content = getDefaultContent();
-
+export const EmptyState: React.FC<EmptyStateProps> = ({ type = 'no_connection', title, description, actionText, onAction }) => {
+  const d = DEFAULTS[type];
   return (
-    <div 
-      id="empty-state-container"
-      className="p-8 md:p-10 rounded-3xl bg-white border border-[#E2E8F0] shadow-2xs text-center max-w-xl mx-auto my-6 flex flex-col items-center justify-center space-y-4 font-sans"
-    >
-      <div className="p-3.5 rounded-2xl bg-[#F8FAFC] border border-[#E2E8F0] shadow-2xs">
-        {content.icon}
-      </div>
-
-      <div className="space-y-1.5 max-w-md">
-        <h3 className="text-base font-bold text-[#0B132B] tracking-tight">
-          {content.title}
-        </h3>
-        <p className="text-xs text-[#64748B] leading-relaxed">
-          {content.description}
-        </p>
-      </div>
-
+    <div id="empty-state-container" className="card px-6 py-14 md:py-16 text-center max-w-2xl mx-auto my-4 flex flex-col items-center">
+      <span className={`w-14 h-14 rounded-2xl flex items-center justify-center ${d.tint}`}><d.Icon className="w-7 h-7" /></span>
+      <h3 className="mt-5 font-display text-2xl md:text-3xl font-medium tracking-tight text-ink">{title || d.title}</h3>
+      <p className="mt-2 text-[15px] text-body leading-relaxed max-w-md">{description || d.description}</p>
       {onAction && (
-        <div className="pt-2">
-          <button
-            type="button"
-            onClick={onAction}
-            className="px-5 py-2.5 rounded-xl bg-[#0284C7] hover:bg-[#0369A1] text-white text-xs font-semibold transition-all shadow-2xs flex items-center gap-2"
-          >
-            <Key className="w-4 h-4" />
-            {content.actionText}
-          </button>
-        </div>
+        <button type="button" onClick={onAction} className="btn btn-primary mt-6">
+          {actionText || d.action}<ArrowRight className="w-4 h-4" />
+        </button>
       )}
     </div>
   );

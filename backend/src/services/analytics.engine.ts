@@ -13,6 +13,9 @@ export interface EngineOptions {
  * Naming convention: anything called "avg"/"mean" is an arithmetic mean; "median" is a median.
  * Legacy fields keep their original "avg" names for client compatibility.
  */
+const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
+const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
+
 export class AnalyticsEngine {
   readonly timezone: string;
 
@@ -105,9 +108,9 @@ export class AnalyticsEngine {
       hasData: true,
       hero: {
         hasData: true,
-        heading: `Analyzed ${activeMedia.length} real assets across ${connectedCount} connected channel${connectedCount === 1 ? '' : 's'}.`,
-        summary: `Top observed format is ${bestFormat} averaging ${highestAvgEng.toFixed(2)}% engagement. Total verified interactions logged: ${totalInteractions.toLocaleString()}.`,
-        badge: 'Derived from real verified platform data',
+        heading: `We analyzed ${plural(activeMedia.length, 'post')} across ${plural(connectedCount, 'channel')}.`,
+        summary: `${cap(bestFormat)} is your strongest format at ${highestAvgEng.toFixed(1)}% average engagement. Together your posts earned ${totalInteractions.toLocaleString()} likes and comments.`,
+        badge: 'Calculated from your synced posts',
         confidence: 'High',
       },
       signals: this.getKeySignals(),
@@ -133,8 +136,8 @@ export class AnalyticsEngine {
         id: 'sig_working',
         category: "What's working",
         icon: '🎯',
-        title: `${topItem.platform.toUpperCase()} ${topItem.contentType.toUpperCase()}`,
-        description: `Top asset "${topItem.title}" achieved ${topItem.engagementRate}% engagement with ${topItem.likes} likes and ${topItem.comments} comments.`,
+        title: `${cap(topItem.platform)} ${topItem.contentType}`,
+        description: `Your best post, "${topItem.title}", reached ${topItem.engagementRate}% engagement with ${topItem.likes} likes and ${topItem.comments} comments.`,
         actionText: 'Inspect content',
         actionTarget: 'content',
       });
@@ -149,7 +152,7 @@ export class AnalyticsEngine {
           category: 'Best time',
           icon: '🕖',
           title: `${bestWindow.day} — ${bestWindow.timeSlot}`,
-          description: `Observed ${bestWindow.avgEngagement.toFixed(2)}% mean engagement across ${bestWindow.sampleCount} post(s) in this historical window (${bestWindow.timezone}).`,
+          description: `Posts in this window averaged ${bestWindow.avgEngagement.toFixed(1)}% engagement (${bestWindow.sampleCount} post${bestWindow.sampleCount === 1 ? '' : 's'}, ${bestWindow.timezone}).`,
           actionText: 'See timing matrix',
           actionTarget: 'timing',
         });
@@ -205,7 +208,7 @@ export class AnalyticsEngine {
       observations.push({
         id: `obs_${platform}`,
         icon: platform === 'youtube' ? '🎥' : (platform === 'instagram' ? '📸' : '💬'),
-        title: `${platform.toUpperCase()} Performance Baseline`,
+        title: `${cap(platform)} baseline`,
         explanation: `Based on ${items.length} retrieved ${platform} posts, your audience average engagement rate is ${avgEng}%.`,
         details: {
           trend: `${items.length} verified assets analyzed`,
@@ -655,7 +658,7 @@ export class AnalyticsEngine {
         id: 'ins_1',
         category: 'Pattern detected',
         icon: isYt ? '🏆' : '✨',
-        title: `High Engagement on ${top.platform.toUpperCase()}: "${top.title.slice(0, 45)}..."`,
+        title: `High engagement on ${cap(top.platform)}: "${top.title.slice(0, 45)}..."`,
         description: `Observed: "${top.title}" reached ${top.engagementRate}% engagement rate with ${top.views?.toLocaleString()} views, ${top.likes?.toLocaleString()} likes, and ${top.comments?.toLocaleString()} comments.`,
         whyItMatters: `This single asset outperformed your channel median engagement rate by ${multiple}x. Retention is not measured here, so the reason for the difference is unknown.`,
         confidence: this.confidence(),
@@ -745,7 +748,7 @@ export class AnalyticsEngine {
         id: 'ins_format',
         category: 'Opportunity',
         icon: '🔍',
-        title: `Format Optimization: ${bottom.contentType.toUpperCase()}`,
+        title: `Format to improve: ${bottom.contentType}`,
         description: `Observed: "${bottom.title}" generated ${bottom.engagementRate}% engagement rate. Possible explanation: thumbnail or opening 5 seconds did not immediately hook viewers.`,
         whyItMatters: 'Systematically diagnosing underperforming content preserves creator morale and production budget.',
         confidence: 'Medium',
@@ -782,7 +785,7 @@ export class AnalyticsEngine {
         title: isTop
           ? `Create high-impact sequel to "${item.title.slice(0, 45)}"`
           : (index === 1 ? `Repurpose "${item.title.slice(0, 45)}" across channels` : `Test curiosity-driven hook on "${item.title.slice(0, 45)}"`),
-        reason: `Generated ${item.engagementRate}% engagement with ${item.likes} verified interactions.`,
+        reason: `Generated ${item.engagementRate}% engagement with ${item.likes} likes.`,
         supportingSignal: `Observed ${item.views ? item.views.toLocaleString() + ' views and ' : ''}${item.likes} likes on ${item.platform}.`,
         actionText: 'Plan in schedule',
         status: 'pending',
@@ -872,10 +875,10 @@ export class AnalyticsEngine {
       const liftSign = lift >= 0 ? '+' : '';
       trends.push({
         id: 'tr_format_dominance',
-        name: `${bestFmt.toUpperCase()} Format Momentum`,
+        name: `${cap(bestFmt)} format momentum`,
         category: 'Formats',
         status: lift >= 0 ? 'Rising' : 'Stable',
-        explanation: `${bestFmt.toUpperCase()} assets average ${bestFmtAvg.toFixed(2)}% engagement rate (${liftSign}${lift.toFixed(1)}% vs channel baseline).`,
+        explanation: `${cap(bestFmt)} posts average ${bestFmtAvg.toFixed(2)}% engagement rate (${liftSign}${lift.toFixed(1)}% vs channel baseline).`,
         changeRate: `${liftSign}${lift.toFixed(1)}%`,
         reasonForRelevance: `Analyzed from ${formatStats[bestFmt]?.count || 0} published ${bestFmt} releases.`,
         recommendedPlatform: dominantPlatform,

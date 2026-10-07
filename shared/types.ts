@@ -49,6 +49,9 @@ export type ConnectionStatus =
   | 'sync_failed';
 
 export interface PlatformConnection {
+  /** true when the server has OAuth configured for this platform (one-click connect) */
+  oauthAvailable?: boolean;
+  sync?: { state: string; lastSyncedAt: string | null; nextSyncAt: string | null; lastError: string | null };
   platform: PlatformType;
   name: string;
   accountHandle: string;

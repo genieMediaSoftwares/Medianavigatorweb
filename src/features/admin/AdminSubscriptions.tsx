@@ -57,10 +57,10 @@ export const AdminSubscriptions: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-[#0B132B] tracking-tight">
+          <h2 className="text-xl font-extrabold text-ink tracking-tight">
             Subscriptions & Billing Operations (Core Workflow 5)
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-stone-500">
             Audit Stripe Connect & Wire gateways, investigate payment failures, manage billing contracts, and issue refunds.
           </p>
         </div>
@@ -79,23 +79,23 @@ export const AdminSubscriptions: React.FC = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="relative flex-1">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search workspace, customer name, or email..."
-            className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs text-[#0B132B] focus:outline-none focus:border-[#0284C7] focus:ring-1 focus:ring-[#0284C7]"
+            className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-stone-200 text-xs text-ink focus:outline-none focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
         </div>
 
         <div className="flex items-center gap-2">
           <select
             value={gatewayStatusFilter}
             onChange={(e) => setGatewayStatusFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-white"
+            className="px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-700 bg-white"
           >
             <option value="all">All Payment Statuses</option>
             <option value="Paid">Paid</option>
@@ -107,7 +107,7 @@ export const AdminSubscriptions: React.FC = () => {
           <select
             value={planFilter}
             onChange={(e) => setPlanFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-white"
+            className="px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-700 bg-white"
           >
             <option value="all">All Plans</option>
             <option value="Enterprise Pro">Enterprise Pro</option>
@@ -119,11 +119,11 @@ export const AdminSubscriptions: React.FC = () => {
 
       {/* Main Grid: Subscriptions Table & Detail Drawer */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className={`p-5 rounded-2xl bg-white border border-slate-200 shadow-xs ${selectedSub ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+        <div className={`p-5 rounded-2xl bg-white border border-stone-200 shadow-xs ${selectedSub ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px]">
+                <tr className="border-b border-stone-200 text-stone-500 font-semibold uppercase text-xs">
                   <th className="pb-3">Workspace & Customer</th>
                   <th className="pb-3">Plan & Tier</th>
                   <th className="pb-3">Amount</th>
@@ -133,37 +133,37 @@ export const AdminSubscriptions: React.FC = () => {
                   <th className="pb-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-stone-100">
                 {filteredSubs.map((sub) => (
                   <tr 
                     key={sub.id}
                     onClick={() => setSelectedSub(sub)}
-                    className={`hover:bg-slate-50/70 cursor-pointer transition-colors ${
+                    className={`hover:bg-stone-50/70 cursor-pointer transition-colors ${
                       selectedSub?.id === sub.id ? 'bg-blue-50/50' : ''
                     }`}
                   >
                     <td className="py-3">
-                      <div className="font-bold text-[#0B132B]">{sub.workspaceName}</div>
-                      <div className="text-[11px] text-slate-500">{sub.ownerName} ({sub.ownerEmail})</div>
+                      <div className="font-bold text-ink">{sub.workspaceName}</div>
+                      <div className="text-xs text-stone-500">{sub.ownerName} ({sub.ownerEmail})</div>
                     </td>
 
                     <td className="py-3">
                       <span className="font-semibold text-blue-900">{sub.planName}</span>
-                      <div className="text-[10px] text-slate-400">{sub.seatsUsed} / {sub.totalSeats} seats</div>
+                      <div className="text-xs text-stone-400">{sub.seatsUsed} / {sub.totalSeats} seats</div>
                     </td>
 
-                    <td className="py-3 font-bold text-slate-800">
-                      ${sub.amount} <span className="text-[10px] font-normal text-slate-400">/{sub.billingInterval.toLowerCase()}</span>
+                    <td className="py-3 font-bold text-stone-800">
+                      ${sub.amount} <span className="text-xs font-normal text-stone-400">/{sub.billingInterval.toLowerCase()}</span>
                     </td>
 
                     <td className="py-3">
-                      <span className="font-mono text-[11px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                      <span className="font-mono text-xs bg-stone-100 text-stone-700 px-2 py-0.5 rounded">
                         {sub.gateway}
                       </span>
                     </td>
 
                     <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
                         sub.gatewayStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
                         sub.gatewayStatus === 'Payment Failed' ? 'bg-rose-100 text-rose-800' :
                         'bg-amber-100 text-amber-800'
@@ -172,7 +172,7 @@ export const AdminSubscriptions: React.FC = () => {
                       </span>
                     </td>
 
-                    <td className="py-3 text-[11px] text-slate-600">
+                    <td className="py-3 text-xs text-stone-600">
                       {sub.currentPeriodEnd}
                     </td>
 
@@ -181,13 +181,13 @@ export const AdminSubscriptions: React.FC = () => {
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setConfirmModal({ isOpen: true, action: 'refund', sub })}
-                            className="px-2 py-1 rounded bg-rose-50 text-rose-700 hover:bg-rose-100 text-[10px] font-bold"
+                            className="px-2 py-1 rounded bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold"
                           >
                             Refund
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-slate-400">View Only</span>
+                        <span className="text-xs text-stone-400">View Only</span>
                       )}
                     </td>
                   </tr>
@@ -195,7 +195,7 @@ export const AdminSubscriptions: React.FC = () => {
 
                 {filteredSubs.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={7} className="py-8 text-center text-stone-400">
                       No subscription billing records found.
                     </td>
                   </tr>
@@ -207,56 +207,56 @@ export const AdminSubscriptions: React.FC = () => {
 
         {/* Selected Subscription Drawer (Workflow 5: Subscription Issue) */}
         {selectedSub && (
-          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-md space-y-5 animate-in fade-in">
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+          <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-md space-y-5 animate-in fade-in">
+            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
               <div>
-                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+                <span className="text-xs font-bold uppercase text-stone-400 tracking-wider">
                   Subscription & Gateway Audit
                 </span>
-                <h3 className="text-base font-bold text-[#0B132B]">{selectedSub.workspaceName}</h3>
-                <div className="text-xs text-slate-500">{selectedSub.ownerEmail}</div>
+                <h3 className="text-base font-bold text-ink">{selectedSub.workspaceName}</h3>
+                <div className="text-xs text-stone-500">{selectedSub.ownerEmail}</div>
               </div>
               <button 
                 onClick={() => setSelectedSub(null)}
-                className="text-xs text-slate-400 hover:text-slate-600"
+                className="text-xs text-stone-400 hover:text-stone-600"
               >
                 ✕
               </button>
             </div>
 
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Gateway Status</span>
-                <span className={`px-2 py-0.5 rounded font-bold uppercase text-[10px] ${
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Gateway Status</span>
+                <span className={`px-2 py-0.5 rounded font-bold uppercase text-xs ${
                   selectedSub.gatewayStatus === 'Paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                 }`}>
                   {selectedSub.gatewayStatus}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Payment Provider</span>
-                <span className="font-bold text-[#0B132B]">{selectedSub.gateway}</span>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Payment Provider</span>
+                <span className="font-bold text-ink">{selectedSub.gateway}</span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Recurring Plan</span>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Recurring Plan</span>
                 <span className="font-bold text-blue-900">{selectedSub.planName} (${selectedSub.amount} / {selectedSub.billingInterval})</span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Allocated Seats</span>
-                <span className="font-medium text-slate-700">{selectedSub.seatsUsed} utilized of {selectedSub.totalSeats} seats</span>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Allocated Seats</span>
+                <span className="font-medium text-stone-700">{selectedSub.seatsUsed} utilized of {selectedSub.totalSeats} seats</span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Current Period Ends</span>
-                <span className="font-medium text-slate-700">{selectedSub.currentPeriodEnd}</span>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Current Period Ends</span>
+                <span className="font-medium text-stone-700">{selectedSub.currentPeriodEnd}</span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Auto-Renew Policy</span>
-                <span className={`font-bold ${selectedSub.autoRenew ? 'text-emerald-600' : 'text-slate-400'}`}>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Auto-Renew Policy</span>
+                <span className={`font-bold ${selectedSub.autoRenew ? 'text-emerald-600' : 'text-stone-400'}`}>
                   {selectedSub.autoRenew ? 'Active (Card On File)' : 'Disabled'}
                 </span>
               </div>
@@ -264,7 +264,7 @@ export const AdminSubscriptions: React.FC = () => {
 
             {/* Billing Action Controls */}
             {!isReadOnly && (
-              <div className="pt-2 border-t border-slate-100 space-y-2">
+              <div className="pt-2 border-t border-stone-100 space-y-2">
                 <button
                   onClick={() => setConfirmModal({ isOpen: true, action: 'refund', sub: selectedSub })}
                   className="w-full py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition-colors shadow-xs"
@@ -273,7 +273,7 @@ export const AdminSubscriptions: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setConfirmModal({ isOpen: true, action: 'cancel', sub: selectedSub })}
-                  className="w-full py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200 transition-colors"
+                  className="w-full py-2 rounded-xl bg-stone-100 text-stone-700 text-xs font-bold hover:bg-stone-200 transition-colors"
                 >
                   Disable Auto-Renew & Downgrade
                 </button>
@@ -285,22 +285,22 @@ export const AdminSubscriptions: React.FC = () => {
 
       {/* Confirmation Modal */}
       {confirmModal.isOpen && confirmModal.sub && (
-        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 space-y-4">
             <div className="flex items-center gap-2.5 text-rose-600">
               <AlertCircle className="w-5 h-5 shrink-0" />
-              <h3 className="text-base font-bold text-[#0B132B]">
+              <h3 className="text-base font-bold text-ink">
                 Confirm Billing {confirmModal.action.toUpperCase()}
               </h3>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-stone-600 leading-relaxed">
               Are you sure you want to <strong>{confirmModal.action}</strong> subscription for <strong>{confirmModal.sub.workspaceName}</strong> (${confirmModal.sub.amount} {confirmModal.sub.currency})? 
               This will record a financial mutation in the audit log and trigger an automated notification to {confirmModal.sub.ownerEmail}.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setConfirmModal({ isOpen: false, action: 'cancel', sub: null })}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100"
               >
                 Cancel
               </button>
