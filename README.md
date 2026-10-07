@@ -53,7 +53,7 @@ cd backend && npm install && npm run dev
 npm install
 VITE_API_BASE_URL=http://localhost:<SERVER_PORT> npm run dev
 ```
-The web client reads `VITE_API_BASE_URL` (empty = same origin). For a same-origin dev setup set `VITE_DEV_API_PROXY` to forward `/api` to the API.
+The web client reads `VITE_API_BASE_URL` (empty = same origin). `npm run dev` and `npm run preview` forward `/api` to the local API automatically (port read from `backend/.env`). For a static host (Netlify, Render static, GitHub Pages) there is no such forwarding: build with `VITE_API_BASE_URL=https://<api>` or sign-up and sign-in fail with 404/405.
 
 ## Checks
 ```bash

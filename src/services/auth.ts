@@ -59,7 +59,12 @@ export async function requestWithMeta<T>(path: string, opts: RequestOptions = {}
   let res = await send();
   if (res.status === 401 && auth && (await refreshTokens())) res = await send();
 
-  if (!(res.headers.get('content-type') || '').includes('application/json')) throw new ApiError(`Server returned a non-JSON response (${res.status})`, res.status);
+  if (!(res.headers.get('content-type') || '').includes('application/json')) {
+    const hint = res.status === 404 || res.status === 405
+      ? 'This page is not connected to the Media Navigator API. Set VITE_API_BASE_URL to the API address when building the web app, or run the API locally.'
+      : `Server returned a non-JSON response (${res.status})`;
+    throw new ApiError(hint, res.status);
+  }
   const json: any = await res.json().catch(() => ({}));
   if (!res.ok || json.success === false) {
     if (res.status === 401 && auth) {
