@@ -147,8 +147,8 @@ export class LinkedInClient {
         contentType: 'post',
         title,
         caption: text,
-        thumbnailUrl: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=600&q=80',
-        publishedAt: post.createdAt ? new Date(post.createdAt).toISOString() : new Date().toISOString(),
+        thumbnailUrl: '',
+        publishedAt: post.createdAt ? new Date(post.createdAt).toISOString() : '',
         primarySignal: {
           label: 'Interactions',
           value: interactions.toString(),

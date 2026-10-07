@@ -41,4 +41,4 @@ Pure functions over stored content (`analytics.engine.ts`, `analytics.stats.ts`)
 Server-side only. Inputs are computed facts (`measured` and `calculated`); the model returns an *interpretation* that is schema-validated. Responses always carry `ai.status` (`ran | cached | unavailable | failed | not_needed`). With no AI, endpoints still answer with measured facts and say so. Results are cached per user + analysis + subject + data version + prompt version (`PROMPT_VERSION`).
 
 ## Scaling path
-API, worker and scheduler already coordinate only through MongoDB. Rate-limit counters are per-process; move them to a shared store when running more than one API instance and global limits matter.
+API, worker and scheduler already coordinate only through MongoDB. Rate-limit counters live in MongoDB too, so limits are shared across instances.

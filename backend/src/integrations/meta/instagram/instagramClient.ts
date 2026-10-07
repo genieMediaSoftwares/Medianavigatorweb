@@ -406,7 +406,7 @@ export class InstagramClient extends MetaClient {
         if (!insightsSupported) break;
         try {
           const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 1800);
+          const timeout = setTimeout(() => controller.abort(), config.providers.timeoutMs);
 
           let res = await httpFetch(
             `https://graph.facebook.com/${config.providers.metaApiVersion}/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
@@ -494,8 +494,8 @@ export class InstagramClient extends MetaClient {
           const bestImageUrl = item.thumbnail_url || 
             item.media_url || 
             childMedia?.thumbnail_url || 
-            childMedia?.media_url || 
-            'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=600&q=80';
+            childMedia?.media_url ||
+            '';
 
           // Check if we already have verified insights in existingMediaMap
           const existing = existingMediaMap?.get(item.id) || existingMediaMap?.get(`ig_${item.id}`);
@@ -567,7 +567,7 @@ export class InstagramClient extends MetaClient {
             caption: item.caption || '',
             thumbnailUrl: bestImageUrl,
             mediaUrl: item.permalink || item.media_url,
-            publishedAt: item.timestamp || new Date().toISOString(),
+            publishedAt: item.timestamp || '',
             primarySignal: {
               label: 'Verified Views',
               value: views > 0 ? views.toLocaleString() : `${likes.toLocaleString()} likes`,
@@ -588,6 +588,7 @@ export class InstagramClient extends MetaClient {
               ],
             },
             isDemo: false,
+            missingMetrics: [...(typeof item.like_count === 'number' ? [] : ['likes']), ...(typeof item.comments_count === 'number' ? [] : ['comments'])],
           };
         })
       );

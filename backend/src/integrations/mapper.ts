@@ -16,6 +16,7 @@ export function toContentItem(
   // there is no evidence the platform reported them for this item.
   if (n.platform === 'facebook' && !n.views) unavailable.add('views');
   if (!n.reach) unavailable.add('reach');
+  for (const m of n.missingMetrics ?? []) unavailable.add(m);
 
   return {
     userId: ctx.userId,
@@ -27,7 +28,7 @@ export function toContentItem(
     contentTypeBasis: n.platform === 'youtube' && (n.contentType === 'short' || n.contentType === 'video') ? 'inferred' : 'provider',
     title: n.title ?? '',
     caption: n.caption ?? '',
-    thumbnailUrl: n.thumbnailUrl,
+    thumbnailUrl: n.thumbnailUrl || undefined,
     mediaUrl: n.mediaUrl,
     publishedAt,
     durationSeconds: n.durationSeconds ?? null,
@@ -40,7 +41,13 @@ export function toContentItem(
     watchTimeMinutes: n.watchTimeMinutes ?? null,
     engagementRate: n.engagementRate ?? 0,
     unavailableMetrics: [...unavailable],
-    normalized: { ...n, isDemo: undefined },
+    // The per-provider "explanation"/"primarySignal" strings were templated text, not analysis. Keep only what was measured;
+    // real interpretation comes from the analytics engine and the AI layer.
+    normalized: {
+      ...n, isDemo: undefined,
+      primarySignal: { ...n.primarySignal, label: 'Views', value: n.views ? `${n.views.toLocaleString('en-US')} views` : `${(n.likes + n.comments).toLocaleString('en-US')} likes and comments` },
+      explanation: { observedFact: `${n.views.toLocaleString('en-US')} views, ${n.likes.toLocaleString('en-US')} likes, ${n.comments.toLocaleString('en-US')} comments.`, possibleReason: '', whatToRepeat: [] },
+    },
     syncedAt: ctx.syncedAt,
   };
 }

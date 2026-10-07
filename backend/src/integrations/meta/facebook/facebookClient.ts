@@ -153,7 +153,7 @@ export class FacebookClient extends MetaClient {
         contentType: 'post',
         title,
         caption: post.message || '',
-        thumbnailUrl: post.full_picture || 'https://images.unsplash.com/photo-1542744094-3a31f272c490?auto=format&fit=crop&w=600&q=80',
+        thumbnailUrl: post.full_picture || '',
         mediaUrl: post.permalink_url,
         publishedAt: post.created_time,
         primarySignal: {

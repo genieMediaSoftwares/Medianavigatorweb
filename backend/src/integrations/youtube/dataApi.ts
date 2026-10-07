@@ -514,7 +514,7 @@ export class YouTubeDataApi {
         caption: v.snippet?.description || '',
         thumbnailUrl: v.snippet?.thumbnails?.medium?.url || v.snippet?.thumbnails?.high?.url || v.snippet?.thumbnails?.default?.url || '',
         mediaUrl: `https://www.youtube.com/watch?v=${vId}`,
-        publishedAt: v.snippet?.publishedAt || new Date().toISOString(),
+        publishedAt: v.snippet?.publishedAt || '',
         durationSeconds,
         primarySignal: {
           label: isShort ? 'Short Plays' : 'Video Views',

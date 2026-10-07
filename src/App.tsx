@@ -31,8 +31,8 @@ import { Connections } from './features/connections/Connections';
 import { Settings } from './features/settings/Settings';
 import { Reports } from './features/reports/Reports';
 import { BrandLogo } from './components/common/BrandLogo';
-import { AdminDashboard } from './features/admin/AdminDashboard';
-import { AdminProvider } from './app/providers/AdminContext';
+import { Legal } from './features/legal/Legal';
+import { AdminConsole } from './features/admin/AdminConsole';
 
 import { X } from 'lucide-react';
 
@@ -63,8 +63,11 @@ const AppContent: React.FC = () => {
   if (appView === 'onboarding') {
     return <Onboarding />;
   }
+  if (appView === 'terms' || appView === 'privacy') {
+    return <Legal doc={appView} />;
+  }
   if (appView === 'admin') {
-    return <AdminDashboard />;
+    return <AdminConsole />;
   }
 
   const renderActiveScreen = () => {
@@ -146,9 +149,7 @@ const AppContent: React.FC = () => {
 export default function App() {
   return (
     <MediaProvider>
-      <AdminProvider>
-        <AppContent />
-      </AdminProvider>
+      <AppContent />
     </MediaProvider>
   );
 }
