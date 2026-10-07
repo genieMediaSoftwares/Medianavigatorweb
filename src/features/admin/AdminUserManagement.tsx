@@ -64,39 +64,39 @@ export const AdminUserManagement: React.FC = () => {
       {/* Header & Description */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-[#0B132B] tracking-tight">
+          <h2 className="text-xl font-extrabold text-ink tracking-tight">
             User Lifecycle Management (Core Workflow 1)
           </h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-stone-500">
             Audit user profiles, connected social channels, workspace plans, and account statuses.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs text-slate-600 font-medium shadow-xs">
+          <div className="px-3 py-1.5 rounded-xl bg-white border border-stone-200 text-xs text-stone-600 font-medium shadow-xs">
             Total Users: <strong>{users.length}</strong>
           </div>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         <div className="relative flex-1">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by name, email, or workspace..."
-            className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 text-xs text-[#0B132B] focus:outline-none focus:border-[#0284C7] focus:ring-1 focus:ring-[#0284C7]"
+            className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-stone-200 text-xs text-ink focus:outline-none focus:border-brand-600 focus:ring-1 focus:ring-brand-600"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5" />
         </div>
 
         <div className="flex items-center gap-2">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as any)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-white"
+            className="px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-700 bg-white"
           >
             <option value="all">All Statuses</option>
             <option value="active">Active</option>
@@ -108,7 +108,7 @@ export const AdminUserManagement: React.FC = () => {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-white"
+            className="px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-700 bg-white"
           >
             <option value="all">All Roles</option>
             <option value="Creator">Creator</option>
@@ -121,11 +121,11 @@ export const AdminUserManagement: React.FC = () => {
       {/* Main Table & Side Drawer Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Table View */}
-        <div className={`p-5 rounded-2xl bg-white border border-slate-200 shadow-xs ${selectedUser ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
+        <div className={`p-5 rounded-2xl bg-white border border-stone-200 shadow-xs ${selectedUser ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px]">
+                <tr className="border-b border-stone-200 text-stone-500 font-semibold uppercase text-xs">
                   <th className="pb-3">User & Workspace</th>
                   <th className="pb-3">Role</th>
                   <th className="pb-3">Status</th>
@@ -135,11 +135,11 @@ export const AdminUserManagement: React.FC = () => {
                   <th className="pb-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-stone-100">
                 {filteredUsers.map((user) => (
                   <tr 
                     key={user.id} 
-                    className={`hover:bg-slate-50/70 cursor-pointer transition-colors ${
+                    className={`hover:bg-stone-50/70 cursor-pointer transition-colors ${
                       selectedUser?.id === user.id ? 'bg-blue-50/50' : ''
                     }`}
                     onClick={() => setSelectedUser(user)}
@@ -149,22 +149,22 @@ export const AdminUserManagement: React.FC = () => {
                         <img 
                           src={user.avatarUrl} 
                           alt={user.name} 
-                          className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0" 
+                          className="w-8 h-8 rounded-full object-cover border border-stone-200 shrink-0" 
                         />
                         <div>
-                          <div className="font-bold text-[#0B132B]">{user.name}</div>
-                          <div className="text-[11px] text-slate-500">{user.email}</div>
-                          <div className="text-[10px] text-slate-400">Workspace: {user.workspaceName}</div>
+                          <div className="font-bold text-ink">{user.name}</div>
+                          <div className="text-xs text-stone-500">{user.email}</div>
+                          <div className="text-xs text-stone-400">Workspace: {user.workspaceName}</div>
                         </div>
                       </div>
                     </td>
 
                     <td className="py-3">
-                      <span className="font-medium text-slate-700">{user.role}</span>
+                      <span className="font-medium text-stone-700">{user.role}</span>
                     </td>
 
                     <td className="py-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
                         user.status === 'active'
                           ? 'bg-emerald-100 text-emerald-800'
                           : user.status === 'suspended'
@@ -180,23 +180,23 @@ export const AdminUserManagement: React.FC = () => {
                         {user.connectedPlatforms.map((p) => (
                           <span 
                             key={p} 
-                            className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 uppercase"
+                            className="px-1.5 py-0.5 rounded text-xs font-semibold bg-stone-100 text-stone-700 uppercase"
                           >
                             {p.slice(0, 2)}
                           </span>
                         ))}
                         {user.connectedPlatforms.length === 0 && (
-                          <span className="text-[11px] text-slate-400">None</span>
+                          <span className="text-xs text-stone-400">None</span>
                         )}
                       </div>
                     </td>
 
                     <td className="py-3">
                       <span className="font-semibold text-blue-900">{user.plan}</span>
-                      <div className="text-[10px] text-slate-500">${user.monthlySpend}/mo</div>
+                      <div className="text-xs text-stone-500">${user.monthlySpend}/mo</div>
                     </td>
 
-                    <td className="py-3 text-slate-500 text-[11px]">
+                    <td className="py-3 text-stone-500 text-xs">
                       {user.lastActive}
                     </td>
 
@@ -229,7 +229,7 @@ export const AdminUserManagement: React.FC = () => {
                           </button>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-slate-400">View Only</span>
+                        <span className="text-xs text-stone-400">View Only</span>
                       )}
                     </td>
                   </tr>
@@ -237,7 +237,7 @@ export const AdminUserManagement: React.FC = () => {
 
                 {filteredUsers.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                    <td colSpan={7} className="py-8 text-center text-stone-400">
                       No user records found matching criteria.
                     </td>
                   </tr>
@@ -249,22 +249,22 @@ export const AdminUserManagement: React.FC = () => {
 
         {/* Selected User Detail Drawer (Workflow 1: Review Profile) */}
         {selectedUser && (
-          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-md space-y-5 animate-in fade-in">
-            <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+          <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-md space-y-5 animate-in fade-in">
+            <div className="flex items-start justify-between pb-3 border-b border-stone-100">
               <div className="flex items-center gap-3">
                 <img 
                   src={selectedUser.avatarUrl} 
                   alt={selectedUser.name} 
-                  className="w-12 h-12 rounded-full object-cover border border-slate-200" 
+                  className="w-12 h-12 rounded-full object-cover border border-stone-200" 
                 />
                 <div>
-                  <h3 className="text-base font-bold text-[#0B132B]">{selectedUser.name}</h3>
-                  <div className="text-xs text-slate-500">{selectedUser.email}</div>
+                  <h3 className="text-base font-bold text-ink">{selectedUser.name}</h3>
+                  <div className="text-xs text-stone-500">{selectedUser.email}</div>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedUser(null)}
-                className="text-xs text-slate-400 hover:text-slate-600"
+                className="text-xs text-stone-400 hover:text-stone-600"
               >
                 ✕
               </button>
@@ -272,27 +272,27 @@ export const AdminUserManagement: React.FC = () => {
 
             {/* Profile Attributes */}
             <div className="space-y-3 text-xs">
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">User Status</span>
-                <span className={`px-2 py-0.5 rounded font-bold uppercase text-[10px] ${
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">User Status</span>
+                <span className={`px-2 py-0.5 rounded font-bold uppercase text-xs ${
                   selectedUser.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                 }`}>
                   {selectedUser.status}
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Workspace</span>
-                <span className="font-bold text-[#0B132B]">{selectedUser.workspaceName}</span>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Workspace</span>
+                <span className="font-bold text-ink">{selectedUser.workspaceName}</span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Subscription</span>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Subscription</span>
                 <span className="font-bold text-blue-900">{selectedUser.plan} (${selectedUser.monthlySpend}/mo)</span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Risk Score</span>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Risk Score</span>
                 <span className={`font-bold ${
                   selectedUser.riskScore === 'Low' ? 'text-emerald-600' : selectedUser.riskScore === 'High' ? 'text-rose-600' : 'text-amber-600'
                 }`}>
@@ -300,15 +300,15 @@ export const AdminUserManagement: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50">
-                <span className="text-slate-500 font-medium">Joined Date</span>
-                <span className="font-medium text-slate-700">{selectedUser.joinedAt}</span>
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-stone-50">
+                <span className="text-stone-500 font-medium">Joined Date</span>
+                <span className="font-medium text-stone-700">{selectedUser.joinedAt}</span>
               </div>
             </div>
 
             {/* Connected Platforms */}
             <div className="space-y-2">
-              <h4 className="text-xs font-bold text-[#0B132B] uppercase tracking-wider">
+              <h4 className="text-xs font-bold text-ink uppercase tracking-wider">
                 Authorized Platform Connections
               </h4>
               <div className="grid grid-cols-2 gap-2">
@@ -318,7 +318,7 @@ export const AdminUserManagement: React.FC = () => {
                     <div 
                       key={platform}
                       className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
-                        isConn ? 'border-emerald-200 bg-emerald-50/50 text-emerald-900 font-semibold' : 'border-slate-200 bg-slate-50 text-slate-400'
+                        isConn ? 'border-emerald-200 bg-emerald-50/50 text-emerald-900 font-semibold' : 'border-stone-200 bg-stone-50 text-stone-400'
                       }`}
                     >
                       <span className="capitalize">{platform}</span>
@@ -331,7 +331,7 @@ export const AdminUserManagement: React.FC = () => {
 
             {/* Actions */}
             {!isReadOnly && (
-              <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+              <div className="pt-3 border-t border-stone-100 flex items-center gap-2">
                 {selectedUser.status === 'suspended' ? (
                   <button
                     onClick={() => handleActionClick(selectedUser, 'activate')}
@@ -361,29 +361,29 @@ export const AdminUserManagement: React.FC = () => {
 
       {/* Mandatory Destructive Action Confirmation Dialog (Section 5 Spec) */}
       {confirmModal.isOpen && confirmModal.user && (
-        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+        <div className="fixed inset-0 z-50 bg-ink/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-stone-200 space-y-4">
             <div className="flex items-center gap-2.5 text-rose-600">
               <AlertCircle className="w-5 h-5 shrink-0" />
-              <h3 className="text-base font-bold text-[#0B132B]">
+              <h3 className="text-base font-bold text-ink">
                 Confirm {confirmModal.action.toUpperCase()} Action
               </h3>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-stone-600 leading-relaxed">
               Are you sure you want to <strong>{confirmModal.action}</strong> user <strong>{confirmModal.user.name}</strong> ({confirmModal.user.email})? 
               This will update access permissions across all connected workspaces and record an immutable event in the audit trail.
             </p>
             <div className="flex items-center justify-end gap-2 pt-2">
               <button
                 onClick={() => setConfirmModal({ isOpen: false, action: 'suspend', user: null })}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmAction}
                 className={`px-4 py-2 rounded-xl text-xs font-semibold text-white shadow-xs ${
-                  confirmModal.action === 'delete' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-[#0B132B] hover:bg-[#1C2541]'
+                  confirmModal.action === 'delete' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-ink hover:bg-ink-soft'
                 }`}
               >
                 Confirm {confirmModal.action}

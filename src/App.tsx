@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MediaProvider, useMedia } from './app/providers/MediaContext';
-import { Sidebar } from './app/layout/Sidebar';
+import { Sidebar, NavList, AccountCard } from './app/layout/Sidebar';
 import { TopBar } from './app/layout/TopBar';
 import { MobileNav } from './app/layout/MobileNav';
 import { LoadingOverlay } from './components/common/LoadingOverlay';
@@ -17,7 +17,9 @@ import { Onboarding } from './features/onboarding/Onboarding';
 // SaaS Core Screens
 import { Overview } from './features/overview/Overview';
 import { Analytics } from './features/analytics/Analytics';
-import { Intelligence } from './features/intelligence/Intelligence';
+import { AiInsights } from './features/intelligence/AiInsights';
+import { Performers } from './features/intelligence/Performers';
+import { Patterns } from './features/intelligence/Patterns';
 import { ContentIntelligence } from './features/content/ContentIntelligence';
 import { TimingIntelligence } from './features/timing/TimingIntelligence';
 import { CrossPlatform } from './features/cross-platform/CrossPlatform';
@@ -32,7 +34,7 @@ import { BrandLogo } from './components/common/BrandLogo';
 import { AdminDashboard } from './features/admin/AdminDashboard';
 import { AdminProvider } from './app/providers/AdminContext';
 
-import { X, ExternalLink, LogOut, Layers } from 'lucide-react';
+import { X } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { 
@@ -43,8 +45,7 @@ const AppContent: React.FC = () => {
     isNavigating, 
     navigationStep,
     activeMedia,
-    setActiveMedia,
-    logout
+    setActiveMedia
   } = useMedia();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -75,17 +76,17 @@ const AppContent: React.FC = () => {
       case 'content':
         return <ContentIntelligence />;
       case 'top_performers':
-        return <Intelligence defaultSubTab="top" />;
+        return <Performers mode="top" />;
       case 'bottom_performers':
-        return <Intelligence defaultSubTab="bottom" />;
+        return <Performers mode="bottom" />;
       case 'intelligence':
-        return <Intelligence defaultSubTab="insights" />;
+        return <AiInsights />;
       case 'trends':
         return <Trends />;
       case 'timing':
         return <TimingIntelligence />;
       case 'patterns':
-        return <Intelligence defaultSubTab="patterns" />;
+        return <Patterns />;
       case 'reports':
         return <Reports />;
       case 'connections':
@@ -106,104 +107,37 @@ const AppContent: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A] flex font-sans antialiased selection:bg-[#0284C7]/20">
-      {/* Intelligent Loading Overlay */}
+    <div className="min-h-screen bg-canvas text-ink flex font-sans antialiased">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] btn btn-primary btn-sm">Skip to content</a>
+
       <LoadingOverlay isVisible={isNavigating} currentStep={navigationStep} />
-
-      {/* Desktop Navy Sidebar */}
       <Sidebar />
-
-      {/* Slide-over Notifications Drawer */}
       <NotificationsDrawer />
-
-      {/* Live Synchronization Modal */}
       <SyncProgressModal />
-
-      {/* Content Detail Modal */}
       <ContentDetailModal media={activeMedia} onClose={() => setActiveMedia(null)} />
 
-      {/* Mobile Menu Drawer */}
+      {/* Phone menu */}
       {mobileMenuOpen && (
-        <div className="fixed inset-0 z-50 md:hidden flex">
-          <div
-            className="fixed inset-0 bg-[#0B132B]/50 backdrop-blur-xs"
-            onClick={() => setMobileMenuOpen(false)}
-          />
-          <div className="relative w-72 max-w-[85vw] h-full bg-white text-[#0F172A] border-r border-[#E2E8F0] p-5 flex flex-col justify-between z-50 shadow-2xl">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
-                <BrandLogo onClick={() => { setAppView('landing'); setMobileMenuOpen(false); }} />
-                <button
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-lg text-[#64748B] hover:text-[#0B132B] hover:bg-slate-100 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="space-y-1 text-xs max-h-[calc(100vh-180px)] overflow-y-auto custom-scrollbar pr-1">
-                {[
-                  { id: 'overview', label: 'Dashboard Overview' },
-                  { id: 'analytics', label: 'Analytics Overview' },
-                  { id: 'content', label: 'Content Library' },
-                  { id: 'top_performers', label: "What's Working" },
-                  { id: 'bottom_performers', label: 'What Needs Improvement' },
-                  { id: 'intelligence', label: 'AI Growth Insights' },
-                  { id: 'trends', label: 'AI Trends & Ideas' },
-                  { id: 'timing', label: 'Posting Strategy' },
-                  { id: 'patterns', label: 'Pattern Analysis' },
-                  { id: 'reports', label: 'Reports' },
-                  { id: 'connections', label: 'Connections' },
-                  { id: 'settings', label: 'Settings' },
-                ].map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setCurrentTab(item.id as any);
-                      setMobileMenuOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-xl font-semibold transition-colors ${
-                      currentTab === item.id
-                        ? 'bg-[#0284C7] text-white shadow-xs'
-                        : 'text-[#475569] hover:bg-slate-100 hover:text-[#0B132B]'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
+        <div className="fixed inset-0 z-50 md:hidden flex" role="dialog" aria-modal="true" aria-label="Menu">
+          <div className="fixed inset-0 bg-ink/40 backdrop-blur-[2px]" onClick={() => setMobileMenuOpen(false)} />
+          <div className="relative w-[300px] max-w-[88vw] h-full bg-white flex flex-col shadow-pop animate-fade-up">
+            <div className="h-[72px] px-5 flex items-center justify-between border-b border-line">
+              <BrandLogo onClick={() => { setAppView('landing'); setMobileMenuOpen(false); }} />
+              <button onClick={() => setMobileMenuOpen(false)} className="p-2 rounded-xl text-muted hover:text-ink hover:bg-canvas-soft" aria-label="Close menu"><X className="w-5 h-5" /></button>
             </div>
-
-            <div className="pt-4 border-t border-[#E2E8F0] flex items-center justify-between text-xs text-[#64748B]">
-              <button
-                onClick={() => setAppView('landing')}
-                className="flex items-center gap-1.5 hover:text-[#0B132B] font-medium"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span>Landing Page</span>
-              </button>
-              <button
-                onClick={logout}
-                className="flex items-center gap-1.5 text-rose-600 hover:text-rose-700 font-semibold"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Sign Out</span>
-              </button>
-            </div>
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-3"><NavList onNavigate={() => setMobileMenuOpen(false)} /></div>
+            <div className="p-3 border-t border-line"><AccountCard /></div>
           </div>
         </div>
       )}
 
-      {/* Main Workspace Area */}
-      <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-12 bg-[#F8FAFC]">
+      <div className="flex-1 flex flex-col min-w-0">
         <TopBar onMobileMenuClick={() => setMobileMenuOpen(true)} />
-
-        <main className="flex-1 p-4 md:p-8 overflow-y-auto custom-scrollbar">
+        <main id="main-content" className="flex-1 w-full max-w-[1280px] mx-auto px-4 md:px-8 py-6 md:py-8 pb-28 md:pb-12 animate-fade-up" key={currentTab}>
           {renderActiveScreen()}
         </main>
       </div>
 
-      {/* Mobile Bottom Navigation */}
       <MobileNav onMoreClick={() => setMobileMenuOpen(true)} />
     </div>
   );

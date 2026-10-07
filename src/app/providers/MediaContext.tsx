@@ -6,9 +6,7 @@ import {
   PlatformConnection, 
   AlertItem,
   AppViewMode,
-  BrandProfile,
   UserAccount,
-  ReportItem
 } from '../../types';
 import { api } from '../../services/api';
 import { authApi, hasSession, clearSession, ApiError } from '../../services/auth';
@@ -38,12 +36,9 @@ interface MediaContextType {
   appView: AppViewMode;
   setAppView: (view: AppViewMode) => void;
   user: UserAccount;
+  /** true only when the API confirmed the admin role for this session */
+  isAdmin: boolean;
   setUser: (user: UserAccount) => void;
-  brandProfile: BrandProfile;
-  setBrandProfile: (profile: BrandProfile) => void;
-  workspaces: string[];
-  currentWorkspace: string;
-  setCurrentWorkspace: (ws: string) => void;
   
   currentTab: NavigationTab;
   setCurrentTab: (tab: NavigationTab) => void;
@@ -55,13 +50,12 @@ interface MediaContextType {
   setActiveMedia: (media: NormalizedMedia | null) => void;
   connections: PlatformConnection[];
   refreshConnections: () => Promise<void>;
+  refreshAlerts: () => Promise<void>;
   alerts: AlertItem[];
   unreadAlertCount: number;
   isNavigating: boolean;
   navigationStep: string;
   triggerMediaNavigation: () => void;
-  demoMode: boolean;
-  setDemoMode: (enabled: boolean) => void;
 
   // Notifications
   notifications: NotificationItem[];
@@ -80,10 +74,6 @@ interface MediaContextType {
   setOnboardingPlatform: (p: PlatformType | null) => void;
   permissionReviewPlatform: PlatformType | null;
   setPermissionReviewPlatform: (p: PlatformType | null) => void;
-
-  // Reports
-  reports: ReportItem[];
-  generateReport: (period: string, platforms: string[]) => Promise<ReportItem>;
 
   // Auth actions
   login: (email: string, pass: string) => Promise<boolean>;
@@ -109,6 +99,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const [appView, setAppView] = useState<AppViewMode>(getInitialAppView);
+  const [isAdmin, setIsAdmin] = useState(false);
   
   const [user, setUser] = useState<UserAccount>({
     fullName: '',
@@ -118,22 +109,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     avatarUrl: '',
   });
 
-  const [brandProfile, setBrandProfile] = useState<BrandProfile>({
-    brandName: 'My Media Channel',
-    niche: 'Digital Media, Content & Creator Strategy',
-    targetAudience: 'Engaged audience and modern community',
-    primaryLocation: 'Global / North America',
-    mainGoal: 'Increase reach and scale viral organic engagement',
-    currentExperience: 'Active social media creator',
-    preferredFormats: ['reel', 'carousel', 'video'],
-  });
 
-  const [workspaces, setWorkspaces] = useState<string[]>([
-    'Primary Workspace',
-    'Marketing Team',
-    'Creator Studio'
-  ]);
-  const [currentWorkspace, setCurrentWorkspace] = useState<string>('Primary Workspace');
 
   const [currentTab, setCurrentTab] = useState<NavigationTab>('overview');
   const [selectedPlatform, setSelectedPlatform] = useState<'all' | PlatformType>('all');
@@ -190,7 +166,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [isNavigating, setIsNavigating] = useState<boolean>(false);
   const [navigationStep, setNavigationStep] = useState<string>('Collecting signals');
-  const [demoMode, setDemoMode] = useState<boolean>(false);
 
   // Notifications (Populated only on real events)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -206,9 +181,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [onboardingPlatform, setOnboardingPlatform] = useState<PlatformType | null>(null);
   const [permissionReviewPlatform, setPermissionReviewPlatform] = useState<PlatformType | null>(null);
-
-  // Reports (Generated strictly from verified media)
-  const [reports, setReports] = useState<ReportItem[]>([]);
 
   const refreshConnections = useCallback(async () => {
     try {
@@ -360,76 +332,9 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setSyncState(prev => ({ ...prev, isOpen: false }));
   };
 
-  // Report generation strictly grounded in real verified media
-  const generateReport = async (period: string, targetPlatforms: string[]): Promise<ReportItem> => {
-    let allMedia: NormalizedMedia[] = [];
-    try {
-      allMedia = await api.getMedia();
-    } catch {
-      allMedia = [];
-    }
-
-    const filtered = allMedia.filter(m => targetPlatforms.includes(m.platform));
-    const targetMedia = filtered.length > 0 ? filtered : allMedia;
-
-    const totalViews = targetMedia.reduce((sum, m) => sum + (m.views || 0), 0);
-    const totalLikes = targetMedia.reduce((sum, m) => sum + (m.likes || 0), 0);
-    const totalComments = targetMedia.reduce((sum, m) => sum + (m.comments || 0), 0);
-    const totalReach = targetMedia.reduce((sum, m) => sum + (m.reach || m.views || 0), 0);
-    const avgEngagement = targetMedia.length > 0
-      ? Number((targetMedia.reduce((sum, m) => sum + m.engagementRate, 0) / targetMedia.length).toFixed(1))
-      : 0;
-
-    const sortedByViews = [...targetMedia].sort((a, b) => b.views - a.views);
-    const topPerformer = sortedByViews[0];
-
-    const highlights: string[] = [];
-    if (targetMedia.length > 0) {
-      highlights.push(`Audited ${targetMedia.length} verified assets across ${targetPlatforms.join(', ')}.`);
-      if (topPerformer) {
-        highlights.push(`Top asset "${topPerformer.title.slice(0, 45)}" achieved ${topPerformer.views.toLocaleString()} verified views and ${topPerformer.engagementRate}% engagement.`);
-      }
-      const shorts = targetMedia.filter(m => m.contentType === 'short' || m.contentType === 'reel');
-      if (shorts.length > 0) {
-        highlights.push(`Short-form media accounts for ${Math.round((shorts.length / targetMedia.length) * 100)}% of your verified library.`);
-      }
-      highlights.push(`Logged ${totalLikes.toLocaleString()} total likes and ${totalComments.toLocaleString()} comments from real audience engagement.`);
-    } else {
-      highlights.push('Awaiting first media synchronization to calculate historical highlights.');
-    }
-
-    const newReport: ReportItem = {
-      id: `rep-${Date.now()}`,
-      title: `Executive Intelligence Report (${period})`,
-      period,
-      generatedAt: 'Just now',
-      status: 'Ready',
-      platforms: targetPlatforms,
-      executiveSummary: targetMedia.length > 0
-        ? `Archive intelligence summary across ${targetPlatforms.join(', ')} encompassing ${targetMedia.length} verified assets. Total views: ${totalViews.toLocaleString()} with average engagement of ${avgEngagement}%.`
-        : `Connect your platform accounts to generate verified executive reports.`,
-      metrics: {
-        totalReach: totalReach || totalViews,
-        totalViews,
-        avgEngagement,
-        growthRate: targetMedia.length > 0 ? Number(((totalLikes / Math.max(1, totalViews)) * 100).toFixed(1)) : 0,
-      },
-      highlights,
-      topPerformerTitle: topPerformer ? topPerformer.title : 'Connect platform to analyze top performer',
-    };
-
-    setReports(prev => [newReport, ...prev]);
-    addNotification({
-      type: 'report_ready',
-      title: 'New Real-Data Report Generated',
-      message: `Your ${period} performance report across ${targetPlatforms.length} platforms is now ready.`,
-      targetTab: 'reports',
-    });
-    return newReport;
-  };
-
   // Auth actions (server-verified; the role comes from the API, never from the client)
   const applySession = (u: { email: string; role: 'user' | 'admin' }, profile: { fullName?: string; organization?: string | null; accountType?: string | null } | null | undefined) => {
+    setIsAdmin(u.role === 'admin');
     setUser(prev => ({
       ...prev,
       email: u.email,
@@ -485,6 +390,7 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     clearSession();
     setConnections([]);
     setAlerts([]);
+    setIsAdmin(false);
     setAppView('landing');
   };
 
@@ -506,13 +412,9 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       value={{
         appView,
         setAppView,
+        isAdmin,
         user,
         setUser,
-        brandProfile,
-        setBrandProfile,
-        workspaces,
-        currentWorkspace,
-        setCurrentWorkspace,
 
         currentTab,
         setCurrentTab,
@@ -524,13 +426,12 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setActiveMedia,
         connections,
         refreshConnections,
+        refreshAlerts,
         alerts,
         unreadAlertCount,
         isNavigating,
         navigationStep,
         triggerMediaNavigation,
-        demoMode,
-        setDemoMode,
 
         notifications,
         unreadNotificationCount,
@@ -548,8 +449,6 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         permissionReviewPlatform,
         setPermissionReviewPlatform,
 
-        reports,
-        generateReport,
 
         login,
         logout,

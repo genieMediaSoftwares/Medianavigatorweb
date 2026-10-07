@@ -1,62 +1,28 @@
 import React from 'react';
 
-export const BrandLogo: React.FC<{ 
-  collapsed?: boolean;
-  onClick?: () => void;
-  className?: string;
-}> = ({ collapsed = false, onClick, className = '' }) => {
-  return (
-    <div 
-      onClick={onClick}
-      className={`flex items-center gap-2.5 select-none ${onClick ? 'cursor-pointer' : ''} ${className}`}
-    >
-      {/* Abstract navigation / orbit icon with modern sky/cyan gradient */}
-      <div className="relative w-8 h-8 rounded-xl bg-gradient-to-tr from-[#0284C7] to-[#06B6D4] flex items-center justify-center shadow-xs text-white shrink-0">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          className="w-4.5 h-4.5 text-white"
-          strokeWidth="1.75"
-        >
-          {/* Subtle orbital ring */}
-          <circle
-            cx="12"
-            cy="12"
-            r="8"
-            stroke="currentColor"
-            strokeOpacity="0.4"
-            strokeDasharray="2 2"
-          />
-          {/* Elliptical tilted orbit */}
-          <ellipse
-            cx="12"
-            cy="12"
-            rx="9"
-            ry="4.5"
-            stroke="currentColor"
-            strokeOpacity="0.8"
-            transform="rotate(-28 12 12)"
-          />
-          {/* Central guidance node */}
-          <circle cx="12" cy="12" r="2.2" fill="white" />
-          {/* Navigational direction pointer */}
-          <path
-            d="M12 4.5L13.5 8.5L12 7.8L10.5 8.5L12 4.5Z"
-            fill="white"
-          />
-        </svg>
-      </div>
+/** Compass-needle mark on an orange tile. `compact` hides the wordmark. */
+export const BrandMark: React.FC<{ className?: string }> = ({ className = 'w-9 h-9' }) => (
+  <span className={`relative inline-flex items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-brand shrink-0 ${className}`}>
+    <svg viewBox="0 0 24 24" fill="none" className="w-[58%] h-[58%]" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity=".55" strokeWidth="1.6" />
+      <path d="M15.8 8.2 13.4 13.4 8.2 15.8 10.6 10.6 15.8 8.2Z" fill="currentColor" />
+    </svg>
+  </span>
+);
 
-      {!collapsed && (
-        <div className="flex flex-col">
-          <span className="text-[13px] font-extrabold tracking-[0.08em] text-[#0B132B] uppercase leading-none font-sans">
-            Media Navigator
-          </span>
-          <span className="text-[10px] tracking-wider text-[#64748B] font-semibold mt-0.5">
-            Command Center
-          </span>
-        </div>
+export const BrandLogo: React.FC<{ collapsed?: boolean; compact?: boolean; onClick?: () => void; className?: string; tone?: 'dark' | 'light' }> = ({
+  collapsed, compact, onClick, className = '', tone = 'dark',
+}) => {
+  const hideText = collapsed || compact;
+  const Tag: React.ElementType = onClick ? 'button' : 'div';
+  return (
+    <Tag onClick={onClick} className={`inline-flex items-center gap-2.5 select-none text-left ${onClick ? 'cursor-pointer' : ''} ${className}`} aria-label={onClick ? 'Media Navigator home' : undefined}>
+      <BrandMark />
+      {!hideText && (
+        <span className={`text-[17px] font-extrabold tracking-tight leading-none ${tone === 'light' ? 'text-white' : 'text-ink'}`}>
+          Media<span className="text-brand-500">Navigator</span>
+        </span>
       )}
-    </div>
+    </Tag>
   );
 };

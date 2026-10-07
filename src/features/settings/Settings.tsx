@@ -1,507 +1,136 @@
-import React, { useState } from 'react';
-import { 
-  User, 
-  Building2, 
-  Target, 
-  Share2, 
-  Bell, 
-  Sparkles, 
-  ShieldCheck, 
-  Lock, 
-  CreditCard, 
-  Trash2, 
-  Check, 
-  Save, 
-  AlertCircle,
-  ExternalLink
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Check, Loader2, LogOut, ShieldCheck, Trash2, User as UserIcon, Lock, Database } from 'lucide-react';
 import { useMedia } from '../../app/providers/MediaContext';
+import { api, Profile, SessionInfo } from '../../services/api';
+import { Badge, PageSkeleton, timeAgo } from '../../components/ui';
+
+type Tab = 'profile' | 'security' | 'data';
+const ACCOUNT_TYPES = ['Creator', 'Personal brand', 'Business', 'E-commerce', 'Marketing agency', 'Other'] as const;
+
+const zones = (): string[] => {
+  try { return (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf('timeZone'); } catch { return ['UTC']; }
+};
+
+const Field: React.FC<{ id: string; label: string; hint?: string; children: React.ReactNode }> = ({ id, label, hint, children }) => (
+  <div><label htmlFor={id} className="text-sm font-semibold block mb-1.5">{label}</label>{children}{hint && <p className="text-xs text-muted mt-1.5">{hint}</p>}</div>
+);
+
+const Notice: React.FC<{ kind: 'ok' | 'error'; children: React.ReactNode }> = ({ kind, children }) => (
+  <p role={kind === 'error' ? 'alert' : 'status'} className={`rounded-xl border text-sm p-3 ${kind === 'ok' ? 'bg-emerald-50 border-emerald-100 text-emerald-900' : 'bg-rose-50 border-rose-100 text-rose-900'}`}>{children}</p>
+);
 
 export const Settings: React.FC = () => {
-  const { 
-    user, 
-    setUser, 
-    brandProfile, 
-    setBrandProfile, 
-    demoMode, 
-    setDemoMode,
-    currentWorkspace,
-    setCurrentWorkspace,
-    setCurrentTab
-  } = useMedia();
+  const { user, setUser, logout } = useMedia();
+  const [tab, setTab] = useState<Tab>('profile');
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const [activeSubTab, setActiveSubTab] = useState<
-    'profile' | 'workspace' | 'brand' | 'accounts' | 'notifications' | 'ai' | 'privacy' | 'security' | 'plan' | 'danger'
-  >('profile');
+  const [form, setForm] = useState({ fullName: '', organization: '', accountType: 'Creator', timezone: 'UTC' });
+  const [pw, setPw] = useState({ current: '', next: '' });
+  const [sessions, setSessions] = useState<SessionInfo[]>([]);
+  const [deletePw, setDeletePw] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const [savedNotice, setSavedNotice] = useState(false);
+  useEffect(() => {
+    api.getProfile().then(({ profile: p }) => {
+      setProfile(p);
+      setForm({ fullName: p?.fullName ?? '', organization: p?.organization ?? '', accountType: p?.accountType ?? 'Creator', timezone: p?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC' });
+    }).catch((e: Error) => setMsg({ kind: 'error', text: e.message })).finally(() => setLoading(false));
+  }, []);
+  useEffect(() => { if (tab === 'security') api.listSessions().then(setSessions).catch((e: Error) => setMsg({ kind: 'error', text: e.message })); }, [tab]);
+  useEffect(() => setMsg(null), [tab]);
 
-  // Form states
-  const [name, setName] = useState(user.fullName);
-  const [email, setEmail] = useState(user.email);
-  const [brandName, setBrandName] = useState(brandProfile.brandName);
-  const [niche, setNiche] = useState(brandProfile.niche);
-  const [targetAudience, setTargetAudience] = useState(brandProfile.targetAudience);
-  const [mainGoal, setMainGoal] = useState(brandProfile.mainGoal);
+  const run = async (key: string, fn: () => Promise<void>) => { setBusy(key); setMsg(null); try { await fn(); } catch (e) { setMsg({ kind: 'error', text: (e as Error).message }); } finally { setBusy(null); } };
 
-  // Notification toggles
-  const [emailSyncAlerts, setEmailSyncAlerts] = useState(true);
-  const [weeklyDigest, setWeeklyDigest] = useState(true);
-  const [performanceSpikeAlert, setPerformanceSpikeAlert] = useState(true);
+  const saveProfile = (e: React.FormEvent) => { e.preventDefault(); void run('profile', async () => {
+    const p = await api.updateProfile({ fullName: form.fullName.trim(), organization: form.organization.trim() || undefined, accountType: form.accountType, timezone: form.timezone });
+    setProfile(p); setUser({ ...user, fullName: p.fullName, organization: p.organization ?? user.organization });
+    setMsg({ kind: 'ok', text: 'Saved. Best-time analysis now uses your timezone.' });
+  }); };
 
-  // AI settings
-  const [strictGroundedOnly, setStrictGroundedOnly] = useState(true);
-  const [confidenceThreshold, setConfidenceThreshold] = useState('High (90%+)');
+  const changePassword = (e: React.FormEvent) => { e.preventDefault(); void run('pw', async () => {
+    await api.changePassword(pw.current, pw.next); setPw({ current: '', next: '' }); setSessions(await api.listSessions());
+    setMsg({ kind: 'ok', text: 'Password changed. Your other devices were signed out.' });
+  }); };
 
-  const handleSaveProfile = () => {
-    setUser({ ...user, fullName: name, email });
-    setBrandProfile({
-      ...brandProfile,
-      brandName,
-      niche,
-      targetAudience,
-      mainGoal,
-    });
-    setSavedNotice(true);
-    setTimeout(() => setSavedNotice(false), 3000);
-  };
+  const deleteAccount = (e: React.FormEvent) => { e.preventDefault(); void run('delete', async () => { await api.deleteAccount(deletePw); logout(); }); };
 
-  const menuItems = [
-    { id: 'profile', label: 'User Profile', icon: User },
-    { id: 'workspace', label: 'Workspace', icon: Building2 },
-    { id: 'brand', label: 'Brand & Niche', icon: Target },
-    { id: 'accounts', label: 'Connected Accounts', icon: Share2 },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'ai', label: 'AI Intelligence Preferences', icon: Sparkles },
-    { id: 'privacy', label: 'Data & Privacy', icon: ShieldCheck },
-    { id: 'security', label: 'Security & OAuth', icon: Lock },
-    { id: 'plan', label: 'Subscription & Plan', icon: CreditCard },
-    { id: 'danger', label: 'Account Deletion', icon: Trash2, danger: true },
-  ];
+  if (loading) return <PageSkeleton />;
+
+  const tabs: { id: Tab; label: string; icon: typeof UserIcon }[] = [{ id: 'profile', label: 'Profile', icon: UserIcon }, { id: 'security', label: 'Security', icon: Lock }, { id: 'data', label: 'Data and privacy', icon: Database }];
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Page Title */}
-      <div>
-        <div className="text-xs font-semibold text-[#0284C7] uppercase tracking-wider">
-          Configuration & Account Controls
-        </div>
-        <h1 className="text-2xl font-extrabold text-[#0B132B] tracking-tight">
-          Settings & Preferences
-        </h1>
-        <p className="text-xs text-[#64748B] mt-0.5">
-          Manage workspace settings, brand profile context, data retention, and AI reasoning parameters.
-        </p>
-      </div>
+    <div className="grid grid-cols-1 md:grid-cols-[220px_1fr] gap-6 md:gap-10 max-w-5xl">
+      <nav aria-label="Settings" className="flex md:flex-col gap-1 overflow-x-auto">
+        {tabs.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id ? 'page' : undefined}
+            className={`flex items-center gap-2.5 px-3 h-10 rounded-xl text-sm font-semibold whitespace-nowrap ${tab === t.id ? 'bg-brand-50 text-brand-700' : 'text-body hover:bg-canvas-soft'}`}><t.icon className="w-[18px] h-[18px]" />{t.label}</button>
+        ))}
+      </nav>
 
-      {savedNotice && (
-        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
-          <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Settings successfully updated across workspace.</span>
-        </div>
-      )}
+      <div className="space-y-5 min-w-0">
+        {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
 
-      {/* Screen 21 Layout: Two-Column Settings View */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
-        {/* Left Settings Navigation */}
-        <div className="md:col-span-4 lg:col-span-3 bg-white rounded-2xl border border-[#E2E8F0] p-2 space-y-1 shadow-xs">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeSubTab === item.id;
-
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveSubTab(item.id as any)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs font-semibold text-left transition-all ${
-                  isActive
-                    ? 'bg-[#0B132B] text-white shadow-xs'
-                    : item.danger
-                    ? 'text-rose-600 hover:bg-rose-50'
-                    : 'text-[#475569] hover:bg-slate-100 hover:text-[#0B132B]'
-                }`}
-              >
-                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-[#06B6D4]' : ''}`} />
-                <span className="truncate">{item.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Right Settings Content Panel */}
-        <div className="md:col-span-8 lg:col-span-9 bg-white rounded-2xl border border-[#E2E8F0] p-6 sm:p-8 shadow-xs space-y-6">
-          {/* USER PROFILE */}
-          {activeSubTab === 'profile' && (
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold text-[#0B132B]">User Profile</h3>
-                <p className="text-xs text-[#64748B]">Manage your individual account credentials and role.</p>
-              </div>
-
-              <div className="flex items-center gap-4 pt-2">
-                <img
-                  src={user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'}
-                  alt="Avatar"
-                  className="w-16 h-16 rounded-2xl object-cover border border-[#CBD5E1]"
-                />
-                <div className="space-y-1">
-                  <div className="text-xs font-bold text-[#0B132B]">{user.fullName}</div>
-                  <div className="text-xs text-[#64748B]">{user.accountType} · Administrator</div>
-                  <button className="text-xs text-[#0284C7] hover:underline font-semibold">Change Avatar</button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                    Work Email
-                  </label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A]"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-[#E2E8F0] flex justify-end">
-                <button
-                  onClick={handleSaveProfile}
-                  className="px-5 py-2 rounded-xl bg-[#0B132B] text-white text-xs font-semibold hover:bg-[#1C2541] flex items-center gap-1.5 shadow-xs"
-                >
-                  <Save className="w-3.5 h-3.5 text-[#06B6D4]" />
-                  <span>Save Changes</span>
-                </button>
-              </div>
+        {tab === 'profile' && (
+          <form onSubmit={saveProfile} className="card p-6 space-y-5">
+            <div><h2 className="text-lg font-bold">Profile</h2><p className="text-sm text-muted mt-0.5">Signed in as <span className="font-semibold text-ink">{user.email}</span></p></div>
+            <Field id="s-name" label="Full name"><input id="s-name" required maxLength={120} className="input" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /></Field>
+            <div className="grid sm:grid-cols-2 gap-5">
+              <Field id="s-org" label="Organization"><input id="s-org" maxLength={160} className="input" value={form.organization} onChange={(e) => setForm({ ...form, organization: e.target.value })} /></Field>
+              <Field id="s-type" label="I am a"><select id="s-type" className="input" value={form.accountType} onChange={(e) => setForm({ ...form, accountType: e.target.value })}>{ACCOUNT_TYPES.map((t) => <option key={t}>{t}</option>)}</select></Field>
             </div>
-          )}
+            <Field id="s-tz" label="Timezone" hint="Used to work out which days and hours your posts perform best."><select id="s-tz" className="input" value={form.timezone} onChange={(e) => setForm({ ...form, timezone: e.target.value })}>{[...new Set([form.timezone, ...zones()])].map((z) => <option key={z}>{z}</option>)}</select></Field>
+            <button className="btn btn-primary" disabled={busy === 'profile' || !form.fullName.trim()}>{busy === 'profile' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}Save changes</button>
+            {profile && !profile.timezone && <p className="text-sm text-muted">No timezone saved yet, so analysis currently uses UTC.</p>}
+          </form>
+        )}
 
-          {/* WORKSPACE */}
-          {activeSubTab === 'workspace' && (
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold text-[#0B132B]">Workspace Profile</h3>
-                <p className="text-xs text-[#64748B]">Settings for the currently active brand workspace.</p>
-              </div>
+        {tab === 'security' && (
+          <>
+            <form onSubmit={changePassword} className="card p-6 space-y-5">
+              <div><h2 className="text-lg font-bold">Change password</h2><p className="text-sm text-muted mt-0.5">At least 8 characters with a letter and a number.</p></div>
+              <Field id="p-cur" label="Current password"><input id="p-cur" type="password" autoComplete="current-password" required className="input" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} /></Field>
+              <Field id="p-new" label="New password"><input id="p-new" type="password" autoComplete="new-password" required minLength={8} className="input" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} /></Field>
+              <button className="btn btn-primary" disabled={busy === 'pw' || !pw.current || pw.next.length < 8}>{busy === 'pw' && <Loader2 className="w-4 h-4 animate-spin" />}Update password</button>
+            </form>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                    Workspace Name
-                  </label>
-                  <input
-                    type="text"
-                    value={currentWorkspace}
-                    onChange={(e) => setCurrentWorkspace(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A]"
-                  />
-                </div>
+            <section className="card p-6">
+              <div className="flex items-start justify-between gap-3"><div><h2 className="text-lg font-bold">Where you’re signed in</h2><p className="text-sm text-muted mt-0.5">Sign out any device you don’t recognise.</p></div>
+                <button onClick={() => run('all', async () => { await api.logoutEverywhere(); logout(); })} className="btn btn-secondary btn-sm shrink-0" disabled={busy === 'all'}><LogOut className="w-4 h-4" />Sign out everywhere</button></div>
+              <ul className="mt-4 divide-y divide-line">
+                {sessions.map((s) => (
+                  <li key={s.id} className="py-3 flex items-center gap-3">
+                    <ShieldCheck className="w-5 h-5 text-muted shrink-0" />
+                    <div className="min-w-0 flex-1"><div className="text-sm font-semibold truncate">{(s.userAgent ?? 'Unknown device').slice(0, 70)}</div><div className="text-xs text-muted">Last active {timeAgo(s.lastUsedAt)}{s.ip ? ` · ${s.ip}` : ''}</div></div>
+                    {s.current ? <Badge tone="success">This device</Badge> : <button onClick={() => run(`s-${s.id}`, async () => { await api.revokeSession(s.id); setSessions((l) => l.filter((x) => x.id !== s.id)); })} className="text-sm font-semibold text-rose-700 hover:underline">Sign out</button>}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </>
+        )}
 
-                <div className="p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
-                  <div className="text-xs font-bold text-[#0B132B]">Workspace Identifier</div>
-                  <code className="text-xs text-[#0284C7] font-mono">ws-live-prod-0824</code>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-[#E2E8F0] flex justify-end">
-                <button
-                  onClick={handleSaveProfile}
-                  className="px-5 py-2 rounded-xl bg-[#0B132B] text-white text-xs font-semibold hover:bg-[#1C2541] flex items-center gap-1.5 shadow-xs"
-                >
-                  <Save className="w-3.5 h-3.5 text-[#06B6D4]" />
-                  <span>Update Workspace</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* BRAND & NICHE */}
-          {activeSubTab === 'brand' && (
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold text-[#0B132B]">Brand & Intelligence Niche</h3>
-                <p className="text-xs text-[#64748B]">Context used to tailor AI trend signals and hook evaluations.</p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                    Brand Name
-                  </label>
-                  <input
-                    type="text"
-                    value={brandName}
-                    onChange={(e) => setBrandName(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                    Industry / Niche
-                  </label>
-                  <input
-                    type="text"
-                    value={niche}
-                    onChange={(e) => setNiche(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                    Target Audience
-                  </label>
-                  <input
-                    type="text"
-                    value={targetAudience}
-                    onChange={(e) => setTargetAudience(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                    Primary Social Goal
-                  </label>
-                  <select
-                    value={mainGoal}
-                    onChange={(e) => setMainGoal(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A] bg-white"
-                  >
-                    <option value="Increase reach">Increase reach</option>
-                    <option value="Improve engagement">Improve engagement</option>
-                    <option value="Generate leads">Generate leads</option>
-                    <option value="Build brand awareness">Build brand awareness</option>
-                    <option value="Improve content consistency">Improve content consistency</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-[#E2E8F0] flex justify-end">
-                <button
-                  onClick={handleSaveProfile}
-                  className="px-5 py-2 rounded-xl bg-[#0B132B] text-white text-xs font-semibold hover:bg-[#1C2541] flex items-center gap-1.5 shadow-xs"
-                >
-                  <Save className="w-3.5 h-3.5 text-[#06B6D4]" />
-                  <span>Save Brand Context</span>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* CONNECTED ACCOUNTS SHORTCUT */}
-          {activeSubTab === 'accounts' && (
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-base font-bold text-[#0B132B]">Connected Accounts</h3>
-                <p className="text-xs text-[#64748B]">Manage your active channels and OAuth tokens.</p>
-              </div>
-              <p className="text-xs text-[#475569]">
-                View authorization statuses, trigger live synchronization, or connect new channels directly in the Connections manager.
-              </p>
-              <button
-                onClick={() => setCurrentTab('connections')}
-                className="px-4 py-2 rounded-xl bg-[#0284C7] text-white text-xs font-semibold hover:bg-[#0369A1] transition-all flex items-center gap-1.5 shadow-xs"
-              >
-                <span>Go to Connections Manager</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* NOTIFICATIONS */}
-          {activeSubTab === 'notifications' && (
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold text-[#0B132B]">Notification Preferences</h3>
-                <p className="text-xs text-[#64748B]">Configure email and in-app alert triggers.</p>
-              </div>
-
-              <div className="space-y-3">
-                <label className="flex items-center justify-between p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-                  <div>
-                    <div className="text-xs font-bold text-[#0B132B]">Ingestion & Sync Notifications</div>
-                    <div className="text-[11px] text-[#64748B]">Get notified when all Reels & Posts are updated</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={emailSyncAlerts}
-                    onChange={(e) => setEmailSyncAlerts(e.target.checked)}
-                    className="w-4 h-4 accent-[#0284C7]"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-                  <div>
-                    <div className="text-xs font-bold text-[#0B132B]">Weekly Executive Briefing</div>
-                    <div className="text-[11px] text-[#64748B]">Receive automated Monday performance intelligence report</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={weeklyDigest}
-                    onChange={(e) => setWeeklyDigest(e.target.checked)}
-                    className="w-4 h-4 accent-[#0284C7]"
-                  />
-                </label>
-
-                <label className="flex items-center justify-between p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-                  <div>
-                    <div className="text-xs font-bold text-[#0B132B]">Viral Velocity & Spike Alerts</div>
-                    <div className="text-[11px] text-[#64748B]">Immediate alerts when a post outperforms historical baseline by 3x</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={performanceSpikeAlert}
-                    onChange={(e) => setPerformanceSpikeAlert(e.target.checked)}
-                    className="w-4 h-4 accent-[#0284C7]"
-                  />
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* AI PREFERENCES */}
-          {activeSubTab === 'ai' && (
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold text-[#0B132B]">AI Reasoning & Grounding Rules</h3>
-                <p className="text-xs text-[#64748B]">Enforce strict factual grounding over unverified speculation.</p>
-              </div>
-
-              <div className="p-4 rounded-xl bg-[#0284C7]/5 border border-[#0284C7]/20 space-y-2">
-                <div className="text-xs font-bold text-[#0284C7] flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4" />
-                  Anti-Hallucination & Anti-Slop Discipline
-                </div>
-                <p className="text-xs text-[#475569] leading-relaxed">
-                  Media Navigator explicitly differentiates measured facts (e.g. view retention, verified engagement rate) from causal hypotheses. It never claims unauthorized access to proprietary platform ranking algorithms.
-                </p>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                <label className="flex items-center justify-between p-3.5 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC]">
-                  <div>
-                    <div className="text-xs font-bold text-[#0B132B]">Strict Measured-Data Grounding</div>
-                    <div className="text-[11px] text-[#64748B]">Suppress unbacked speculative advice; only report statistically significant patterns</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={strictGroundedOnly}
-                    onChange={(e) => setStrictGroundedOnly(e.target.checked)}
-                    className="w-4 h-4 accent-[#0284C7]"
-                  />
-                </label>
-
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                    Minimum Pattern Confidence Threshold
-                  </label>
-                  <select
-                    value={confidenceThreshold}
-                    onChange={(e) => setConfidenceThreshold(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-[#CBD5E1] text-xs text-[#0F172A] bg-white"
-                  >
-                    <option value="High (90%+)">High (90%+ verified confidence)</option>
-                    <option value="Moderate (75%+)">Moderate (75%+ trend indicator)</option>
-                    <option value="Exploratory (50%+)">Exploratory (include emerging hypotheses)</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* DATA & PRIVACY */}
-          {activeSubTab === 'privacy' && (
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold text-[#0B132B]">Data & Privacy</h3>
-                <p className="text-xs text-[#64748B]">Manage data retention policies and audit compliance.</p>
-              </div>
-
-              <div className="space-y-3 text-xs text-[#475569]">
-                <div className="p-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] space-y-1">
-                  <div className="font-bold text-[#0B132B]">Read-Only Permissions Guarantee</div>
-                  <p>All API connections are strictly read-only. Media Navigator has zero ability to publish or delete content.</p>
-                </div>
-
-                <div className="p-4 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] space-y-1">
-                  <div className="font-bold text-[#0B132B]">Data Export</div>
-                  <p>Download your complete analytical history in standard CSV or JSON format.</p>
-                  <div className="pt-2">
-                    <button
-                      onClick={() => alert('Exporting full historical archive...')}
-                      className="px-3.5 py-1.5 rounded-lg bg-white border border-[#CBD5E1] text-xs font-semibold text-[#0F172A] hover:bg-slate-50"
-                    >
-                      Export Full Archive (.JSON)
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SUBSCRIPTION & PLAN */}
-          {activeSubTab === 'plan' && (
-            <div className="space-y-5">
-              <div>
-                <h3 className="text-base font-bold text-[#0B132B]">Subscription & Plan</h3>
-                <p className="text-xs text-[#64748B]">Enterprise growth tier active.</p>
-              </div>
-
-              <div className="p-6 rounded-2xl bg-[#0B132B] text-white space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-[#06B6D4] uppercase tracking-wider">Current Tier</span>
-                  <span className="text-xs font-mono text-emerald-400 font-bold">Active</span>
-                </div>
-                <div className="text-2xl font-extrabold">Media Navigator Enterprise</div>
-                <p className="text-xs text-slate-300">
-                  Includes full-archive content ingestion, zero pagination truncation, unlimited AI pattern evaluations, and custom report exports.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* DANGER ZONE / ACCOUNT DELETION */}
-          {activeSubTab === 'danger' && (
-            <div className="space-y-5">
-              <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 space-y-2">
-                <div className="font-bold flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-rose-600" />
-                  Account Deletion & Data Purge
-                </div>
-                <p>
-                  Permanently erase your workspace, revoke all official platform OAuth tokens, and delete all stored performance metrics. This action is completely irreversible.
-                </p>
-                <div className="pt-2">
-                  <button
-                    onClick={() => {
-                      if (confirm('Are you sure you want to permanently delete your workspace?')) {
-                        alert('Workspace data purged.');
-                      }
-                    }}
-                    className="px-4 py-2 rounded-xl bg-rose-600 text-white text-xs font-bold hover:bg-rose-700"
-                  >
-                    Delete Workspace & Purge Data
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        {tab === 'data' && (
+          <>
+            <section className="card p-6 space-y-3 text-sm text-body leading-relaxed">
+              <h2 className="text-lg font-bold text-ink">What we keep</h2>
+              <p>Your account details, the posts and numbers imported from your connected channels, and the results calculated from them. Connection tokens are encrypted and are deleted the moment you disconnect.</p>
+              <p>Connections are read-only: Media Navigator can’t post, edit or delete anything on your accounts.</p>
+            </section>
+            <section className="card p-6 border-rose-200">
+              <h2 className="text-lg font-bold text-rose-900">Delete account</h2>
+              <p className="text-sm text-body mt-1">Permanently deletes your profile, imported posts, results, planner, files and connection tokens. This can’t be undone.</p>
+              {!confirmDelete ? <button onClick={() => setConfirmDelete(true)} className="btn mt-4 border border-rose-200 text-rose-700 hover:bg-rose-50"><Trash2 className="w-4 h-4" />Delete my account</button> : (
+                <form onSubmit={deleteAccount} className="mt-4 space-y-3 max-w-sm">
+                  <Field id="d-pw" label="Confirm with your password"><input id="d-pw" type="password" autoComplete="current-password" required className="input" value={deletePw} onChange={(e) => setDeletePw(e.target.value)} /></Field>
+                  <div className="flex gap-2"><button disabled={busy === 'delete' || !deletePw} className="btn bg-rose-600 text-white hover:bg-rose-700">{busy === 'delete' && <Loader2 className="w-4 h-4 animate-spin" />}Permanently delete</button><button type="button" onClick={() => { setConfirmDelete(false); setDeletePw(''); }} className="btn btn-secondary">Cancel</button></div>
+                </form>
+              )}
+            </section>
+          </>
+        )}
       </div>
     </div>
   );

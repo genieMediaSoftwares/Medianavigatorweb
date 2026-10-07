@@ -1,256 +1,90 @@
-import React, { useState } from 'react';
-import { 
-  Compass, 
-  BarChart3, 
-  BrainCircuit, 
-  TrendingUp, 
-  Clock, 
-  Share2, 
-  Settings as SettingsIcon,
-  Layers,
-  FileText,
-  Trophy,
-  AlertTriangle,
-  ChevronDown,
-  Building2,
-  LogOut,
-  ExternalLink,
-  Sparkles,
-  Check,
-  ShieldCheck
-} from 'lucide-react';
+import React from 'react';
+import { LogOut, ShieldCheck, ArrowUpRight } from 'lucide-react';
 import { BrandLogo } from '../../components/common/BrandLogo';
 import { useMedia } from '../providers/MediaContext';
-import { NavigationTab } from '../../types';
+import { NAV_GROUPS } from '../navigation';
 
-interface NavItem {
-  id: NavigationTab;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  badge?: number | string;
-}
+export const initials = (name: string, email: string) => {
+  const src = (name || email || '?').trim();
+  const parts = src.split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+};
+
+/** Navigation list shared by the desktop sidebar and the phone menu. */
+export const NavList: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
+  const { currentTab, setCurrentTab, unreadAlertCount } = useMedia();
+  return (
+    <nav aria-label="Main" className="space-y-5">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.label}>
+          <div className="eyebrow px-3 mb-1.5">{group.label}</div>
+          <ul className="space-y-0.5">
+            {group.items.map((item) => {
+              const active = currentTab === item.id;
+              const Icon = item.icon;
+              const badge = item.id === 'alerts' && unreadAlertCount > 0 ? unreadAlertCount : null;
+              return (
+                <li key={item.id}>
+                  <button
+                    onClick={() => { setCurrentTab(item.id); onNavigate?.(); }}
+                    aria-current={active ? 'page' : undefined}
+                    className={`group w-full flex items-center gap-3 px-3 h-9 rounded-xl text-sm font-semibold transition-colors ${
+                      active ? 'bg-brand-50 text-brand-700' : 'text-body hover:bg-canvas-soft hover:text-ink'
+                    }`}
+                  >
+                    <Icon className={`w-[18px] h-[18px] shrink-0 ${active ? 'text-brand-600' : 'text-muted group-hover:text-ink'}`} strokeWidth={active ? 2.25 : 1.9} />
+                    <span className="truncate">{item.label}</span>
+                    {badge !== null && <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-brand-600 text-white text-xs font-bold flex items-center justify-center">{badge}</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
+};
+
+export const AccountCard: React.FC = () => {
+  const { user, logout, isAdmin, setAppView } = useMedia();
+  return (
+    <div className="space-y-2">
+      {isAdmin && (
+        <button onClick={() => setAppView('admin')} className="w-full flex items-center gap-2.5 px-3 h-10 rounded-xl text-sm font-semibold text-ink bg-canvas-soft hover:bg-line transition-colors">
+          <ShieldCheck className="w-[18px] h-[18px] text-brand-600" />
+          Admin console
+          <ArrowUpRight className="w-4 h-4 ml-auto text-muted" />
+        </button>
+      )}
+      <div className="flex items-center gap-3 p-2.5 rounded-xl border border-line bg-white">
+        <span className="w-9 h-9 rounded-full bg-gradient-to-br from-brand-400 to-brand-600 text-white text-sm font-bold flex items-center justify-center shrink-0" aria-hidden="true">
+          {initials(user.fullName, user.email)}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold text-ink truncate">{user.fullName || 'Your account'}</div>
+          <div className="text-xs text-muted truncate">{user.email}</div>
+        </div>
+        <button onClick={logout} aria-label="Sign out" title="Sign out" className="p-2 rounded-lg text-muted hover:text-rose-600 hover:bg-rose-50 transition-colors">
+          <LogOut className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export const Sidebar: React.FC = () => {
-  const { 
-    currentTab, 
-    setCurrentTab, 
-    user, 
-    logout, 
-    setAppView,
-    workspaces,
-    currentWorkspace,
-    setCurrentWorkspace
-  } = useMedia();
-
-  const [workspaceMenuOpen, setWorkspaceMenuOpen] = useState(false);
-
-  const mainNavItems: NavItem[] = [
-    { id: 'overview', label: 'Dashboard Overview', icon: Compass },
-    { id: 'analytics', label: 'Analytics Overview', icon: BarChart3 },
-    { id: 'content', label: 'Content Library', icon: Layers },
-    { id: 'top_performers', label: "What's Working", icon: Trophy },
-    { id: 'bottom_performers', label: 'What Needs Improvement', icon: AlertTriangle },
-    { id: 'intelligence', label: 'AI Growth Insights', icon: BrainCircuit },
-    { id: 'trends', label: 'AI Trends & Ideas', icon: TrendingUp },
-    { id: 'timing', label: 'Posting Strategy', icon: Clock },
-    { id: 'patterns', label: 'Pattern Analysis', icon: Sparkles },
-    { id: 'reports', label: 'Reports', icon: FileText },
-    { id: 'connections', label: 'Connections', icon: Share2 },
-    { id: 'settings', label: 'Settings', icon: SettingsIcon },
-  ];
-
+  const { setAppView } = useMedia();
   return (
-    <aside
-      id="main-sidebar"
-      className="hidden md:flex flex-col w-[256px] shrink-0 h-screen sticky top-0 bg-white text-[#475569] border-r border-[#E2E8F0] select-none z-30 font-sans"
-    >
-      {/* Brand Header */}
-      <div className="h-16 px-4 flex items-center justify-between border-b border-[#E2E8F0] bg-white">
-        <div className="flex items-center gap-2">
-          <BrandLogo onClick={() => setAppView('landing')} />
-        </div>
-        <button
-          onClick={() => setAppView('landing')}
-          title="View Landing Page"
-          className="p-1.5 rounded-lg text-[#64748B] hover:text-[#0B132B] hover:bg-slate-100 transition-colors"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-        </button>
+    <aside id="main-sidebar" className="hidden md:flex flex-col w-[264px] shrink-0 h-screen sticky top-0 bg-white border-r border-line z-30">
+      <div className="h-[72px] px-5 flex items-center">
+        <BrandLogo onClick={() => setAppView('landing')} />
       </div>
-
-      {/* Workspace Switcher */}
-      <div className="p-3 border-b border-[#E2E8F0] relative bg-white">
-        <button
-          onClick={() => setWorkspaceMenuOpen(!workspaceMenuOpen)}
-          className="w-full p-2.5 rounded-xl bg-[#F8FAFC] hover:bg-slate-100/80 border border-[#E2E8F0] flex items-center justify-between text-left transition-colors shadow-2xs"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-[#0284C7]/10 border border-[#0284C7]/20 flex items-center justify-center shrink-0">
-              <Building2 className="w-3.5 h-3.5 text-[#0284C7]" />
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-[#0B132B] truncate">
-                {currentWorkspace}
-              </div>
-              <div className="text-[10px] text-[#64748B]">
-                Official Enterprise Node
-              </div>
-            </div>
-          </div>
-          <ChevronDown className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
-        </button>
-
-        {workspaceMenuOpen && (
-          <div className="absolute top-16 left-3 right-3 bg-white border border-[#CBD5E1] rounded-xl shadow-xl p-1.5 z-40 space-y-1">
-            <div className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider px-2 py-1">
-              Select Workspace
-            </div>
-            {workspaces.map((ws) => (
-              <button
-                key={ws}
-                onClick={() => {
-                  setCurrentWorkspace(ws);
-                  setWorkspaceMenuOpen(false);
-                }}
-                className={`w-full p-2 rounded-lg text-xs text-left flex items-center justify-between transition-colors ${
-                  currentWorkspace === ws
-                    ? 'bg-[#0284C7]/10 text-[#0284C7] font-semibold'
-                    : 'text-[#334155] hover:bg-slate-50 hover:text-[#0B132B]'
-                }`}
-              >
-                <span className="truncate">{ws}</span>
-                {currentWorkspace === ws && <Check className="w-3.5 h-3.5 text-[#0284C7]" />}
-              </button>
-            ))}
-            <div className="pt-1 border-t border-[#E2E8F0] mt-1">
-              <button
-                onClick={() => {
-                  const newName = prompt('Enter new workspace name:', 'New Brand Workspace');
-                  if (newName) {
-                    setCurrentWorkspace(newName);
-                    setWorkspaceMenuOpen(false);
-                  }
-                }}
-                className="w-full px-2 py-1.5 text-xs text-[#0284C7] hover:bg-slate-50 rounded-lg text-left font-medium"
-              >
-                + Add New Workspace
-              </button>
-            </div>
-          </div>
-        )}
+      <div className="flex-1 overflow-y-auto custom-scrollbar px-3 pb-4 pt-1">
+        <NavList />
       </div>
-
-      {/* Navigation Links */}
-      <div className="flex-1 py-3 px-3 space-y-0.5 overflow-y-auto custom-scrollbar text-xs font-medium">
-        <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
-          Core Intelligence
-        </div>
-
-        {mainNavItems.slice(0, 5).map((item) => {
-          const Icon = item.icon;
-          const isActive = currentTab === item.id;
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => setCurrentTab(item.id)}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all ${
-                isActive
-                  ? 'bg-[#0284C7] text-white shadow-xs font-semibold'
-                  : 'text-[#475569] hover:text-[#0B132B] hover:bg-slate-100/80'
-              }`}
-            >
-              <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#64748B]'}`} />
-              <span className="truncate flex-1">{item.label}</span>
-            </button>
-          );
-        })}
-
-        <div className="pt-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
-          Strategy & AI Discovery
-        </div>
-
-        {mainNavItems.slice(5, 10).map((item) => {
-          const Icon = item.icon;
-          const isActive = currentTab === item.id;
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => setCurrentTab(item.id)}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all ${
-                isActive
-                  ? 'bg-[#0284C7] text-white shadow-xs font-semibold'
-                  : 'text-[#475569] hover:text-[#0B132B] hover:bg-slate-100/80'
-              }`}
-            >
-              <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#64748B]'}`} />
-              <span className="truncate flex-1">{item.label}</span>
-            </button>
-          );
-        })}
-
-        <div className="pt-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#94A3B8]">
-          Configuration
-        </div>
-
-        {mainNavItems.slice(10).map((item) => {
-          const Icon = item.icon;
-          const isActive = currentTab === item.id;
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => setCurrentTab(item.id)}
-              className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all ${
-                isActive
-                  ? 'bg-[#0284C7] text-white shadow-xs font-semibold'
-                  : 'text-[#475569] hover:text-[#0B132B] hover:bg-slate-100/80'
-              }`}
-            >
-              <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-[#64748B]'}`} />
-              <span className="truncate flex-1">{item.label}</span>
-            </button>
-          );
-        })}
-
-        <button
-          onClick={() => setAppView('admin')}
-          className="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-left transition-all text-[#0B132B] font-bold bg-[#00F0FF]/10 hover:bg-[#00F0FF]/20 border border-[#00F0FF]/30 mt-2"
-        >
-          <ShieldCheck className="w-4 h-4 shrink-0 text-[#0284C7]" />
-          <span className="truncate flex-1">Admin Panel</span>
-          <span className="text-[9px] uppercase font-mono px-1 py-0.2 rounded bg-[#0284C7] text-white">Ops</span>
-        </button>
-      </div>
-
-      {/* User Profile Footer */}
-      <div className="p-3 border-t border-[#E2E8F0] bg-[#F8FAFC]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <img
-              src={user.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80'}
-              alt={user.fullName}
-              className="w-8 h-8 rounded-lg object-cover border border-[#CBD5E1] shrink-0"
-            />
-            <div className="min-w-0">
-              <div className="text-xs font-bold text-[#0B132B] truncate">
-                {user.fullName}
-              </div>
-              <div className="text-[10px] text-[#64748B] truncate">
-                {user.accountType}
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={logout}
-            title="Sign Out"
-            className="p-1.5 rounded-lg text-[#64748B] hover:text-rose-600 hover:bg-slate-200/60 transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="p-3 border-t border-line">
+        <AccountCard />
       </div>
     </aside>
   );

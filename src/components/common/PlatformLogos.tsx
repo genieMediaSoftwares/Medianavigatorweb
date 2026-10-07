@@ -97,7 +97,7 @@ export const LinkedInLogo: React.FC<LogoProps> = ({
         width="20"
         height="20"
         rx="4.5"
-        fill={variant === 'subtle' ? '#7DD3FC' : '#0284C7'}
+        fill={variant === 'subtle' ? '#93C5FD' : '#0A66C2'}
         fillOpacity={variant === 'subtle' ? '0.85' : '0.95'}
       />
       <path
@@ -134,7 +134,7 @@ export const FacebookLogo: React.FC<LogoProps> = ({
         width="20"
         height="20"
         rx="5"
-        fill={variant === 'subtle' ? '#93C5FD' : '#2563EB'}
+        fill={variant === 'subtle' ? '#93C5FD' : '#1877F2'}
         fillOpacity={variant === 'subtle' ? '0.85' : '0.95'}
       />
       <path

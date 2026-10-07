@@ -1,233 +1,65 @@
 import React, { useState } from 'react';
-import { 
-  Eye, 
-  EyeOff, 
-  ArrowRight, 
-  Lock, 
-  Mail, 
-  ShieldCheck, 
-  AlertCircle,
-  Sparkles
-} from 'lucide-react';
-import { BrandLogo } from '../../components/common/BrandLogo';
+import { Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { useMedia } from '../../app/providers/MediaContext';
+import { authApi } from '../../services/auth';
+import { AuthLayout } from './AuthLayout';
 
 export const SignIn: React.FC = () => {
   const { login, setAppView } = useMedia();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true);
+  const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [forgotModalOpen, setForgotModalOpen] = useState(false);
-  const [forgotSent, setForgotSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const [forgotMsg, setForgotMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-    if (!email || !email.includes('@')) {
-      setErrorMessage('Please enter a valid work email.');
-      return;
-    }
-    if (!password) {
-      setErrorMessage('Please enter your password.');
-      return;
-    }
-
-    setLoading(true);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault(); setError(null); setLoading(true);
     try {
-      const ok = await login(email, password);
-      if (!ok) {
-        setErrorMessage('Invalid credentials, or too many attempts. Please verify your email and password and try again later.');
-      }
-    } catch {
-      setErrorMessage('Could not reach the authentication service. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+      const ok = await login(email.trim(), password);
+      if (!ok) setError('That email and password don’t match, or too many attempts were made. Please try again in a few minutes.');
+    } catch { setError('We couldn’t reach the sign-in service. Check your connection and try again.'); }
+    finally { setLoading(false); }
   };
 
+  const sendReset = async (e: React.FormEvent) => {
+    e.preventDefault(); setForgotBusy(true); setForgotMsg(null);
+    try { await authApi.forgotPassword(forgotEmail.trim()); setForgotMsg({ ok: true, text: 'If an account exists for that email, a reset link is on its way.' }); }
+    catch (err) { setForgotMsg({ ok: false, text: (err as Error).message || 'We couldn’t send the email right now.' }); }
+    finally { setForgotBusy(false); }
+  };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative selection:bg-[#0284C7]/20">
-      {/* Background glow accent */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-gradient-to-tr from-[#0284C7]/15 to-[#06B6D4]/10 rounded-full blur-3xl pointer-events-none -z-10" />
-
-      {/* Header with back to landing */}
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center space-y-3">
-        <div className="flex justify-center">
-          <BrandLogo />
+    <AuthLayout title="Welcome back" subtitle="Sign in to see how your content is performing."
+      footer={<>New here? <button onClick={() => setAppView('signup')} className="font-semibold text-brand-700 hover:underline">Create an account</button></>}>
+      <form onSubmit={submit} className="space-y-5" noValidate>
+        <div><label htmlFor="si-email" className="text-sm font-semibold block mb-1.5">Email</label>
+          <input id="si-email" type="email" autoComplete="email" required autoFocus className="input !h-12" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></div>
+        <div>
+          <div className="flex items-center justify-between mb-1.5"><label htmlFor="si-pw" className="text-sm font-semibold">Password</label>
+            <button type="button" onClick={() => { setForgotOpen(true); setForgotEmail(email); setForgotMsg(null); }} className="text-sm font-semibold text-brand-700 hover:underline">Forgot password?</button></div>
+          <div className="relative"><input id="si-pw" type={show ? 'text' : 'password'} autoComplete="current-password" required className="input !h-12 !pr-12" value={password} onChange={(e) => setPassword(e.target.value)} />
+            <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-lg text-muted hover:text-ink" aria-label={show ? 'Hide password' : 'Show password'}>{show ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}</button></div>
         </div>
-        <h2 className="text-2xl font-extrabold text-[#0B132B] tracking-tight">
-          Sign In to Media Navigator
-        </h2>
-        <p className="text-xs text-[#64748B]">
-          Access your connected channels, intelligence signals, and growth audits.
-        </p>
-      </div>
+        {error && <p role="alert" className="rounded-xl bg-rose-50 border border-rose-100 text-sm text-rose-900 p-3">{error}</p>}
+        <button type="submit" disabled={loading || !email || !password} className="btn btn-primary btn-lg w-full">{loading && <Loader2 className="w-5 h-5 animate-spin" />}Sign in</button>
+      </form>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-6 shadow-xl border border-[#E2E8F0] rounded-2xl sm:px-10 space-y-6">
-          {errorMessage && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div>
-              <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider mb-1">
-                Work Email or Username
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com or admin"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent transition-all pl-10"
-                  required
-                />
-                <Mail className="w-4 h-4 text-[#94A3B8] absolute left-3.5 top-3" />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-[#0F172A] uppercase tracking-wider">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setForgotModalOpen(true)}
-                  className="text-xs text-[#0284C7] hover:underline font-medium"
-                >
-                  Forgot password?
-                </button>
-              </div>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-sm text-[#0F172A] focus:outline-none focus:ring-2 focus:ring-[#0284C7] focus:border-transparent transition-all pl-10 pr-10"
-                  required
-                />
-                <Lock className="w-4 h-4 text-[#94A3B8] absolute left-3.5 top-3" />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3 text-[#94A3B8] hover:text-[#0F172A]"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 text-[#0284C7] rounded border-[#CBD5E1] focus:ring-[#0284C7]"
-                />
-                <span className="text-xs text-[#64748B]">Remember this device</span>
-              </label>
-            </div>
-
-            <div className="pt-2 space-y-2.5">
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3 rounded-xl bg-[#0B132B] text-white text-sm font-semibold hover:bg-[#1C2541] transition-all flex items-center justify-center gap-2 shadow-xs disabled:opacity-50"
-              >
-                {loading ? (
-                  <span>Authenticating...</span>
-                ) : (
-                  <>
-                    <span>Sign In</span>
-                    <ArrowRight className="w-4 h-4 text-[#06B6D4]" />
-                  </>
-                )}
-              </button>
-
-            </div>
+      {forgotOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/45 backdrop-blur-[2px] p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) setForgotOpen(false); }}>
+          <form onSubmit={sendReset} role="dialog" aria-modal="true" aria-label="Reset password" className="w-full max-w-sm bg-white rounded-3xl shadow-pop p-6 space-y-4 animate-fade-up">
+            <div className="flex items-start justify-between"><div><h2 className="text-xl font-bold">Reset your password</h2><p className="text-sm text-muted mt-1">We’ll email you a link that works once.</p></div>
+              <button type="button" onClick={() => setForgotOpen(false)} className="p-2 -mr-2 -mt-1 rounded-xl text-muted hover:bg-canvas-soft" aria-label="Close"><X className="w-5 h-5" /></button></div>
+            <input type="email" required autoFocus className="input" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} placeholder="you@company.com" aria-label="Email" />
+            {forgotMsg && <p role="status" className={`text-sm rounded-xl p-3 border ${forgotMsg.ok ? 'bg-emerald-50 border-emerald-100 text-emerald-900' : 'bg-amber-50 border-amber-100 text-amber-900'}`}>{forgotMsg.text}</p>}
+            <button disabled={forgotBusy || !forgotEmail} className="btn btn-primary w-full">{forgotBusy && <Loader2 className="w-4 h-4 animate-spin" />}Send reset link</button>
           </form>
-
-          <div className="pt-4 border-t border-[#E2E8F0] text-center space-y-3">
-            <p className="text-xs text-[#64748B]">
-              Don't have an account?{' '}
-              <button
-                onClick={() => setAppView('signup')}
-                className="font-semibold text-[#0284C7] hover:underline"
-              >
-                Create Workspace
-              </button>
-            </p>
-
-            <button
-              onClick={() => setAppView('landing')}
-              className="text-xs text-[#94A3B8] hover:text-[#475569]"
-            >
-              ← Back to Landing
-            </button>
-          </div>
-        </div>
-
-        {/* Security Reassurance */}
-        <div className="mt-6 text-center text-xs text-[#94A3B8] flex items-center justify-center gap-1.5">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Encrypted with OAuth 2.0 PKCE & official platform guidelines</span>
-        </div>
-      </div>
-
-      {/* Forgot Password Modal */}
-      {forgotModalOpen && (
-        <div className="fixed inset-0 z-50 bg-[#0B132B]/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-[#E2E8F0] space-y-4">
-            <h3 className="text-base font-bold text-[#0B132B]">Reset Your Password</h3>
-            <p className="text-xs text-[#64748B]">
-              Enter your work email address and we'll send you an encrypted recovery link.
-            </p>
-            {forgotSent ? (
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
-                Password recovery link has been dispatched to {email}.
-              </div>
-            ) : (
-              <input
-                type="email"
-                defaultValue={email}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#CBD5E1] text-sm text-[#0F172A]"
-                placeholder="name@company.com"
-              />
-            )}
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                onClick={() => {
-                  setForgotModalOpen(false);
-                  setForgotSent(false);
-                }}
-                className="px-3.5 py-2 rounded-xl text-xs font-semibold text-[#64748B] hover:bg-slate-100"
-              >
-                Close
-              </button>
-              {!forgotSent && (
-                <button
-                  onClick={() => setForgotSent(true)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0B132B] text-white hover:bg-[#1C2541]"
-                >
-                  Send Link
-                </button>
-              )}
-            </div>
-          </div>
         </div>
       )}
-    </div>
+    </AuthLayout>
   );
 };
