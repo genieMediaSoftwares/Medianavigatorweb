@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto';
+import { config } from '../../config/env.js';
+import { httpFetch } from '../../lib/http.js';
 import { NormalizedMedia, PerformanceTier } from '../../../../shared/types.js';
 
 export interface LinkedInOrgInfo {
@@ -16,7 +19,7 @@ export class LinkedInClient {
       'Authorization': `Bearer ${accessToken}`,
       'Accept': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202401',
+      'LinkedIn-Version': config.providers.linkedinApiVersion,
     };
   }
 
@@ -27,7 +30,7 @@ export class LinkedInClient {
     if (organizationId && organizationId.trim().length > 0) {
       const cleanId = organizationId.replace('urn:li:organization:', '');
       try {
-        const res = await fetch(`${this.restBase}/organizations/${cleanId}`, {
+        const res = await httpFetch(`${this.restBase}/organizations/${cleanId}`, {
           headers: this.getHeaders(accessToken),
         });
         const data = await res.json();
@@ -49,7 +52,7 @@ export class LinkedInClient {
 
     // Try finding organizationalEntityAcls to find organizations user manages
     try {
-      const aclRes = await fetch(`${this.v2Base}/organizationalEntityAcls?q=roleAssignee`, {
+      const aclRes = await httpFetch(`${this.v2Base}/organizationalEntityAcls?q=roleAssignee`, {
         headers: this.getHeaders(accessToken),
       });
       const aclData = await aclRes.json();
@@ -82,7 +85,7 @@ export class LinkedInClient {
     try {
       const authorParam = encodeURIComponent(targetUrn);
       endpointTried = `${this.restBase}/posts?author=${authorParam}&q=author&count=20`;
-      const res = await fetch(endpointTried, {
+      const res = await httpFetch(endpointTried, {
         headers: this.getHeaders(accessToken),
       });
       postsData = await res.json();
@@ -90,7 +93,7 @@ export class LinkedInClient {
       if (!res.ok) {
         // Try fallback to v2/ugcPosts
         endpointTried = `${this.v2Base}/ugcPosts?q=authors&authors=List(${encodeURIComponent(targetUrn)})`;
-        const v2Res = await fetch(endpointTried, {
+        const v2Res = await httpFetch(endpointTried, {
           headers: this.getHeaders(accessToken),
         });
         postsData = await v2Res.json();
@@ -115,7 +118,8 @@ export class LinkedInClient {
     const normalizedList: NormalizedMedia[] = [];
 
     for (const post of items) {
-      const postId = post.id || post.urn || `li_${Math.random()}`;
+      // Identity must be stable across syncs; derive it from the post content when the API gives no id.
+      const postId = post.id || post.urn || `li_${createHash('sha1').update(`${post.createdAt ?? post.created?.time ?? ''}|${post.commentary ?? ''}`).digest('hex').slice(0, 16)}`;
       const text = post.commentary || post.specificContent?.['com.linkedin.ugc.ShareContent']?.shareCommentary?.text || 'LinkedIn Post';
       const title = text.slice(0, 60).replace(/\n/g, ' ') + (text.length > 60 ? '...' : '');
 

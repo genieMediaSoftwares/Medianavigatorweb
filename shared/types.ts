@@ -264,4 +264,16 @@ export interface PostAIDiagnosis {
   recommendedFormatAndTiming: string;
   actionableChecklist: string[];
   source: string;
+  /** Whether an AI interpretation actually ran for this diagnosis. */
+  ai?: {
+    status: 'ran' | 'cached' | 'unavailable' | 'failed' | 'not_needed';
+    model: string | null;
+    promptVersion: string;
+    generatedAt: string | null;
+    reason?: string;
+  };
+  /** Plain-language limits of this analysis (metrics the platform does not provide). */
+  limitations?: string[];
+  measured?: unknown;
+  calculated?: unknown;
 }

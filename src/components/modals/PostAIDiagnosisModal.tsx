@@ -136,8 +136,8 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
     setCurrentTab('planner');
   };
 
-  const hookScore = diagnosis?.videoAnalysis?.hookScore || (diagnosis?.status === 'working' ? 86 : 68);
-  const hookQuality = diagnosis?.videoAnalysis?.hookQuality || (hookScore >= 80 ? 'Exceptional' : 'Above Average');
+  const hookScore = diagnosis?.videoAnalysis?.hookScore ?? 0;
+  const hookQuality = diagnosis?.videoAnalysis?.hookQuality ?? '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/65 backdrop-blur-xs font-sans overflow-y-auto">
@@ -343,7 +343,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-100/80 text-emerald-800 text-[10px] font-bold">
                       <Sparkles className="w-3 h-3 text-emerald-600" />
-                      AI Diagnostic Engine: <strong>Active &amp; Verified</strong>
+                      {diagnosis.ai && (diagnosis.ai.status === 'ran' || diagnosis.ai.status === 'cached') ? <>AI interpretation: <strong>{diagnosis.ai.status === 'cached' ? 'cached result' : 'generated now'}</strong></> : <>AI interpretation: <strong>not available</strong></>}
                     </span>
                   </div>
                 </div>
@@ -355,6 +355,17 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                 <p className="text-xs text-[#334155] leading-relaxed mt-1.5 font-medium">
                   {diagnosis.executiveSummary}
                 </p>
+
+                {diagnosis.ai && diagnosis.ai.status !== 'ran' && diagnosis.ai.status !== 'cached' && (
+                  <p className="mt-2 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5">
+                    AI interpretation was not generated{diagnosis.ai.reason ? ` (${diagnosis.ai.reason})` : ''}. Everything shown here is measured from your synced data.
+                  </p>
+                )}
+                {diagnosis.limitations && diagnosis.limitations.length > 0 && (
+                  <ul className="mt-2 text-[11px] text-slate-500 list-disc pl-4 space-y-0.5">
+                    {diagnosis.limitations.map((l, i) => <li key={i}>{l}</li>)}
+                  </ul>
+                )}
               </div>
 
               {/* INTERACTIVE PERSPECTIVE SWITCHER BAR */}
@@ -637,12 +648,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-                      {(diagnosis.videoAnalysis.timelineCurve || [
-                        { secondRange: '0-3s', stage: 'Opening Hook', retentionEstimate: '100% -> 74%', actionableInsight: 'Lead with visual contrast and question text in frame 1.' },
-                        { secondRange: '3-10s', stage: 'Setup & Tension', retentionEstimate: '74% -> 55%', actionableInsight: 'Accelerate pacing; eliminate speech lag.' },
-                        { secondRange: '10-20s', stage: 'Climax & Payoff', retentionEstimate: '55% -> 42%', actionableInsight: 'Deliver the core value proposition visually.' },
-                        { secondRange: '20-30s+', stage: 'Loop & CTA', retentionEstimate: '42% -> 35%', actionableInsight: 'Include a direct save/share trigger for reference.' }
-                      ]).map((step, idx) => (
+                      {(diagnosis.videoAnalysis.timelineCurve || []).map((step, idx) => (
                         <div 
                           key={idx} 
                           className="p-3 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex flex-col justify-between space-y-2 relative overflow-hidden"
@@ -733,6 +739,23 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                       </div>
                     )}
                   </div>
+                </div>
+              )}
+
+              {activeTab === 'video' && !diagnosis.videoAnalysis && (
+                <div className="text-xs text-[#334155] bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fadeIn space-y-2">
+                  <p className="font-semibold text-[#0B132B]">Video retention analysis is not available for this post.</p>
+                  <p>
+                    The platform APIs connected here do not provide audience-retention curves, audio, or frame-level data, so no hook score or retention
+                    curve is shown rather than estimating one. Use the measured metrics and the suggested hook alternative on the other tabs.
+                  </p>
+                </div>
+              )}
+
+              {(activeTab === 'working' && !diagnosis.whyWorking || activeTab === 'not_working' && !diagnosis.whyNotWorking || activeTab === 'comparison' && !(diagnosis.whyWorking && diagnosis.whyNotWorking)) && (
+                <div className="text-xs text-[#334155] bg-slate-50 border border-slate-200 rounded-xl p-4 animate-fadeIn">
+                  No AI breakdown is available for this view{diagnosis.status === 'working' && activeTab === 'not_working' ? ' (this post is performing above your typical level)' : diagnosis.status === 'underperforming' && activeTab === 'working' ? ' (this post is performing below your typical level)' : ''}.
+                  The measured comparison against your own history is shown in the summary above.
                 </div>
               )}
 

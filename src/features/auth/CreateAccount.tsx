@@ -46,8 +46,8 @@ export const CreateAccount: React.FC = () => {
       setErrorMessage('Please provide a valid work email address.');
       return;
     }
-    if (!password || password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
+    if (!password || password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      setErrorMessage('Password must be at least 8 characters and include a letter and a number.');
       return;
     }
     if (!organization.trim()) {
@@ -66,10 +66,11 @@ export const CreateAccount: React.FC = () => {
         email,
         organization,
         accountType,
+        password,
       });
       // Will navigate to 'onboarding' via context
-    } catch {
-      setErrorMessage('Failed to create account. Please try again.');
+    } catch (err: any) {
+      setErrorMessage(err?.status === 409 ? 'An account with this email already exists. Try signing in.' : (err?.message || 'Failed to create account. Please try again.'));
     } finally {
       setLoading(false);
     }

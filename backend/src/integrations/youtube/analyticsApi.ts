@@ -1,3 +1,4 @@
+import { httpFetch } from '../../lib/http.js';
 export interface YouTubeAnalyticsReport {
   hasAnalytics: boolean;
   missingPermissionMessage?: string;
@@ -31,7 +32,7 @@ export class YouTubeAnalyticsApi {
       url.searchParams.set('endDate', endDate);
       url.searchParams.set('metrics', 'estimatedMinutesWatched,averageViewDuration,subscribersGained');
 
-      const res = await fetch(url.toString(), {
+      const res = await httpFetch(url.toString(), {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Accept': 'application/json',

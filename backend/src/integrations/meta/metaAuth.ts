@@ -1,3 +1,5 @@
+import { config } from '../../config/env.js';
+import { httpFetch } from '../../lib/http.js';
 export interface MetaAuthValidation {
   isValid: boolean;
   userId?: string;
@@ -18,7 +20,7 @@ export interface MetaAuthValidation {
 }
 
 export class MetaAuth {
-  private static readonly GRAPH_API_BASE = 'https://graph.facebook.com/v20.0';
+  private static readonly GRAPH_API_BASE = `https://graph.facebook.com/${config.providers.metaApiVersion}`;
 
   /**
    * Validates Meta User/Page Access Token or Instagram Access Token
@@ -38,7 +40,7 @@ export class MetaAuth {
       // 1. First, test with /me endpoint on Graph API
       let meData: any = null;
       try {
-        const meRes = await fetch(`${this.GRAPH_API_BASE}/me?fields=id,name,permissions&access_token=${encodeURIComponent(cleanToken)}`);
+        const meRes = await httpFetch(`${this.GRAPH_API_BASE}/me?fields=id,name,permissions&access_token=${encodeURIComponent(cleanToken)}`);
         meData = await meRes.json();
       } catch {
         // network error, continue to fallback
@@ -58,7 +60,7 @@ export class MetaAuth {
         // Query connected Pages and Instagram Business Accounts
         let accountsList: any[] = [];
         try {
-          const accountsRes = await fetch(
+          const accountsRes = await httpFetch(
             `${this.GRAPH_API_BASE}/me/accounts?fields=id,name,access_token,category,instagram_business_account{id,username}&access_token=${encodeURIComponent(cleanToken)}`
           );
           const accountsData = await accountsRes.json();
@@ -89,7 +91,7 @@ export class MetaAuth {
 
       // 2. If standard /me failed, check if this is an Instagram User Token on graph.instagram.com
       try {
-        const igMeRes = await fetch(`https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${encodeURIComponent(cleanToken)}`);
+        const igMeRes = await httpFetch(`https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${encodeURIComponent(cleanToken)}`);
         const igMeData = await igMeRes.json();
 
         if (igMeRes.ok && igMeData && igMeData.id && !igMeData.error) {
@@ -117,7 +119,7 @@ export class MetaAuth {
 
       // 3. Check graph.facebook.com with minimal fields (works for Instagram scoped tokens)
       try {
-        const fbMeRes = await fetch(`${this.GRAPH_API_BASE}/me?fields=id,username,name&access_token=${encodeURIComponent(cleanToken)}`);
+        const fbMeRes = await httpFetch(`${this.GRAPH_API_BASE}/me?fields=id,username,name&access_token=${encodeURIComponent(cleanToken)}`);
         const fbMeData = await fbMeRes.json();
 
         if (fbMeRes.ok && fbMeData && fbMeData.id && !fbMeData.error) {

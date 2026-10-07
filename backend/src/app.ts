@@ -1,19 +1,29 @@
 import express from 'express';
-import './config/env.js';
-import { vercelPath } from './middleware/vercelPath.js';
-import { cors } from './middleware/cors.js';
-import { healthCheck } from './routes/health.routes.js';
+import helmet from 'helmet';
+import { config } from './config/env.js';
+import { requestId } from './middleware/requestId.js';
+import { corsMiddleware } from './middleware/cors.js';
+import { sanitizeInput } from './middleware/validate.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { healthRouter } from './routes/health.routes.js';
 import { apiRouter } from './routes/index.js';
 
-const app = express();
+/** Builds the Express app. No side effects: nothing connects or listens until server.ts says so. */
+export function createApp() {
+  const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', config.server.trustProxyHops); // number of reverse proxies in front (Render = 1)
 
-app.use(express.json());
-app.use(vercelPath);
-app.use(healthCheck);
-app.use(cors);
+  app.use(requestId);
+  app.use(helmet());
+  app.use(corsMiddleware);
+  app.use(express.json({ limit: config.server.bodyLimit }));
+  app.use(sanitizeInput);
 
-// REST APIs (/api/v1)
-app.use('/api/v1', apiRouter);
+  app.use('/', healthRouter);
+  app.use('/api/v1', apiRouter);
 
-export default app;
-export { app };
+  app.use(notFoundHandler);
+  app.use(errorHandler);
+  return app;
+}

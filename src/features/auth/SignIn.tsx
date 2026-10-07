@@ -27,26 +27,12 @@ export const SignIn: React.FC = () => {
     e.preventDefault();
     setErrorMessage(null);
 
-    const cleanUser = email.trim().toLowerCase();
-    const cleanPass = password.trim();
-
-    // Check if user is logging into Admin Dashboard
-    if (cleanUser === 'admin' && cleanPass === 'password') {
-      setLoading(true);
-      try {
-        await login('admin', 'password');
-      } finally {
-        setLoading(false);
-      }
+    if (!email || !email.includes('@')) {
+      setErrorMessage('Please enter a valid work email.');
       return;
     }
-
-    if (!email || (!email.includes('@') && cleanUser !== 'admin')) {
-      setErrorMessage('Please enter a valid work email or username.');
-      return;
-    }
-    if (!password || password.length < 4) {
-      setErrorMessage('Password must be at least 4 characters.');
+    if (!password) {
+      setErrorMessage('Please enter your password.');
       return;
     }
 
@@ -54,22 +40,15 @@ export const SignIn: React.FC = () => {
     try {
       const ok = await login(email, password);
       if (!ok) {
-        setErrorMessage('Invalid credentials. Please verify your email and password.');
+        setErrorMessage('Invalid credentials, or too many attempts. Please verify your email and password and try again later.');
       }
     } catch {
-      setErrorMessage('A network error occurred while connecting to the authentication service.');
+      setErrorMessage('Could not reach the authentication service. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAdminSignIn = async () => {
-    setEmail('admin');
-    setPassword('password');
-    setLoading(true);
-    await login('admin', 'password');
-    setLoading(false);
-  };
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative selection:bg-[#0284C7]/20">
@@ -177,15 +156,6 @@ export const SignIn: React.FC = () => {
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={handleAdminSignIn}
-                disabled={loading}
-                className="w-full py-2.5 rounded-xl bg-[#0B132B] text-white border border-[#1C2541] text-xs font-bold hover:bg-[#1C2541] transition-colors flex items-center justify-center gap-2 shadow-xs"
-              >
-                <ShieldCheck className="w-4 h-4 text-[#00F0FF]" />
-                <span>Sign In as Super Admin (admin / password)</span>
-              </button>
             </div>
           </form>
 

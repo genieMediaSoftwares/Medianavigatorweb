@@ -5,8 +5,12 @@ coverage/
 .DS_Store
 *.log
 .env*
-!.env.example
 
 # Local runtime data (may contain access tokens, never commit)
 data/
 backend/data/
+
+# Backend runtime configuration lives only in backend/.env (never committed)
+backend/.env
+backend/dist/
+backend/coverage/

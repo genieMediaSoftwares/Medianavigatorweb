@@ -11,6 +11,7 @@ import {
   ReportItem
 } from '../../types';
 import { api } from '../../services/api';
+import { authApi, hasSession, clearSession, ApiError } from '../../services/auth';
 
 export interface NotificationItem {
   id: string;
@@ -87,7 +88,7 @@ interface MediaContextType {
   // Auth actions
   login: (email: string, pass: string) => Promise<boolean>;
   logout: () => void;
-  register: (data: Partial<UserAccount>) => Promise<boolean>;
+  register: (data: Partial<UserAccount> & { password: string }) => Promise<boolean>;
 }
 
 const MediaContext = createContext<MediaContextType | undefined>(undefined);
@@ -110,11 +111,11 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [appView, setAppView] = useState<AppViewMode>(getInitialAppView);
   
   const [user, setUser] = useState<UserAccount>({
-    fullName: 'Alex Vance',
-    email: 'alex@medianavigator.app',
-    organization: 'My Media Workspace',
+    fullName: '',
+    email: '',
+    organization: '',
     accountType: 'Creator',
-    avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
+    avatarUrl: '',
   });
 
   const [brandProfile, setBrandProfile] = useState<BrandProfile>({
@@ -427,44 +428,75 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return newReport;
   };
 
-  // Auth actions
+  // Auth actions (server-verified; the role comes from the API, never from the client)
+  const applySession = (u: { email: string; role: 'user' | 'admin' }, profile: { fullName?: string; organization?: string | null; accountType?: string | null } | null | undefined) => {
+    setUser(prev => ({
+      ...prev,
+      email: u.email,
+      fullName: profile?.fullName || u.email,
+      organization: profile?.organization || prev.organization,
+      accountType: (profile?.accountType as UserAccount['accountType']) || prev.accountType,
+    }));
+  };
+
+  // Restore an existing session on load; protected views are never shown without one.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!hasSession()) {
+        setAppView(v => (v === 'app' || v === 'admin' || v === 'onboarding' ? 'signin' : v));
+        return;
+      }
+      try {
+        const me = await authApi.me();
+        if (cancelled) return;
+        applySession(me.user, me.profile);
+        setAppView(v => (v === 'admin' && me.user.role !== 'admin' ? 'app' : v));
+        refreshConnections();
+        refreshAlerts();
+      } catch {
+        if (!cancelled) setAppView(v => (v === 'app' || v === 'admin' || v === 'onboarding' ? 'signin' : v));
+      }
+    })();
+    const lost = () => setAppView('signin');
+    window.addEventListener('mn:auth-lost', lost);
+    return () => { cancelled = true; window.removeEventListener('mn:auth-lost', lost); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const login = async (email: string, pass: string): Promise<boolean> => {
     if (!email || !pass) return false;
-
-    const cleanUser = email.trim().toLowerCase();
-    const cleanPass = pass.trim();
-
-    // Check if user is logging into the Admin Panel
-    if ((cleanUser === 'admin' || cleanUser === 'admin@medianavigator.io' || cleanUser === 'admin@medianavigator.app') && cleanPass === 'password') {
-      setUser(prev => ({
-        ...prev,
-        fullName: 'Chief Admin Officer',
-        email: 'admin@medianavigator.io',
-        organization: 'Media Navigator Global Ops',
-        accountType: 'Other',
-      }));
-      setAppView('admin');
+    try {
+      const res = await authApi.login(email.trim(), pass);
+      const me = await authApi.me();
+      applySession(res.user, me.profile);
+      setAppView(res.user.role === 'admin' ? 'admin' : 'app');
+      refreshConnections();
+      refreshAlerts();
       return true;
+    } catch (err) {
+      if (err instanceof ApiError && (err.status === 401 || err.status === 429 || err.status === 422)) return false;
+      throw err;
     }
-
-    setUser(prev => ({ ...prev, email }));
-    setAppView('app');
-    return true;
   };
 
   const logout = () => {
+    void authApi.logout();
+    clearSession();
+    setConnections([]);
+    setAlerts([]);
     setAppView('landing');
   };
 
-  const register = async (data: Partial<UserAccount>): Promise<boolean> => {
-    setUser(prev => ({
-      ...prev,
-      ...data,
-      fullName: data.fullName || 'New Creator',
-      email: data.email || 'user@growth.io',
-      organization: data.organization || 'My Brand',
-      accountType: data.accountType || 'Creator',
-    }));
+  const register = async (data: Partial<UserAccount> & { password: string }): Promise<boolean> => {
+    const res = await authApi.register({
+      email: (data.email || '').trim(),
+      password: data.password,
+      fullName: data.fullName || '',
+      organization: data.organization || undefined,
+      accountType: data.accountType || undefined,
+    });
+    applySession(res.user, res.profile);
     setAppView('onboarding');
     return true;
   };

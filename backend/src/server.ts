@@ -1,34 +1,35 @@
-import express from 'express';
-import path from 'path';
-import { env } from './config/env.js';
-import { app } from './app.js';
+import http from 'node:http';
+import { config } from './config/env.js';
+import { logger } from './lib/logger.js';
+import { createApp } from './app.js';
+import { connectDatabase, disconnectDatabase, ensureIndexes } from './db/client.js';
+import { startJobs } from './jobs/index.js';
 
-// Vite (dev) & static (prod) serving setup, then listen
-async function startServer() {
-  if (!env.isProduction && !env.isVercel) {
-    try {
-      const { createServer: createViteServer } = await import('vite');
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-      });
-      app.use(vite.middlewares);
-    } catch (e) {
-      console.warn('Vite middleware initialization skipped or failed:', e);
-    }
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
+async function main() {
+  await connectDatabase();
+  await ensureIndexes();
 
-  app.listen(env.port, '0.0.0.0', () => {
-    console.log(`Media Navigator server running on http://0.0.0.0:${env.port}`);
-  });
+  const server = http.createServer(createApp());
+  const stopJobs = startJobs();
+  server.listen(config.server.port, () => logger.info('server listening', { port: config.server.port, environment: config.server.nodeEnv }));
+
+  let closing = false;
+  const shutdown = async (signal: string) => {
+    if (closing) return;
+    closing = true;
+    logger.info('shutting down', { signal });
+    const force = setTimeout(() => { logger.error('forced exit after shutdown timeout'); process.exit(1); }, 15_000);
+    force.unref();
+    stopJobs();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await disconnectDatabase();
+    process.exit(0);
+  };
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
-if (!env.isVercel) {
-  startServer();
-}
+main().catch((err) => {
+  logger.error('startup failed', { error: err });
+  process.exit(1);
+});
