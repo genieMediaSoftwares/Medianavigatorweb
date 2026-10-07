@@ -10,7 +10,7 @@ import {
   Layers,
   Check
 } from 'lucide-react';
-import { useMedia } from '../../context/MediaContext';
+import { useMedia } from '../../app/providers/MediaContext';
 
 export const SyncProgressModal: React.FC = () => {
   const { syncState, closeSyncFlow, setCurrentTab } = useMedia();

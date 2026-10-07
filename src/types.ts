@@ -20,7 +20,7 @@ export type NavigationTab =
 
 export type AppViewMode = 'landing' | 'signin' | 'signup' | 'onboarding' | 'app' | 'admin';
 
-export * from './types/admin';
+export * from './features/admin/types';
 
 export interface BrandProfile {
   brandName: string;

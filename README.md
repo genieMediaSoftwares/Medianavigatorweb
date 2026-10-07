@@ -21,7 +21,7 @@ Media Navigator is an AI-powered media intelligence command center that connects
 - **Backend**: Express API server with versioned `/api/v1/*` endpoints.
 - **Intelligence**: Server-side Gemini 3.8 Flash SDK (`@google/genai`) for pattern explanation and conversational media Q&A.
 - **Adapters**: Normalized multi-platform ingestion engine for Meta (Instagram & Facebook), YouTube, and LinkedIn.
-- **Documentation**: Comprehensive API specifications in `apis/` and engineering designs in `docs/`.
+- **Documentation**: Comprehensive platform API notes in `docs/integrations/`, engineering designs in `docs/`, product docs in `docs/product/`.
 
 ## Local Development
 ```bash
@@ -29,3 +29,33 @@ npm install
 npm run dev
 ```
 Dev server starts at `http://localhost:3000`.
+
+## Project Structure
+```
+api/                  Vercel serverless entry points (re-export the Express app)
+backend/src/
+  server.ts           Local/prod entry: Vite dev middleware or static serving + listen
+  app.ts              Express app: middleware + /api/v1 routes
+  config/             Environment config
+  middleware/         Path normalization, CORS
+  routes/             One router per API area (connections, media, intelligence, ...)
+  services/           dataStore, ai/geminiService
+  integrations/       Meta, YouTube, LinkedIn clients
+  lib/                Shared helpers (response format)
+shared/               Types shared by frontend and backend
+src/
+  app/                layout (Sidebar, TopBar, ...) and providers (Media/Admin context)
+  features/           One folder per product area (auth, overview, intelligence, admin, ...)
+  components/         Shared UI (common, modals)
+  services/           API client and analytics engine
+  styles/             Global CSS
+docs/                 Architecture, API, integrations, product docs
+```
+
+## Build & Run
+```bash
+npm run lint    # type-check
+npm run build   # vite build + bundle server to dist/server.cjs
+npm start       # run the production bundle
+```
+Local runtime data (`data/`, `backend/data/`) is git-ignored because it may contain access tokens.

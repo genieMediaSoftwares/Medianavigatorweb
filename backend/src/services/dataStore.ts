@@ -52,14 +52,6 @@ export class DataStore {
       };
       const jsonStr = JSON.stringify(data, null, 2);
       fs.writeFileSync(this.cacheFilePath, jsonStr, 'utf8');
-      try {
-        const seedPath = path.join(process.cwd(), 'backend', 'data', 'datastore_seed.json');
-        if (fs.existsSync(path.dirname(seedPath))) {
-          fs.writeFileSync(seedPath, jsonStr, 'utf8');
-        }
-      } catch {
-        // Read-only filesystem in Vercel serverless environment
-      }
     } catch {
       // Ignore disk write errors in restricted environments
     }

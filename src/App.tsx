@@ -1,36 +1,36 @@
 import React, { useState } from 'react';
-import { MediaProvider, useMedia } from './context/MediaContext';
-import { Sidebar } from './components/layout/Sidebar';
-import { TopBar } from './components/layout/TopBar';
-import { MobileNav } from './components/layout/MobileNav';
+import { MediaProvider, useMedia } from './app/providers/MediaContext';
+import { Sidebar } from './app/layout/Sidebar';
+import { TopBar } from './app/layout/TopBar';
+import { MobileNav } from './app/layout/MobileNav';
 import { LoadingOverlay } from './components/common/LoadingOverlay';
-import { NotificationsDrawer } from './components/layout/NotificationsDrawer';
+import { NotificationsDrawer } from './app/layout/NotificationsDrawer';
 import { SyncProgressModal } from './components/modals/SyncProgressModal';
 import { ContentDetailModal } from './components/modals/ContentDetailModal';
 
 // Auth and Onboarding Screens
-import { Landing } from './pages/Landing';
-import { SignIn } from './pages/SignIn';
-import { CreateAccount } from './pages/CreateAccount';
-import { Onboarding } from './pages/Onboarding';
+import { Landing } from './features/landing/Landing';
+import { SignIn } from './features/auth/SignIn';
+import { CreateAccount } from './features/auth/CreateAccount';
+import { Onboarding } from './features/onboarding/Onboarding';
 
 // SaaS Core Screens
-import { Overview } from './pages/Overview';
-import { Analytics } from './pages/Analytics';
-import { Intelligence } from './pages/Intelligence';
-import { ContentIntelligence } from './pages/ContentIntelligence';
-import { TimingIntelligence } from './pages/TimingIntelligence';
-import { CrossPlatform } from './pages/CrossPlatform';
-import { Trends } from './pages/Trends';
-import { Recommendations } from './pages/Recommendations';
-import { ContentPlanner } from './pages/ContentPlanner';
-import { Alerts } from './pages/Alerts';
-import { Connections } from './pages/Connections';
-import { Settings } from './pages/Settings';
-import { Reports } from './pages/Reports';
+import { Overview } from './features/overview/Overview';
+import { Analytics } from './features/analytics/Analytics';
+import { Intelligence } from './features/intelligence/Intelligence';
+import { ContentIntelligence } from './features/content/ContentIntelligence';
+import { TimingIntelligence } from './features/timing/TimingIntelligence';
+import { CrossPlatform } from './features/cross-platform/CrossPlatform';
+import { Trends } from './features/trends/Trends';
+import { Recommendations } from './features/recommendations/Recommendations';
+import { ContentPlanner } from './features/content/ContentPlanner';
+import { Alerts } from './features/alerts/Alerts';
+import { Connections } from './features/connections/Connections';
+import { Settings } from './features/settings/Settings';
+import { Reports } from './features/reports/Reports';
 import { BrandLogo } from './components/common/BrandLogo';
-import { AdminDashboard } from './pages/admin/AdminDashboard';
-import { AdminProvider } from './context/AdminContext';
+import { AdminDashboard } from './features/admin/AdminDashboard';
+import { AdminProvider } from './app/providers/AdminContext';
 
 import { X, ExternalLink, LogOut, Layers } from 'lucide-react';
 
