@@ -58,3 +58,17 @@ describe('audit: shared rate limit store', () => {
     expect((await a.increment('1.2.3.4')).totalHits).toBe(1);
   });
 });
+
+describe('dev test accounts', () => {
+  it('creates a working admin and user login, is repeatable, and the admin role is real', async () => {
+    const { seedTestAccounts } = await import('../scripts/seed-test-accounts.js');
+    await seedTestAccounts(); await seedTestAccounts();
+    const admin = await api().post('/api/v1/auth/login').send({ email: 'test@admin.in', password: 'password' });
+    const user = await api().post('/api/v1/auth/login').send({ email: 'test@user.in', password: 'password' });
+    expect(admin.status).toBe(200); expect(user.status).toBe(200);
+    const a = { Authorization: `Bearer ${admin.body.data.tokens.accessToken}` }; const u = { Authorization: `Bearer ${user.body.data.tokens.accessToken}` };
+    expect((await api().get('/api/v1/admin/system').set(a)).status).toBe(200);
+    expect((await api().get('/api/v1/admin/system').set(u)).status).toBe(403);
+    expect((await api().post('/api/v1/auth/login').send({ email: 'test@user.in', password: 'wrong' })).status).toBe(401);
+  });
+});
