@@ -127,7 +127,7 @@ export const Landing: React.FC = () => {
       </section>
 
       <footer className="border-t border-line py-10">
-        <div className="max-w-6xl mx-auto px-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted"><BrandLogo /><p>© {new Date().getFullYear()} Media Navigator. Instagram, YouTube, Facebook and LinkedIn are trademarks of their owners.</p></div>
+        <div className="max-w-6xl mx-auto px-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted"><BrandLogo /><div className="flex flex-col sm:items-end gap-1 text-center sm:text-right"><p className="flex gap-4 justify-center"><button onClick={() => setAppView('terms')} className="hover:text-ink underline">Terms</button><button onClick={() => setAppView('privacy')} className="hover:text-ink underline">Privacy</button></p><p>© {new Date().getFullYear()} Media Navigator. Instagram, YouTube, Facebook and LinkedIn are trademarks of their owners.</p></div></div>
       </footer>
     </div>
   );

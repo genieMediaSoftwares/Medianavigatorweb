@@ -47,7 +47,7 @@ export const CreateAccount: React.FC = () => {
           <ul id="su-rules" className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1">{checks.map((c) => <li key={c.label} className={`text-sm flex items-center gap-1.5 ${c.ok ? 'text-emerald-700' : 'text-muted'}`}><Check className={`w-4 h-4 ${c.ok ? '' : 'opacity-30'}`} />{c.label}</li>)}</ul>
         </div>
         <label className="flex gap-3 items-start text-sm text-body cursor-pointer"><input type="checkbox" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} className="mt-0.5 w-4 h-4 accent-[#d4560c]" />
-          <span>I agree to the Terms of Service and Privacy Policy.</span></label>
+          <span>I agree to the <button type="button" className="underline font-semibold" onClick={() => { try { localStorage.setItem('mn:legal-from', 'signup'); } catch { /* ignore */ } setAppView('terms'); }}>Terms of Service</button> and <button type="button" className="underline font-semibold" onClick={() => { try { localStorage.setItem('mn:legal-from', 'signup'); } catch { /* ignore */ } setAppView('privacy'); }}>Privacy Policy</button>.</span></label>
         {error && <p role="alert" className="rounded-xl bg-rose-50 border border-rose-100 text-sm text-rose-900 p-3">{error}</p>}
         <button type="submit" disabled={loading || !valid} className="btn btn-primary btn-lg w-full">{loading && <Loader2 className="w-5 h-5 animate-spin" />}Create account</button>
       </form>

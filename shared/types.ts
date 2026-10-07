@@ -36,6 +36,8 @@ export interface NormalizedMedia {
     whatToImprove?: string[];
   };
   isDemo?: boolean;
+  /** Metrics the provider did not supply for this item (e.g. hidden like counts). Kept as 0 in the number fields but flagged here. */
+  missingMetrics?: string[];
 }
 
 export type ConnectionStatus =

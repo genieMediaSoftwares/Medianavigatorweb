@@ -179,3 +179,34 @@ export const api = {
   getAlerts: () => request<AlertItem[]>('/api/v1/alerts'),
   dismissAlert: (id: string) => post<AlertItem>(`/api/v1/alerts/${encodeURIComponent(id)}/dismiss`),
 };
+
+// ── Admin console (server enforces the admin role on every call) ──
+export interface AdminPage<T> { items: T[]; nextCursor: string | null; total?: number }
+const adminList = async <T,>(path: string, params: Record<string, string | undefined>): Promise<AdminPage<T>> => {
+  const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
+  const { data, meta } = await requestWithMeta<T[]>(`/api/v1/admin/${path}${q ? `?${q}` : ''}`);
+  return { items: data, nextCursor: meta?.nextCursor ?? null, total: meta?.total };
+};
+export interface AdminUser { id: string; email: string; role: 'user' | 'admin'; status: 'active' | 'disabled'; createdAt: string; lastLoginAt: string | null }
+export interface AdminConnection { id: string; userId: string; platform: string; handle: string; status: string; active: boolean; lastSyncedAt: string | null; nextSyncAt: string | null; lastSyncError: string | null; dataPointsCount: number }
+export interface AdminSyncRun { id: string; platform: string; type: string; status: string; queuedAt: string; durationMs: number | null; items: { fetched: number; created: number; updated: number; skipped: number; failed: number }; attempts: number; errorKind: string | null; errorSummary: string | null }
+export interface AdminAuditEntry { id: string; actorId: string | null; action: string; targetType: string | null; targetId: string | null; requestId: string | null; createdAt: string }
+export interface AdminSystem {
+  app: { environment: string; uptimeSeconds: number; node: string };
+  database: { status: string };
+  counts: { users: number; activeSessions: number; contentItems: number; aiCacheEntries: number };
+  connectedAccountsByStatus: Record<string, number>;
+  syncRunsByStatus: Record<string, number>;
+  storage: { configured: boolean; files: number; bytes: number };
+  features: { ai: { configured: boolean; model: string | null }; email: { configured: boolean }; syncWorker: boolean; syncScheduler: boolean; oauth: Record<string, boolean> };
+}
+export const adminApi = {
+  system: () => request<AdminSystem>('/api/v1/admin/system'),
+  users: (cursor?: string, search?: string) => adminList<AdminUser>('users', { limit: '25', cursor, search }),
+  connections: (cursor?: string) => adminList<AdminConnection>('connections', { limit: '25', cursor }),
+  syncRuns: (cursor?: string) => adminList<AdminSyncRun>('sync-runs', { limit: '25', cursor }),
+  audit: (cursor?: string) => adminList<AdminAuditEntry>('audit-logs', { limit: '25', cursor }),
+  setRole: (id: string, role: 'user' | 'admin') => request<AdminUser>(`/api/v1/admin/users/${id}/role`, { method: 'PATCH', body: { role } }),
+  setStatus: (id: string, status: 'active' | 'disabled') => request<AdminUser>(`/api/v1/admin/users/${id}/status`, { method: 'PATCH', body: { status } }),
+  syncConnection: (id: string) => request<{ alreadyQueued: boolean }>(`/api/v1/admin/connections/${id}/sync`, { method: 'POST', body: {} }),
+};

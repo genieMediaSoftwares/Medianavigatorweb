@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeAll, afterAll } from 'vitest';
+import { startTestDb, stopTestDb } from './helpers.js';
 import express from 'express';
 import request from 'supertest';
 import fs from 'node:fs';
@@ -139,6 +140,8 @@ describe('provider HTTP', () => {
 });
 
 describe('rate limiting', () => {
+  beforeAll(startTestDb);
+  afterAll(stopTestDb);
   it('returns 429 in the standard envelope once the limit is exceeded', async () => {
     const app = express();
     app.use(createLimiter(2));

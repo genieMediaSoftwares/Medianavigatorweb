@@ -107,7 +107,7 @@ export const ContentDetailModal: React.FC<ContentDetailModalProps> = ({ media, o
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wider text-muted">
-                  Historical Benchmark Comparison
+                  Headline number
                 </span>
                 <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
                   ● {media.primarySignal.value}
@@ -168,14 +168,15 @@ export const ContentDetailModal: React.FC<ContentDetailModalProps> = ({ media, o
                 <strong className="text-brand-600">Measured Observation: </strong>
                 {media.explanation.observedFact}
               </p>
+              {media.explanation.possibleReason && (
               <p className="text-xs text-body leading-relaxed">
                 <strong className="text-muted">Grounded Hypothesis: </strong>
                 {media.explanation.possibleReason}
-              </p>
+              </p>)}
             </div>
 
             {/* Repeatable Success Elements */}
-            <div className="space-y-1.5">
+            {media.explanation.whatToRepeat.length > 0 && <div className="space-y-1.5">
               <div className="text-xs font-bold text-ink uppercase tracking-wider">
                 Formula Elements to Repeat
               </div>
@@ -187,7 +188,7 @@ export const ContentDetailModal: React.FC<ContentDetailModalProps> = ({ media, o
                   </div>
                 ))}
               </div>
-            </div>
+            </div>}
 
             {/* AI Deep Dive Result or Action */}
             <div className="pt-2 space-y-2.5">
