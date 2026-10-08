@@ -1,10 +1,8 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
-import { SettingsView } from '@/components/settings/settings-view';
-import { PageSkeleton } from '@/components/ui/skeleton';
+import { ProfileView } from './ProfileView';
 
-export const metadata: Metadata = { title: 'Settings' };
+export const metadata: Metadata = { title: 'Profile settings' };
 
-export default function SettingsPage() {
-  return <Suspense fallback={<PageSkeleton />}><SettingsView /></Suspense>;
+export default function ProfileSettingsPage() {
+  return <ProfileView />;
 }

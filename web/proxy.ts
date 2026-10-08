@@ -1,25 +1,30 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 /**
- * Optimistic route guard. It only checks that a session cookie exists; the API enforces real authorisation on every
- * request, and the admin area re-checks the role with the server.
+ * Optimistic route guard. It only checks whether a session cookie exists; the API verifies every request (identity,
+ * role and ownership), so nothing here is trusted for authorization. Admin pages are additionally gated by the role the
+ * server reports, and every /admin API call is enforced by the server.
  */
-const PRIVATE = ['/home', '/posts', '/insights', '/best-times', '/plan', '/connections', '/settings', '/notifications', '/onboarding', '/admin'];
-const GUEST_ONLY = ['/sign-in', '/sign-up'];
+const REFRESH_COOKIE = 'mn_rt'; // keep in sync with lib/server/cookies.ts (proxy cannot import server-only modules)
 
-export default function proxy(req: NextRequest) {
-  const { pathname } = req.nextUrl;
-  const signedIn = Boolean(req.cookies.get('mn_rt')?.value || req.cookies.get('mn_at')?.value);
-  const is = (list: string[]) => list.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+const PRIVATE_PREFIXES = ['/home', '/posts', '/insights', '/best-times', '/plan', '/connections', '/settings', '/notifications', '/onboarding', '/admin'];
+const GUEST_ONLY = ['/sign-in', '/create-account'];
 
-  if (is(PRIVATE) && !signedIn) {
-    const url = req.nextUrl.clone();
+const matches = (path: string, prefixes: string[]) => prefixes.some((p) => path === p || path.startsWith(`${p}/`));
+
+export function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+  const signedIn = Boolean(request.cookies.get(REFRESH_COOKIE)?.value);
+
+  if (!signedIn && matches(pathname, PRIVATE_PREFIXES)) {
+    const url = request.nextUrl.clone();
     url.pathname = '/sign-in';
-    url.search = `?next=${encodeURIComponent(pathname + req.nextUrl.search)}`;
+    url.search = '';
+    url.searchParams.set('next', `${pathname}${search}`);
     return NextResponse.redirect(url);
   }
-  if (signedIn && (is(GUEST_ONLY) || pathname === '/')) {
-    const url = req.nextUrl.clone();
+  if (signedIn && matches(pathname, GUEST_ONLY)) {
+    const url = request.nextUrl.clone();
     url.pathname = '/home';
     url.search = '';
     return NextResponse.redirect(url);
@@ -27,4 +32,6 @@ export default function proxy(req: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = { matcher: ['/((?!api|_next|brand|icon.png|favicon.ico).*)'] };
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+};

@@ -1,45 +1,43 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { LegalLayout } from '@/components/legal/legal-layout';
+import { getEnv } from '@/env';
+import { LegalPage } from '../legal';
 
 export const metadata: Metadata = { title: 'Privacy' };
 
 export default function PrivacyPage() {
+  const { operatorName, supportEmail } = getEnv();
   return (
-    <LegalLayout title="Privacy policy" updated="October 2026">
-      <p>This page says, in plain words, what Media Navigator keeps about you and why. See also our <Link href="/terms">Terms of use</Link>.</p>
-
-      <h2>What we store</h2>
-      <ul>
-        <li><strong>Account details:</strong> your email, name, optional organization, account type and time zone, and a protected form of your password (never the password itself).</li>
-        <li><strong>Connected accounts:</strong> the name and handle of each account you connect.</li>
-        <li><strong>Posts’ public numbers:</strong> titles, captions, dates and the figures the platform shares, such as views, likes and comments.</li>
-        <li><strong>Access keys:</strong> the permission each platform gives us to read your account. They are stored encrypted and deleted when you disconnect.</li>
-        <li><strong>Sessions:</strong> the devices you’re signed in on, so you can sign any of them out.</li>
-        <li><strong>Notes, plans and files</strong> you add yourself.</li>
-      </ul>
-
-      <h2>Read-only</h2>
-      <p>Media Navigator cannot post, edit or delete anything on your social accounts.</p>
-
-      <h2>AI explanations</h2>
-      <p>Only if the owner of the service has switched on an AI provider, the text and public numbers of the posts being analysed may be sent to that provider to write an explanation. Passwords and access keys are never sent. If AI is not switched on, nothing is sent and you see measured facts only.</p>
-
-      <h2>What we never do</h2>
-      <ul>
-        <li>We don’t sell your data or share it with advertisers.</li>
-        <li>We don’t post, edit or delete on your behalf.</li>
-      </ul>
-
-      <h2>Your choices</h2>
-      <ul>
-        <li>Disconnect any account at any time. This deletes the stored access key for it.</li>
-        <li>Sign out of one or all devices in <Link href="/settings?tab=security">Settings, Security</Link>.</li>
-        <li>Delete your account and everything we hold about you in <Link href="/settings?tab=privacy">Settings, Privacy</Link>.</li>
-      </ul>
-
-      <h2>Contact</h2>
-      <p>The operator’s name and contact details are shown in the box at the top of this page.</p>
-    </LegalLayout>
+    <LegalPage title="Privacy" intro={<p>What this Media Navigator service stores, why, and how to remove it. It is operated by {operatorName}.</p>}>
+      <section>
+        <h2>What we store</h2>
+        <ul>
+          <li>Your account: email address, name, organization and account type (if you add them), time zone, and a password hash (never the password itself).</li>
+          <li>Signed-in devices: browser description and network address, so you can see and sign out each device.</li>
+          <li>For each connected account: the account name, follower and post counts the platform reports, and your posts&apos; titles, captions, publish dates and results.</li>
+          <li>Daily snapshots of your totals, used for charts over time.</li>
+          <li>Files you upload in Settings, if file storage is enabled.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Access to your social accounts</h2>
+        <p>Access is read-only. The access keys platforms give us are encrypted before they are stored and are never sent to your browser. Disconnecting an account deletes its saved access immediately; past results stay until you delete your account.</p>
+      </section>
+      <section>
+        <h2>What is sent to the AI provider</h2>
+        <p>When AI explanations are enabled, the numbers we measured and calculated, plus post titles and captions (shortened), are sent to the AI provider to write an explanation. Access keys, passwords and your email address are never sent. Every AI explanation is labelled; when AI is not available you see measured facts only.</p>
+      </section>
+      <section>
+        <h2>Your rights</h2>
+        <ul>
+          <li>See and change your profile in Settings.</li>
+          <li>Disconnect any social account at any time.</li>
+          <li>Delete your Media Navigator account in Settings → Privacy. This removes your connections, posts, results, notifications, files and plans.</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Contact</h2>
+        <p>Privacy questions or requests: <a className="font-semibold text-action underline" href={`mailto:${supportEmail}`}>{supportEmail}</a>.</p>
+      </section>
+    </LegalPage>
   );
 }

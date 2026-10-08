@@ -1,9 +1,14 @@
+import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { PostsView } from '@/components/posts/posts-view';
-import { PageSkeleton } from '@/components/ui/skeleton';
+import { RouteLoading } from '@/components/layout/RouteStates';
+import { PostsView } from './PostsView';
 
-export const metadata = { title: 'Posts' };
+export const metadata: Metadata = { title: 'Posts' };
 
 export default function PostsPage() {
-  return <Suspense fallback={<PageSkeleton />}><PostsView /></Suspense>;
+  return (
+    <Suspense fallback={<RouteLoading />}>
+      <PostsView />
+    </Suspense>
+  );
 }

@@ -1,5 +1,8 @@
-import { HomeView } from '@/components/home/home-view';
+import type { Metadata } from 'next';
+import { HomeView } from './HomeView';
 
-export const metadata = { title: 'Home' };
+export const metadata: Metadata = { title: 'Home' };
 
-export default function HomePage() { return <HomeView />; }
+export default function HomePage() {
+  return <HomeView />;
+}

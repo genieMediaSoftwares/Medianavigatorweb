@@ -1,38 +1,71 @@
-import { formatDistanceToNowStrict } from 'date-fns';
+/**
+ * The one formatting module. Locale comes from the browser; the time zone is the user's saved time zone when there is
+ * one (pass `tz`), so dates read the same way the API bucketed them.
+ */
+import { formatDistanceStrict } from 'date-fns';
 
-/** All number, percentage and date formatting lives here so every screen reads the same. */
+export const formatNumber = (n: number) => new Intl.NumberFormat(undefined).format(n);
 
-export const compact = (n: number): string => new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
-export const whole = (n: number): string => new Intl.NumberFormat('en').format(Math.round(n));
-export const percent = (n: number, digits = 1): string => `${new Intl.NumberFormat('en', { maximumFractionDigits: digits }).format(n)}%`;
+export const formatCompact = (n: number) =>
+  new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: n >= 1000 ? 1 : 0 }).format(n);
 
-/** "+12%" / "-4%" for a change; empty string when unknown. */
-export function change(n: number | null | undefined): string {
-  if (n === null || n === undefined || Number.isNaN(n)) return '';
-  const r = Math.round(n);
-  return `${r > 0 ? '+' : ''}${r}%`;
+/** `value` is already a percentage (12.5 means 12.5%). */
+export const formatPercent = (value: number, digits = 1) =>
+  new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: digits, minimumFractionDigits: 0 }).format(value / 100);
+
+/** A change in percent with an explicit sign: "+12%", "−8%", "No change". */
+export function formatChange(value: number, digits = 0): string {
+  if (Math.abs(value) < 0.5 && digits === 0) return 'No change';
+  const s = new Intl.NumberFormat(undefined, { style: 'percent', maximumFractionDigits: digits, signDisplay: 'always' }).format(value / 100);
+  return s.replace('-', '−');
 }
 
-export function timeAgo(iso: string | null | undefined): string {
-  if (!iso) return 'Never';
+export function formatDate(iso: string, tz?: string | null): string {
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return 'Never';
-  if (Date.now() - d.getTime() < 60_000) return 'Just now';
-  return `${formatDistanceToNowStrict(d)} ago`;
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: tz ?? undefined }).format(d);
 }
 
-export function dateShort(iso: string, timeZone?: string | null): string {
-  return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', year: 'numeric', ...(timeZone ? { timeZone } : {}) }).format(new Date(iso));
+export function formatDateTime(iso: string, tz?: string | null): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short', timeZone: tz ?? undefined }).format(d);
 }
 
-export function dateTime(iso: string, timeZone?: string | null): string {
-  return new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', ...(timeZone ? { timeZone } : {}) }).format(new Date(iso));
+/** "3 hours ago". Returns null for missing or invalid timestamps so callers can say "Not updated yet" instead. */
+export function timeAgo(iso: string | null | undefined, now: Date = new Date()): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  if (Math.abs(now.getTime() - d.getTime()) < 45_000) return 'just now';
+  return formatDistanceStrict(d, now, { addSuffix: true });
 }
 
-export const initials = (name: string): string => name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('') || '?';
-
-export function bytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1048576) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1048576).toFixed(1)} MB`;
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${formatNumber(bytes)} B`;
+  const units = ['KB', 'MB', 'GB'];
+  let v = bytes / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${new Intl.NumberFormat(undefined, { maximumFractionDigits: 1 }).format(v)} ${units[i]}`;
 }
+
+export function formatDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return m > 0 ? `${m}m ${s.toString().padStart(2, '0')}s` : `${s}s`;
+}
+
+export function formatUptime(seconds: number): string {
+  const d = Math.floor(seconds / 86_400);
+  const h = Math.floor((seconds % 86_400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+/** Percentage change from `previous` to `current`, or null when there is nothing to compare against. */
+export const pctChange = (current: number, previous: number): number | null =>
+  previous > 0 ? ((current - previous) / previous) * 100 : null;

@@ -1,9 +1,8 @@
-import { Suspense } from 'react';
-import { PlanView } from '@/components/plan/plan-view';
-import { PageSkeleton } from '@/components/ui/skeleton';
+import type { Metadata } from 'next';
+import { IdeasView } from './IdeasView';
 
-export const metadata = { title: 'Plan · Media Navigator' };
+export const metadata: Metadata = { title: 'Ideas' };
 
-export default function PlanPage() {
-  return <Suspense fallback={<PageSkeleton />}><PlanView /></Suspense>;
+export default function IdeasPage() {
+  return <IdeasView />;
 }

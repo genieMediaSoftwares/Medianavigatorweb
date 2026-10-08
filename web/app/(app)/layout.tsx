@@ -1,6 +1,5 @@
-import type { ReactNode } from 'react';
-import { AppShell } from '@/components/layout/app-shell';
+import { AppShell } from '@/components/layout/AppShell';
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default function SignedInLayout({ children }: LayoutProps<'/'>) {
   return <AppShell>{children}</AppShell>;
 }

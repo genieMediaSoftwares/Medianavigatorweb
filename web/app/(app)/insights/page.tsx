@@ -1,9 +1,8 @@
-import { Suspense } from 'react';
-import { InsightsView } from '@/components/insights/insights-view';
-import { PageSkeleton } from '@/components/ui/skeleton';
+import type { Metadata } from 'next';
+import { OverviewView } from './OverviewView';
 
-export const metadata = { title: 'Insights · Media Navigator' };
+export const metadata: Metadata = { title: 'Insights' };
 
-export default function InsightsPage() {
-  return <Suspense fallback={<PageSkeleton />}><InsightsView /></Suspense>;
+export default function InsightsOverviewPage() {
+  return <OverviewView />;
 }
