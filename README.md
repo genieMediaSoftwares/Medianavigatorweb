@@ -9,7 +9,8 @@ Media Navigator is an AI-powered media intelligence command center that connects
 - **What should I do next?**
 
 ## Architecture
-- **Backend only.** An Express + TypeScript API with versioned `/api/v1/*` endpoints, in `backend/`. This repository contains no web or mobile client; any client talks to the API described in `docs/api.md`.
+- **Backend**: an Express + TypeScript API with versioned `/api/v1/*` endpoints, in `backend/`.
+- **Web client**: Next.js + TypeScript in `web/` (see `web/README.md`), styled from the logo in `docs/brand/`. It talks only to the API through its own server-side proxy.
 - **Intelligence**: Server-side Gemini SDK (`@google/genai`) for interpretation, always separated from measured and calculated numbers.
 - **Adapters**: Normalized multi-platform ingestion for Meta (Instagram and Facebook), YouTube and LinkedIn.
 - **Documentation**: `docs/` (architecture, api, authentication, database, deployment, security, integrations, runbook), product docs in `docs/product/`, and the client brief in `docs/FRONTEND_PROMPT.md`.
@@ -21,15 +22,18 @@ backend/              Express + TypeScript API (its own package). See backend/RE
   tests/              API integration tests against a real MongoDB
   scripts/            create-admin, seed-test-accounts (development only)
 shared/               Response types used by the API
+web/                  Next.js web client (its own package). See web/README.md
 docs/                 architecture, api, authentication, database, deployment, security, integrations, runbook, FRONTEND_PROMPT
 ```
 
 ## Run locally
 ```bash
 cd backend && npm install && npm run dev      # needs backend/.env, see backend/README.md
+cd web && npm install && npm run dev          # http://localhost:3000, needs API_BASE_URL (see web/README.md)
 ```
 
 ## Checks
 ```bash
 cd backend && npm run typecheck && npm test && npm run build
+cd web && npm run typecheck && npm run lint && npm test && npm run build
 ```
