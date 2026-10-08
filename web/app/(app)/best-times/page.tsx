@@ -1,7 +1,6 @@
-import type { Metadata } from 'next';
-import { BestTimesView } from './BestTimesView';
+import { BestTimesView } from '@/components/insights/best-times-view';
 
-export const metadata: Metadata = { title: 'Best times' };
+export const metadata = { title: 'Best times · Media Navigator' };
 
 export default function BestTimesPage() {
   return <BestTimesView />;

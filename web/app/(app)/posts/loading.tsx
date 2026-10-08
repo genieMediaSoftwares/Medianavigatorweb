@@ -1,5 +1,3 @@
-import { RouteLoading } from '@/components/layout/RouteStates';
+import { PostGridSkeleton } from '@/components/ui/skeleton';
 
-export default function Loading() {
-  return <RouteLoading />;
-}
+export default function Loading() { return <PostGridSkeleton />; }

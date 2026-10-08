@@ -1,8 +1,10 @@
 import type { Metadata } from 'next';
-import { SystemView } from './SystemView';
+import { Suspense } from 'react';
+import { AdminView } from '@/components/admin/admin-view';
+import { PageSkeleton } from '@/components/ui/skeleton';
 
-export const metadata: Metadata = { title: 'Admin · System' };
+export const metadata: Metadata = { title: 'Admin' };
 
-export default function AdminSystemPage() {
-  return <SystemView />;
+export default function AdminPage() {
+  return <Suspense fallback={<PageSkeleton />}><AdminView /></Suspense>;
 }

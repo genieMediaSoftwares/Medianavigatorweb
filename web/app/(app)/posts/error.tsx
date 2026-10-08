@@ -1,7 +1,7 @@
 'use client';
 
-import { RouteError } from '@/components/layout/RouteStates';
+import { ErrorState } from '@/components/ui/states';
 
-export default function Error(props: { error: Error & { digest?: string }; reset: () => void }) {
-  return <RouteError {...props} />;
+export default function PostsError({ error, reset }: { error: Error; reset: () => void }) {
+  return <ErrorState error={error} onRetry={reset} />;
 }

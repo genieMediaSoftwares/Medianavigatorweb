@@ -29,7 +29,7 @@ docs/                 architecture, api, authentication, database, deployment, s
 ## Run locally
 ```bash
 cd backend && npm install && npm run dev      # needs backend/.env, see backend/README.md
-cd web && npm install && npm run dev          # needs web/.env, see web/README.md
+cd web && npm install && npm run dev          # http://localhost:3000, needs API_BASE_URL (see web/README.md)
 ```
 
 ## Checks

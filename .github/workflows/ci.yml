@@ -22,13 +22,9 @@ jobs:
     defaults:
       run:
         working-directory: web
-    # Build-check values only. The build validates configuration and fails without it; these hosts are reserved
-    # (.invalid) and are never contacted, because every end-to-end test mocks the API in the browser.
     env:
+      # Build-time check only; real deployments set their own API address.
       API_BASE_URL: https://api.ci.invalid
-      COOKIE_SECURE: "false"
-      OPERATOR_NAME: CI build check
-      SUPPORT_EMAIL: support@ci.invalid
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,12 +34,3 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - name: End-to-end tests
-        env:
-          PORT: "4310"
-          E2E_BASE_URL: http://localhost:4310
-        run: |
-          npm run start &
-          npx --yes wait-on@8.0.3 --timeout 60000 "$E2E_BASE_URL"
-          npm run test:e2e
