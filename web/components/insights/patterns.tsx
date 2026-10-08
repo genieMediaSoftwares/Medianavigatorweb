@@ -12,6 +12,7 @@ import { compact, percent } from '@/lib/format';
 import { useChannel } from '@/lib/hooks/useChannel';
 import { useSummary } from '@/lib/hooks/useQueries';
 import { typeLabel } from '@/lib/platforms';
+import { pluralFormat } from './labels';
 import { qk } from '@/lib/queryKeys';
 
 const MIN_POSTS = 3;
@@ -49,7 +50,7 @@ export function Patterns() {
                 <Badge tone={rounded < 3 ? 'neutral' : better ? 'good' : 'warn'}>{rounded < 3 ? 'About your usual' : `${rounded}% ${better ? 'better' : 'lower'}`}</Badge>
               </div>
               <p className="mt-3 text-[15px] text-text">
-                {typeLabel(r.format)} posts get <strong>{percent(r.avgEngagement, 2)}</strong> engagement{rounded < 3 ? ', about the same as your usual' : `, ${rounded}% ${better ? 'better' : 'worse'} than your usual`}.
+                {pluralFormat(r.format)} get <strong>{percent(r.avgEngagement, 2)}</strong> engagement{rounded < 3 ? ', about the same as your usual' : `, ${rounded}% ${better ? 'better' : 'worse'} than your usual`}.
               </p>
               <p className="mt-2 text-sm text-muted">Based on {r.count} posts, with about {compact(r.avgViews)} views each.</p>
             </Card>

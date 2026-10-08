@@ -17,6 +17,7 @@ import { compact, percent, timeAgo, whole } from '@/lib/format';
 import { useChannel } from '@/lib/hooks/useChannel';
 import { useConnections, useSummary } from '@/lib/hooks/useQueries';
 import { platformName, typeLabel } from '@/lib/platforms';
+import { pluralFormat } from './labels';
 import { qk } from '@/lib/queryKeys';
 import type { HistoryPoint, Platform, Summary } from '@/types/api';
 
@@ -115,7 +116,8 @@ function Loaded({ summary, days, series, historyPending, historyError, onRetryHi
     label: t.topic, value: t.medianEngagementRate, display: percent(t.medianEngagementRate, 2), note: `${t.count} ${t.count === 1 ? 'post' : 'posts'}`,
   }));
   const bestFormat = formatRows[0];
-  const formatSummary = bestFormat ? `${bestFormat.label} posts get ${bestFormat.display} typical engagement, the highest of your formats. Each row shows how many posts it is based on.` : '';
+  const bestRaw = [...summary.contentTypePerformance].sort((a, b) => b.medianEngagementRate - a.medianEngagementRate)[0];
+  const formatSummary = bestFormat && bestRaw ? `${pluralFormat(bestRaw.contentType)}${multi ? ` on ${platformName(bestRaw.platform)}` : ''} get ${bestFormat.display} typical engagement, the highest of your formats. Each row shows how many posts it is based on.` : '';
   const topicSummary = topicRows[0] ? `${topicRows[0].label} has the highest typical engagement at ${topicRows[0].display}, based on ${topicRows[0].note}.` : '';
 
   const channels = summary.platformsIncluded.filter((p) => !connectedPlatforms || connectedPlatforms.includes(p));

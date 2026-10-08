@@ -26,13 +26,14 @@ export function ThumbFallback({ platform, type, label }: { platform: Platform; t
   );
 }
 
-export function PostThumb({ item, className }: { item: Pick<MediaItem, 'thumbnailUrl' | 'platform' | 'contentType' | 'title'>; className?: string }) {
+/** `uniform` gives every thumbnail the same 4:5 box (used in grids so mixed channels line up); wide YouTube frames are shown whole, not cropped. */
+export function PostThumb({ item, className, uniform = false }: { item: Pick<MediaItem, 'thumbnailUrl' | 'platform' | 'contentType' | 'title'>; className?: string; uniform?: boolean }) {
   const [failed, setFailed] = useState(false);
   const show = Boolean(item.thumbnailUrl) && !failed;
   return (
-    <div className={cn('relative w-full overflow-hidden bg-brand-50', PLATFORM_ASPECT[item.platform], className)}>
+    <div className={cn('relative w-full overflow-hidden bg-brand-50', uniform ? 'aspect-[4/5]' : PLATFORM_ASPECT[item.platform], className)}>
       {show
-        ? <Image src={item.thumbnailUrl} alt="" fill sizes="(max-width: 640px) 100vw, 320px" unoptimized referrerPolicy="no-referrer" className="object-cover" onError={() => setFailed(true)} />
+        ? <Image src={item.thumbnailUrl} alt="" fill sizes="(max-width: 640px) 100vw, 320px" unoptimized referrerPolicy="no-referrer" className={item.platform === 'youtube' && uniform ? 'object-contain' : 'object-cover'} onError={() => setFailed(true)} />
         : <ThumbFallback platform={item.platform} type={item.contentType} label={item.thumbnailUrl ? 'Image unavailable' : undefined} />}
     </div>
   );
@@ -52,7 +53,7 @@ export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag;
   return (
     <button onClick={onOpen} className="card group flex h-full w-full flex-col overflow-hidden text-left transition-shadow hover:shadow-[var(--shadow-pop)]">
       <div className="relative">
-        <PostThumb item={item} />
+        <PostThumb item={item} uniform />
         <div className="absolute left-3 top-3 flex items-center gap-1.5">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-surface/95 shadow-sm"><PlatformIcon platform={item.platform} className="h-5 w-5" /></span>
           <span className="rounded-lg bg-ink/80 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur">{typeLabel(item.contentType, item.contentTypeBasis)}</span>

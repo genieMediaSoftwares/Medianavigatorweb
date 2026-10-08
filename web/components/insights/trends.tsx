@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { LinkButton } from '@/components/ui/button';
 import { api } from '@/lib/api/endpoints';
 import { platformName } from '@/lib/platforms';
+import { plain } from './labels';
 import { qk } from '@/lib/queryKeys';
 import type { TrendItem } from '@/types/api';
 
@@ -40,7 +41,7 @@ function TrendCard({ t }: { t: TrendItem }) {
         {t.changeRate && <span className="text-sm font-semibold text-ink tabular">{t.changeRate}</span>}
       </div>
       <h3 className="mt-3 text-lg">{t.name}</h3>
-      <p className="mt-1 text-[15px] text-muted">{t.explanation}</p>
+      <p className="mt-1 text-[15px] text-muted">{plain(t.explanation)}</p>
       {rows.length > 0 && (
         <div className="mt-4">
           <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className="inline-flex h-10 items-center gap-1 rounded-lg text-sm font-semibold text-brand-600 hover:underline">
@@ -48,7 +49,7 @@ function TrendCard({ t }: { t: TrendItem }) {
           </button>
           {open && (
             <dl className="mt-2 space-y-2 rounded-xl bg-brand-50 p-4 text-sm">
-              {rows.map(([k, v]) => <div key={k}><dt className="font-semibold text-ink">{k}</dt><dd className="text-muted">{v}</dd></div>)}
+              {rows.map(([k, v]) => <div key={k}><dt className="font-semibold text-ink">{k}</dt><dd className="text-muted">{plain(v)}</dd></div>)}
             </dl>
           )}
         </div>

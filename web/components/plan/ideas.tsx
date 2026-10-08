@@ -14,6 +14,8 @@ import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { qk } from '@/lib/queryKeys';
 import { WEEKDAYS, type Recommendation } from '@/types/api';
+import { plain } from '@/components/insights/labels';
+import { typeLabel } from '@/lib/platforms';
 import { normaliseTime } from './time';
 
 const TYPES: Record<Recommendation['type'], { label: string; icon: ReactNode }> = {
@@ -58,11 +60,11 @@ function IdeaCard({ rec, n }: { rec: Recommendation; n: number }) {
       </div>
       <h3 className="mt-4 text-lg"><span className="sr-only">Idea {n}: </span>{rec.title}</h3>
       <div className="mt-4 flex-1 space-y-3">
-        <Block title="Why">{why}</Block>
-        <Block title="What to do">{todo}</Block>
+        <Block title="Why">{plain(why)}</Block>
+        <Block title="What to do">{plain(todo)}</Block>
         {rec.expectedMeasurement && <Block title="How you’ll know">{rec.expectedMeasurement}</Block>}
       </div>
-      {rec.suggestedSlot && <p className="mt-4"><Badge>Suggested: {rec.suggestedSlot.day}, {rec.suggestedSlot.time} · {rec.suggestedSlot.format}</Badge></p>}
+      {rec.suggestedSlot && <p className="mt-4"><Badge>Suggested: {rec.suggestedSlot.day}, {rec.suggestedSlot.time} · {typeLabel(rec.suggestedSlot.format)}</Badge></p>}
 
       <div className="mt-5 border-t border-line pt-4">
         {added ? (

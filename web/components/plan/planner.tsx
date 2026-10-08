@@ -60,7 +60,7 @@ export function Planner() {
   const header = (
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
       <p className="max-w-2xl text-[15px] text-muted">Media Navigator doesn’t publish for you. This planner is for your own scheduling.</p>
-      <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" aria-hidden="true" />Add to planner</Button>
+      <Button variant={items.data && items.data.length === 0 ? 'secondary' : 'primary'} onClick={() => setAdding(true)}><Plus className="h-4 w-4" aria-hidden="true" />Add to planner</Button>
     </div>
   );
 

@@ -16,7 +16,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="min-h-dvh bg-app">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex h-[72px] max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex items-center gap-3"><Wordmark href="/home" /><Badge tone="brand">Admin</Badge></div>
+          <div className="flex items-center gap-3"><Wordmark href="/home" collapsed className="sm:hidden" /><Wordmark href="/home" className="hidden sm:inline-flex" /><Badge tone="brand">Admin</Badge></div>
           <LinkButton href="/home" variant="secondary" size="sm">Back to app</LinkButton>
         </div>
       </header>

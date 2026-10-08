@@ -44,8 +44,8 @@ function RankedCard({ p, kind, rank, onOpen }: { p: Performer; kind: 'working' |
   const why = `${cap(sentence(plainComparison(p.baselineComparison)))} It got ${whole(p.views)} views and ${percent(p.engagementRate)} engagement.`;
   return (
     <article className="card flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
-      <button onClick={onOpen} aria-label={`Open ${p.title || 'post'}`} className="w-full shrink-0 overflow-hidden rounded-xl border border-line sm:w-32">
-        <PostThumb item={{ platform: p.platform, title: p.title, thumbnailUrl: p.thumbnailUrl ?? '', contentType: asType(p.contentType) }} className="!aspect-video sm:!aspect-[4/5]" />
+      <button onClick={onOpen} aria-label={`Open ${p.title || 'post'}`} className="w-full shrink-0 self-start overflow-hidden rounded-xl border border-line sm:w-32">
+        <PostThumb item={{ platform: p.platform, title: p.title, thumbnailUrl: p.thumbnailUrl ?? '', contentType: asType(p.contentType) }} className="!aspect-video" />
       </button>
       <div className="min-w-0 flex-1 space-y-3">
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">

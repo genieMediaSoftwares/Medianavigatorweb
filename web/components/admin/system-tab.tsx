@@ -10,6 +10,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { ApiUnreachableBanner, isUnreachable } from '@/components/system/api-unreachable';
 import { api } from '@/lib/api/endpoints';
 import { bytes, whole } from '@/lib/format';
+import { platformName } from '@/lib/platforms';
 import { statusLabel, statusTone } from './shared';
 
 function uptime(s: number): string {
@@ -71,7 +72,7 @@ export function SystemTab() {
         <Card>
           <SectionHeader title="Platform sign-in" description="Platforms where people can connect with one click." />
           <ul className="divide-y divide-line">
-            {Object.entries(f.oauth).map(([p, on]) => <OnOff key={p} label={statusLabel(p)} on={on} />)}
+            {Object.entries(f.oauth).map(([p, on]) => <OnOff key={p} label={platformName(p)} on={on} />)}
           </ul>
         </Card>
       </div>
