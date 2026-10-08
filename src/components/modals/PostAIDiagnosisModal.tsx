@@ -185,9 +185,7 @@ export const PostAIDiagnosisModal: React.FC<PostAIDiagnosisModalProps> = ({
                 alt={media.title}
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?auto=format&fit=crop&w=600&q=80';
-                }}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
               />
               <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold uppercase bg-ink/80 text-white backdrop-blur-xs flex items-center gap-1">
                 {isVideoFormat && <Play className="w-2 h-2 fill-white" />}

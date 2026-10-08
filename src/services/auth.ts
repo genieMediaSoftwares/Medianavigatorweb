@@ -2,7 +2,12 @@
  * Session handling for the web client. Talks to the Media Navigator API only.
  * Provider tokens are never handled here: they are sent once to the API when connecting and are never stored in the browser.
  */
-const API_BASE = ((import.meta as any).env?.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, '') ?? '';
+/** The API address comes from the environment (backend/.env, VITE_API_BASE_URL). There is deliberately no default. */
+const RAW_API_BASE = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
+if (!RAW_API_BASE || !/^https?:\/\//.test(RAW_API_BASE)) {
+  throw new Error('VITE_API_BASE_URL is not set. Add it to backend/.env (for example VITE_API_BASE_URL=https://api.example.com) and restart.');
+}
+const API_BASE = RAW_API_BASE.replace(/\/+$/, '');
 
 const ACCESS_KEY = 'mn_access_token';
 const REFRESH_KEY = 'mn_refresh_token';

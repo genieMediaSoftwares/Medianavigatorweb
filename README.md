@@ -51,9 +51,14 @@ cd backend && npm install && npm run dev
 
 # Web app (separate terminal)
 npm install
-VITE_API_BASE_URL=http://localhost:<SERVER_PORT> npm run dev
+npm run dev
 ```
-The web client reads `VITE_API_BASE_URL` (empty = same origin). `npm run dev` and `npm run preview` forward `/api` to the local API automatically (port read from `backend/.env`). For a static host (Netlify, Render static, GitHub Pages) there is no such forwarding: build with `VITE_API_BASE_URL=https://<api>` or sign-up and sign-in fail with 404/405.
+The web app is configured only through `backend/.env`; there are no defaults or fallbacks. It needs two values there, and refuses to start or build without them:
+
+- `VITE_API_BASE_URL` — where the API is (e.g. `http://localhost:8080`, or `https://<api>` in production)
+- `VITE_DEV_PORT` — port for `npm run dev` / `npm run preview`
+
+Only `VITE_`-prefixed values reach the browser. The API must list the web app's origin in `CORS_ALLOWED_ORIGINS`. For a hosted build, set the same `VITE_API_BASE_URL` in the build environment.
 
 ## Checks
 ```bash

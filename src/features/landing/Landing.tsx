@@ -68,15 +68,20 @@ export const Landing: React.FC = () => {
             <div className="mt-10 flex items-center gap-5 text-sm text-muted"><span>Works with</span><span className="flex items-center gap-4"><InstagramLogo size="md" /><YouTubeLogo size="md" /><FacebookLogo size="md" /><LinkedInLogo size="md" /></span></div>
           </div>
 
-          {/* Illustration: a stylised dashboard. Decorative, not real data. */}
-          <div className="relative" aria-hidden="true">
-            <div className="card p-5 shadow-pop rotate-[1.2deg]">
-              <div className="flex items-center justify-between"><div className="h-3 w-24 rounded-full bg-line" /><span className="badge badge-brand">Example</span></div>
-              <div className="mt-5 grid grid-cols-3 gap-3">{[0, 1, 2].map((i) => <div key={i} className="rounded-xl bg-canvas p-3"><div className="h-2 w-10 rounded-full bg-line" /><div className="mt-3 h-6 w-16 rounded-md bg-ink/10" /></div>)}</div>
-              <div className="mt-5 flex items-end gap-2 h-32">{[40, 62, 35, 78, 55, 92, 48, 70, 60, 85].map((h, i) => <div key={i} className={`flex-1 rounded-t-md ${i === 5 ? 'bg-brand-600' : 'bg-brand-200'}`} style={{ height: `${h}%` }} />)}</div>
-              <div className="mt-5 space-y-2.5">{[0, 1].map((i) => <div key={i} className="flex items-center gap-3"><div className="w-10 h-10 rounded-lg bg-brand-100" /><div className="flex-1 space-y-1.5"><div className="h-2.5 w-3/4 rounded-full bg-line" /><div className="h-2 w-1/2 rounded-full bg-canvas-soft" /></div><span className={`badge ${i === 0 ? 'badge-success' : 'badge-warning'}`}>{i === 0 ? 'Top' : 'Below usual'}</span></div>)}</div>
+          <div className="relative">
+            <div className="card p-6 shadow-pop">
+              <div className="eyebrow">After your first sync you get</div>
+              <ul className="mt-4 space-y-4">
+                {[
+                  [Trophy, 'Your top and below-usual posts', 'Each post compared with your own history.'],
+                  [Clock, 'Your strongest posting windows', 'Based on when your past posts performed best.'],
+                  [Sparkles, 'Plain-language next steps', 'What to repeat, what to fix, what to test.'],
+                  [CalendarDays, 'A planner for what comes next', 'Turn any suggestion into a scheduled idea.'],
+                ].map(([Icon, title, body]: any) => (
+                  <li key={title} className="flex gap-3"><span className="w-10 h-10 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center shrink-0"><Icon className="w-5 h-5" /></span><div><div className="font-semibold">{title}</div><div className="text-sm text-muted">{body}</div></div></li>
+                ))}
+              </ul>
             </div>
-            <div className="absolute -left-4 -bottom-6 card px-4 py-3 shadow-pop -rotate-2 flex items-center gap-3"><span className="w-9 h-9 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center"><Clock className="w-5 h-5" /></span><div><div className="text-xs text-muted">Best time to post</div><div className="text-sm font-bold">Your strongest window</div></div></div>
           </div>
         </div>
       </section>
