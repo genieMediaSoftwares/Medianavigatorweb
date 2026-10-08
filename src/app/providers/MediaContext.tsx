@@ -200,10 +200,13 @@ export const MediaProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, []);
 
+  // Only talk to the API once someone is signed in; before that these calls would just return 401.
+  const signedIn = appView === 'app' || appView === 'admin' || appView === 'onboarding';
   useEffect(() => {
+    if (!signedIn) return;
     refreshConnections();
     refreshAlerts();
-  }, [refreshConnections, refreshAlerts]);
+  }, [signedIn, refreshConnections, refreshAlerts]);
 
   const triggerMediaNavigation = useCallback(() => {
     setIsNavigating(true);
