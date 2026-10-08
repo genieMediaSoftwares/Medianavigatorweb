@@ -8,60 +8,28 @@ Media Navigator is an AI-powered media intelligence command center that connects
 - **Why did it happen?**
 - **What should I do next?**
 
-## Color Palette (Strict Custom Identity)
-- **Primary Button**: `bg-[#8B2626] hover:bg-[#721E1E] text-white`
-- **Accent Badge**: `bg-[#EF6905]/10 text-[#EF6905] border border-[#EF6905]/20`
-- **Success / Active**: `bg-[#486C2F]/10 text-[#486C2F]`
-- **Card Background**: `bg-[#FAF6E8] border border-[#E8DEB7]`
-- **Main Heading Text**: `text-[#2A1A18]`
-- **Muted Body Text**: `text-[#6A5652]`
-
 ## Architecture
-- **Frontend**: React 19, Tailwind CSS v4, Lucide icons, Motion layout transitions.
-- **Backend**: Express API server with versioned `/api/v1/*` endpoints.
-- **Intelligence**: Server-side Gemini 3.8 Flash SDK (`@google/genai`) for pattern explanation and conversational media Q&A.
-- **Adapters**: Normalized multi-platform ingestion engine for Meta (Instagram & Facebook), YouTube, and LinkedIn.
-- **Documentation**: Comprehensive platform API notes in `docs/integrations/`, engineering designs in `docs/`, product docs in `docs/product/`.
+- **Backend only.** An Express + TypeScript API with versioned `/api/v1/*` endpoints, in `backend/`. This repository contains no web or mobile client; any client talks to the API described in `docs/api.md`.
+- **Intelligence**: Server-side Gemini SDK (`@google/genai`) for interpretation, always separated from measured and calculated numbers.
+- **Adapters**: Normalized multi-platform ingestion for Meta (Instagram and Facebook), YouTube and LinkedIn.
+- **Documentation**: `docs/` (architecture, api, authentication, database, deployment, security, integrations, runbook), product docs in `docs/product/`, and the client brief in `docs/FRONTEND_PROMPT.md`.
 
-## Local Development
-```bash
-npm install
-npm run dev
-```
-Dev server starts at `http://localhost:3000`.
-
-## Project Structure
+## Project structure
 ```
 backend/              Express + TypeScript API (its own package). See backend/README.md
   src/{config,middleware,routes,controllers,services,repositories,models,integrations,jobs,lib,validators}
   tests/              API integration tests against a real MongoDB
-shared/               Types shared by the web client and the API
-src/                  React web app (Vite)
-  app/                layout and providers
-  features/           one folder per product area (auth, overview, intelligence, admin, ...)
-  components/         shared UI
-  services/           API client (auth + data); no provider calls from the browser
-docs/                 architecture, api, authentication, database, deployment, security, integrations, runbook
+  scripts/            create-admin, seed-test-accounts (development only)
+shared/               Response types used by the API
+docs/                 architecture, api, authentication, database, deployment, security, integrations, runbook, FRONTEND_PROMPT
 ```
 
 ## Run locally
 ```bash
-# API (needs backend/.env, see backend/README.md)
-cd backend && npm install && npm run dev
-
-# Web app (separate terminal)
-npm install
-npm run dev
+cd backend && npm install && npm run dev      # needs backend/.env, see backend/README.md
 ```
-The web app is configured only through `backend/.env`; there are no defaults or fallbacks. It needs two values there, and refuses to start or build without them:
-
-- `VITE_API_BASE_URL` — where the API is (e.g. `http://localhost:8080`, or `https://<api>` in production)
-- `VITE_DEV_PORT` — port for `npm run dev` / `npm run preview`
-
-Only `VITE_`-prefixed values reach the browser. The API must list the web app's origin in `CORS_ALLOWED_ORIGINS`. For a hosted build, set the same `VITE_API_BASE_URL` in the build environment.
 
 ## Checks
 ```bash
-npm run lint && npm run build          # web
-npm --prefix backend run typecheck && npm --prefix backend test && npm --prefix backend run build   # API
+cd backend && npm run typecheck && npm test && npm run build
 ```

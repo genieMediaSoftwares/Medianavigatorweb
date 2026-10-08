@@ -21,9 +21,6 @@ The queue is durable (MongoDB). Whether anything *processes* it depends on the R
 
 Syncs triggered by a user are queued immediately and wait for a worker; if none is running they stay `queued` until one is (clients should show "syncing"/"queued" from `GET /connections/sync-runs/:id`).
 
-## Frontend (static)
-Build with `VITE_API_BASE_URL=https://<api>` (and `VITE_DEV_PORT` is not needed for `vite build`) and add the site's origin to `CORS_ALLOWED_ORIGINS`.
-
 ## Rollout checklist
 1. Rotate any token that was ever committed; purge history.
 2. Create the Atlas user/network rules; set env; deploy.
