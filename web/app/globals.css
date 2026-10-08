@@ -1,0 +1,214 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Components use only these (through the Tailwind theme below), never raw colours.
+ * Light is the default; dark applies when the OS prefers it (unless the user picked light) or the user picked dark.
+ * Text/background pairs meet WCAG AA. The brand orange #D4560C is too light for white button text (4.1:1), so buttons
+ * and links use --action (#B4470A, 5.5:1) and #D4560C / #F26A1B carry brand and highlight only.
+ */
+:root {
+  color-scheme: light;
+  --canvas: #faf7f2;
+  --surface: #ffffff;
+  --surface-2: #f3eee6;
+  --ink: #1f1611;
+  --ink-muted: #5c4f45;
+  --ink-subtle: #6e5f53;
+  --line: #e6ded3;
+  --line-strong: #d3c7b8;
+  --brand: #d4560c;
+  --highlight: #f26a1b;
+  --tint: #fff4ec;
+  --action: #b4470a;
+  --action-hover: #9a3c08;
+  --on-action: #ffffff;
+  --focus: #f26a1b;
+
+  --good-bg: #e7f4ea;
+  --good-fg: #1d6b33;
+  --warn-bg: #fdf1dc;
+  --warn-fg: #8a5300;
+  --bad-bg: #fbe7e4;
+  --bad-fg: #a3261a;
+  --neutral-bg: #efebe6;
+  --neutral-fg: #5c4f45;
+  --info-bg: #fff4ec;
+  --info-fg: #9a3c08;
+
+  --chart-1: #b4470a;
+  --chart-2: #8a7a6c;
+  --chart-3: #d9a066;
+  --chart-grid: #e6ded3;
+  --heat-0: #f3eee6;
+  --heat-1: #fde0c8;
+  --heat-2: #f9b483;
+  --heat-3: #ee8340;
+  --heat-4: #c4500c;
+
+  --shadow-card: 0 1px 2px rgb(31 22 17 / 0.04), 0 4px 16px rgb(31 22 17 / 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --canvas: #17110d;
+    --surface: #211913;
+    --surface-2: #2b211a;
+    --ink: #f5eee6;
+    --ink-muted: #cdbfb2;
+    --ink-subtle: #b3a395;
+    --line: #3a2e25;
+    --line-strong: #4d3e33;
+    --tint: #33231a;
+    --action: #f26a1b;
+    --action-hover: #ff8640;
+    --on-action: #1f1611;
+    --good-bg: #173220;
+    --good-fg: #8fd8a4;
+    --warn-bg: #3a2a10;
+    --warn-fg: #f2c46d;
+    --bad-bg: #3d1914;
+    --bad-fg: #f5a197;
+    --neutral-bg: #2f261f;
+    --neutral-fg: #cdbfb2;
+    --info-bg: #33231a;
+    --info-fg: #ffb07a;
+    --chart-1: #f26a1b;
+    --chart-2: #a89585;
+    --chart-3: #e3b07a;
+    --chart-grid: #3a2e25;
+    --heat-0: #2b211a;
+    --heat-1: #4a2c18;
+    --heat-2: #7a3f17;
+    --heat-3: #b85a1c;
+    --heat-4: #f2873f;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #17110d;
+  --surface: #211913;
+  --surface-2: #2b211a;
+  --ink: #f5eee6;
+  --ink-muted: #cdbfb2;
+  --ink-subtle: #b3a395;
+  --line: #3a2e25;
+  --line-strong: #4d3e33;
+  --tint: #33231a;
+  --action: #f26a1b;
+  --action-hover: #ff8640;
+  --on-action: #1f1611;
+  --good-bg: #173220;
+  --good-fg: #8fd8a4;
+  --warn-bg: #3a2a10;
+  --warn-fg: #f2c46d;
+  --bad-bg: #3d1914;
+  --bad-fg: #f5a197;
+  --neutral-bg: #2f261f;
+  --neutral-fg: #cdbfb2;
+  --info-bg: #33231a;
+  --info-fg: #ffb07a;
+  --chart-1: #f26a1b;
+  --chart-2: #a89585;
+  --chart-3: #e3b07a;
+  --chart-grid: #3a2e25;
+  --heat-0: #2b211a;
+  --heat-1: #4a2c18;
+  --heat-2: #7a3f17;
+  --heat-3: #b85a1c;
+  --heat-4: #f2873f;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--brand);
+  --color-highlight: var(--highlight);
+  --color-tint: var(--tint);
+  --color-action: var(--action);
+  --color-action-hover: var(--action-hover);
+  --color-on-action: var(--on-action);
+  --color-good-bg: var(--good-bg);
+  --color-good-fg: var(--good-fg);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-fg: var(--warn-fg);
+  --color-bad-bg: var(--bad-bg);
+  --color-bad-fg: var(--bad-fg);
+  --color-neutral-bg: var(--neutral-bg);
+  --color-neutral-fg: var(--neutral-fg);
+  --color-info-bg: var(--info-bg);
+  --color-info-fg: var(--info-fg);
+  --color-heat-0: var(--heat-0);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
+
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
+
+  --radius-card: 16px;
+  --radius-control: 10px;
+  --shadow-card: var(--shadow-card);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 16px;
+    line-height: 1.55;
+    overflow-x: hidden;
+  }
+  h1, h2, h3 {
+    line-height: 1.2;
+  }
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: var(--tint);
+    color: var(--ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes mn-pulse {
+  50% { opacity: 0.55; }
+}
+.skeleton {
+  background: var(--surface-2);
+  border-radius: 8px;
+  animation: mn-pulse 1.6s ease-in-out infinite;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; color: #000; }
+  .print-only { display: block !important; }
+  .card { box-shadow: none !important; break-inside: avoid; }
+}
+.print-only { display: none; }
