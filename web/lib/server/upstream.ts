@@ -1,60 +1,44 @@
 import 'server-only';
 import { getEnv } from '@/env';
-import { createRefresher, type RefreshOutcome } from './refresh';
-import type { TokenPair } from './cookies';
+import type { Tokens } from './session';
 
-export const API_PREFIX = '/api/v1';
+/** Upper bound for any call from the web server to the API. */
+const UPSTREAM_TIMEOUT_MS = 30_000;
 
-/** Thrown when the API cannot be reached at all (DNS, refused connection, timeout). */
-export class UpstreamUnreachableError extends Error {
-  constructor(cause: unknown) {
-    super('The Media Navigator API could not be reached');
-    this.name = 'UpstreamUnreachableError';
-    this.cause = cause;
-  }
-}
+export class UpstreamUnreachable extends Error {}
 
-export interface UpstreamRequest {
-  method: string;
-  /** Path below /api/v1, starting with "/". */
-  path: string;
-  search?: string;
-  headers?: Record<string, string>;
-  body?: ArrayBuffer | string;
-  accessToken?: string;
-}
-
-export async function callUpstream(r: UpstreamRequest): Promise<Response> {
-  const url = `${getEnv().apiBaseUrl}${API_PREFIX}${r.path}${r.search ?? ''}`;
-  const headers: Record<string, string> = { accept: 'application/json', ...r.headers };
-  if (r.accessToken) headers.authorization = `Bearer ${r.accessToken}`;
+export async function callApi(path: string, init: RequestInit & { accessToken?: string; requestId: string; userAgent?: string | null }): Promise<Response> {
+  const { accessToken, requestId, userAgent, headers, ...rest } = init;
+  const h = new Headers(headers);
+  h.set('x-request-id', requestId);
+  // So the "signed-in devices" list can say which browser a session belongs to.
+  if (userAgent) h.set('user-agent', userAgent);
+  if (accessToken) h.set('authorization', `Bearer ${accessToken}`);
   try {
-    return await fetch(url, { method: r.method, headers, body: r.body, redirect: 'manual', cache: 'no-store' });
-  } catch (err) {
-    throw new UpstreamUnreachableError(err);
+    return await fetch(`${getEnv().API_BASE_URL}/api/v1${path}`, { ...rest, headers: h, cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
+  } catch {
+    throw new UpstreamUnreachable('API unreachable');
   }
 }
 
-const tokenPair = (v: unknown): TokenPair | null => {
-  const t = v as Partial<TokenPair> | null | undefined;
-  return t && typeof t.accessToken === 'string' && typeof t.refreshToken === 'string' && typeof t.expiresIn === 'number' && typeof t.refreshExpiresIn === 'number'
-    ? { accessToken: t.accessToken, refreshToken: t.refreshToken, expiresIn: t.expiresIn, refreshExpiresIn: t.refreshExpiresIn }
-    : null;
-};
+// One refresh per refresh token at a time: refresh tokens rotate, so two parallel refreshes with the same token
+// would look like a replay and end the session.
+const inflight = new Map<string, Promise<Tokens | null>>();
 
-export function extractTokens(body: unknown): TokenPair | null {
-  const data = (body as { data?: { tokens?: unknown } } | null)?.data;
-  return tokenPair(data?.tokens);
+export function refreshTokens(refreshToken: string, requestId: string): Promise<Tokens | null> {
+  const existing = inflight.get(refreshToken);
+  if (existing) return existing;
+  const run = (async (): Promise<Tokens | null> => {
+    try {
+      const res = await callApi('/auth/refresh', { method: 'POST', requestId, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ refreshToken }) });
+      if (!res.ok) return null;
+      const json = (await res.json()) as { data?: { tokens?: Tokens } };
+      return json.data?.tokens ?? null;
+    } catch {
+      return null;
+    }
+  })();
+  inflight.set(refreshToken, run);
+  void run.finally(() => setTimeout(() => inflight.delete(refreshToken), 10_000));
+  return run;
 }
-
-/** Shared, single-flight refresh against POST /auth/refresh. */
-export const refreshTokens = createRefresher(async (refreshToken): Promise<RefreshOutcome> => {
-  const res = await callUpstream({
-    method: 'POST', path: '/auth/refresh',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
-  });
-  if (!res.ok) return { ok: false };
-  const tokens = extractTokens(await res.json().catch(() => null));
-  return tokens ? { ok: true, tokens } : { ok: false };
-});

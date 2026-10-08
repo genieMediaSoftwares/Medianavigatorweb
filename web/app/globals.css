@@ -1,214 +1,130 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
-/*
- * Design tokens. Components use only these (through the Tailwind theme below), never raw colours.
- * Light is the default; dark applies when the OS prefers it (unless the user picked light) or the user picked dark.
- * Text/background pairs meet WCAG AA. The brand orange #D4560C is too light for white button text (4.1:1), so buttons
- * and links use --action (#B4470A, 5.5:1) and #D4560C / #F26A1B carry brand and highlight only.
- */
+/* Design tokens sampled from the Media Navigator logo. Everything in the UI reads from these. */
 :root {
-  color-scheme: light;
-  --canvas: #faf7f2;
+  --ink: #021036;
+  --text: #021036;
+  --text-muted: #4a5470;
+  --text-subtle: #667089;
+  --brand-50: #eef5ff;
+  --brand-100: #dceaff;
+  --brand-200: #b9d5ff;
+  --brand-400: #18b8f8;
+  --brand-500: #0a84f5;
+  --brand-600: #0b5fe6;
+  --brand-700: #0a4cc2;
+  --brand-800: #0a2c8f;
   --surface: #ffffff;
-  --surface-2: #f3eee6;
-  --ink: #1f1611;
-  --ink-muted: #5c4f45;
-  --ink-subtle: #6e5f53;
-  --line: #e6ded3;
-  --line-strong: #d3c7b8;
-  --brand: #d4560c;
-  --highlight: #f26a1b;
-  --tint: #fff4ec;
-  --action: #b4470a;
-  --action-hover: #9a3c08;
-  --on-action: #ffffff;
-  --focus: #f26a1b;
-
-  --good-bg: #e7f4ea;
-  --good-fg: #1d6b33;
-  --warn-bg: #fdf1dc;
-  --warn-fg: #8a5300;
-  --bad-bg: #fbe7e4;
-  --bad-fg: #a3261a;
-  --neutral-bg: #efebe6;
-  --neutral-fg: #5c4f45;
-  --info-bg: #fff4ec;
-  --info-fg: #9a3c08;
-
-  --chart-1: #b4470a;
-  --chart-2: #8a7a6c;
-  --chart-3: #d9a066;
-  --chart-grid: #e6ded3;
-  --heat-0: #f3eee6;
-  --heat-1: #fde0c8;
-  --heat-2: #f9b483;
-  --heat-3: #ee8340;
-  --heat-4: #c4500c;
-
-  --shadow-card: 0 1px 2px rgb(31 22 17 / 0.04), 0 4px 16px rgb(31 22 17 / 0.05);
+  --surface-raised: #ffffff;
+  --app-bg: #f6f9fe;
+  --line: #e3eaf5;
+  --line-strong: #cdd8ea;
+  --good: #12a150;
+  --good-bg: #e7f7ee;
+  --warn: #b67a00;
+  --warn-bg: #fff4d6;
+  --bad: #d92d45;
+  --bad-bg: #fde8eb;
+  --shadow: 0 1px 2px rgba(2, 16, 54, 0.06), 0 8px 24px rgba(2, 16, 54, 0.05);
+  --shadow-pop: 0 4px 12px rgba(2, 16, 54, 0.08), 0 24px 48px rgba(2, 16, 54, 0.12);
+  --gradient: linear-gradient(135deg, #18b8f8 0%, #0b5fe6 55%, #0a2c8f 100%);
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    color-scheme: dark;
-    --canvas: #17110d;
-    --surface: #211913;
-    --surface-2: #2b211a;
-    --ink: #f5eee6;
-    --ink-muted: #cdbfb2;
-    --ink-subtle: #b3a395;
-    --line: #3a2e25;
-    --line-strong: #4d3e33;
-    --tint: #33231a;
-    --action: #f26a1b;
-    --action-hover: #ff8640;
-    --on-action: #1f1611;
-    --good-bg: #173220;
-    --good-fg: #8fd8a4;
-    --warn-bg: #3a2a10;
-    --warn-fg: #f2c46d;
-    --bad-bg: #3d1914;
-    --bad-fg: #f5a197;
-    --neutral-bg: #2f261f;
-    --neutral-fg: #cdbfb2;
-    --info-bg: #33231a;
-    --info-fg: #ffb07a;
-    --chart-1: #f26a1b;
-    --chart-2: #a89585;
-    --chart-3: #e3b07a;
-    --chart-grid: #3a2e25;
-    --heat-0: #2b211a;
-    --heat-1: #4a2c18;
-    --heat-2: #7a3f17;
-    --heat-3: #b85a1c;
-    --heat-4: #f2873f;
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
-  }
-}
-
-:root[data-theme="dark"] {
+:root[data-theme='dark'] {
+  --ink: #f2f6ff;
+  --text: #e8eefc;
+  --text-muted: #a6b3d1;
+  --text-subtle: #8795b8;
+  --brand-50: #0b1c45;
+  --brand-100: #0f2a63;
+  --brand-200: #17408f;
+  --brand-400: #35c4fa;
+  --brand-500: #3a97ff;
+  --brand-600: #4d8dff;
+  --brand-700: #7aa9ff;
+  --brand-800: #a9c6ff;
+  --surface: #081538;
+  --surface-raised: #0c1c47;
+  --app-bg: #04102e;
+  --line: #18285a;
+  --line-strong: #25397a;
+  --good: #3ddc84;
+  --good-bg: #0c2b1c;
+  --warn: #f2b84b;
+  --warn-bg: #33270a;
+  --bad: #ff6b81;
+  --bad-bg: #3a1220;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.45);
   color-scheme: dark;
-  --canvas: #17110d;
-  --surface: #211913;
-  --surface-2: #2b211a;
-  --ink: #f5eee6;
-  --ink-muted: #cdbfb2;
-  --ink-subtle: #b3a395;
-  --line: #3a2e25;
-  --line-strong: #4d3e33;
-  --tint: #33231a;
-  --action: #f26a1b;
-  --action-hover: #ff8640;
-  --on-action: #1f1611;
-  --good-bg: #173220;
-  --good-fg: #8fd8a4;
-  --warn-bg: #3a2a10;
-  --warn-fg: #f2c46d;
-  --bad-bg: #3d1914;
-  --bad-fg: #f5a197;
-  --neutral-bg: #2f261f;
-  --neutral-fg: #cdbfb2;
-  --info-bg: #33231a;
-  --info-fg: #ffb07a;
-  --chart-1: #f26a1b;
-  --chart-2: #a89585;
-  --chart-3: #e3b07a;
-  --chart-grid: #3a2e25;
-  --heat-0: #2b211a;
-  --heat-1: #4a2c18;
-  --heat-2: #7a3f17;
-  --heat-3: #b85a1c;
-  --heat-4: #f2873f;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.25);
 }
 
 @theme inline {
-  --color-canvas: var(--canvas);
-  --color-surface: var(--surface);
-  --color-surface-2: var(--surface-2);
   --color-ink: var(--ink);
-  --color-ink-muted: var(--ink-muted);
-  --color-ink-subtle: var(--ink-subtle);
+  --color-text: var(--text);
+  --color-muted: var(--text-muted);
+  --color-subtle: var(--text-subtle);
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-surface: var(--surface);
+  --color-raised: var(--surface-raised);
+  --color-app: var(--app-bg);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
-  --color-brand: var(--brand);
-  --color-highlight: var(--highlight);
-  --color-tint: var(--tint);
-  --color-action: var(--action);
-  --color-action-hover: var(--action-hover);
-  --color-on-action: var(--on-action);
+  --color-good: var(--good);
   --color-good-bg: var(--good-bg);
-  --color-good-fg: var(--good-fg);
+  --color-warn: var(--warn);
   --color-warn-bg: var(--warn-bg);
-  --color-warn-fg: var(--warn-fg);
+  --color-bad: var(--bad);
   --color-bad-bg: var(--bad-bg);
-  --color-bad-fg: var(--bad-fg);
-  --color-neutral-bg: var(--neutral-bg);
-  --color-neutral-fg: var(--neutral-fg);
-  --color-info-bg: var(--info-bg);
-  --color-info-fg: var(--info-fg);
-  --color-heat-0: var(--heat-0);
-  --color-heat-1: var(--heat-1);
-  --color-heat-2: var(--heat-2);
-  --color-heat-3: var(--heat-3);
-  --color-heat-4: var(--heat-4);
-
-  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-newsreader), ui-serif, Georgia, serif;
-
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
   --radius-card: 16px;
-  --radius-control: 10px;
-  --shadow-card: var(--shadow-card);
+  --shadow-card: var(--shadow);
+  --shadow-pop: var(--shadow-pop);
 }
 
 @layer base {
-  html {
-    -webkit-text-size-adjust: 100%;
-  }
-  body {
-    background: var(--canvas);
-    color: var(--ink);
-    font-family: var(--font-sans);
-    font-size: 16px;
-    line-height: 1.55;
-    overflow-x: hidden;
-  }
-  h1, h2, h3 {
-    line-height: 1.2;
-  }
-  :focus-visible {
-    outline: 3px solid var(--focus);
-    outline-offset: 2px;
-    border-radius: 6px;
-  }
-  ::selection {
-    background: var(--tint);
-    color: var(--ink);
-  }
+  html { -webkit-text-size-adjust: 100%; }
+  body { background: var(--app-bg); color: var(--text); font-family: var(--font-sans); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { text-wrap: balance; }
+  h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink); letter-spacing: -0.02em; font-weight: 700; line-height: 1.18; }
+  :focus-visible { outline: 3px solid var(--brand-500); outline-offset: 2px; border-radius: 8px; }
+  ::selection { background: var(--brand-200); color: var(--ink); }
+  button, [role='button'] { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  .tabular { font-variant-numeric: tabular-nums; }
 }
+
+@layer components {
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow); }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-subtle); }
+  .skeleton { background: linear-gradient(90deg, var(--brand-50) 25%, var(--brand-100) 37%, var(--brand-50) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 12px; }
+  .grad-text { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .custom-scroll { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+}
+
+@keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.animate-rise { animation: rise 0.2s ease both; }
+.animate-fade { animation: fade 0.15s ease both; }
+.animate-slide-in { animation: slide-in 0.2s ease both; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-@keyframes mn-pulse {
-  50% { opacity: 0.55; }
-}
-.skeleton {
-  background: var(--surface-2);
-  border-radius: 8px;
-  animation: mn-pulse 1.6s ease-in-out infinite;
+  *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; scroll-behavior: auto !important; }
 }
 
 @media print {
-  .no-print { display: none !important; }
-  body { background: #fff; color: #000; }
-  .print-only { display: block !important; }
-  .card { box-shadow: none !important; break-inside: avoid; }
+  aside, header, nav, .no-print { display: none !important; }
+  body { background: #fff; }
+  .card { box-shadow: none; break-inside: avoid; }
 }
-.print-only { display: none; }

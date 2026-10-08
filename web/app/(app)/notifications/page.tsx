@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { NotificationsView } from './NotificationsView';
+import { NotificationsView } from '@/components/settings/notifications-view';
 
 export const metadata: Metadata = { title: 'Notifications' };
 

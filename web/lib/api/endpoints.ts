@@ -1,104 +1,91 @@
-/** One typed function per API endpoint used by the web app (docs/api.md). */
-import { api, apiPage, apiVoid } from './client';
-import * as s from './schemas';
-import type { Platform, Weekday } from '@/types/api';
+import type {
+  AdminAuditEntry, AdminConnection, AdminSystem, AnalyzeItemResult, AskResult, CompareResult, Connection, ConnectInput, ConnectResult, DiagnosePostResult,
+  FileItem, HistoryPoint, IntelligenceStatus, MediaItem, MeResponse, NotificationItem, Overview, PageMeta, PatternRow, PerformerSort, PerformersResponse, Platform,
+  PlannedItem, PlannerInsights, Profile, RecommendationsResponse, SessionInfo, SignalsResponse, Summary, SyncResult, SyncRun, Timing, TrendsResponse, User,
+  VideoAnalysisResult, Weekday,
+} from '@/types/api';
+import { apiGet, apiRequest, apiSend } from './client';
 
-const enc = encodeURIComponent;
-
-export const authApi = {
-  login: (body: { email: string; password: string }) => api('/auth/login', s.signInResultSchema, { method: 'POST', body, signOutOn401: false }),
-  register: (body: { email: string; password: string; fullName: string; organization?: string; accountType?: string }) =>
-    api('/auth/register', s.signInResultSchema, { method: 'POST', body, signOutOn401: false }),
-  logout: () => apiVoid('/auth/logout', { method: 'POST', signOutOn401: false }),
-  logoutAll: () => apiVoid('/auth/logout-all', { method: 'POST', signOutOn401: false }),
-  me: () => api('/auth/me', s.meSchema),
-  changePassword: (body: { currentPassword: string; newPassword: string }) =>
-    apiVoid('/auth/change-password', { method: 'POST', body, signOutOn401: false }),
-  forgotPassword: (body: { email: string }) => apiVoid('/auth/forgot-password', { method: 'POST', body, signOutOn401: false }),
-  resetPassword: (body: { token: string; newPassword: string }) => apiVoid('/auth/reset-password', { method: 'POST', body, signOutOn401: false }),
+export interface Page<T> { items: T[]; nextCursor: string | null; total?: number }
+const page = async <T>(path: string, query: Record<string, string | number | undefined>): Promise<Page<T>> => {
+  const { data, meta } = await apiRequest<T[]>(path, { query });
+  const m: PageMeta | undefined = meta;
+  return { items: data, nextCursor: m?.nextCursor ?? null, total: m?.total };
 };
 
-export type ProfilePatch = { fullName?: string; organization?: string; accountType?: string; timezone?: string; onboardingCompleted?: boolean };
+export const api = {
+  // auth
+  login: (b: { email: string; password: string }) => apiSend<{ user: User }>('POST', '/auth/login', b),
+  register: (b: { email: string; password: string; fullName: string; organization?: string; accountType?: string }) => apiSend<{ user: User; profile: Profile }>('POST', '/auth/register', b),
+  logout: () => apiSend<unknown>('POST', '/auth/logout'),
+  logoutAll: () => apiSend<unknown>('POST', '/auth/logout-all'),
+  me: () => apiGet<MeResponse>('/auth/me'),
+  changePassword: (b: { currentPassword: string; newPassword: string }) => apiSend<unknown>('POST', '/auth/change-password', b),
+  forgotPassword: (b: { email: string }) => apiSend<unknown>('POST', '/auth/forgot-password', b),
+  resetPassword: (b: { token: string; newPassword: string }) => apiSend<unknown>('POST', '/auth/reset-password', b),
 
-export const usersApi = {
-  updateProfile: (body: ProfilePatch) => api('/profiles/me', s.profileUpdateResultSchema, { method: 'PATCH', body }),
-  sessions: () => api('/users/me/sessions', s.sessionsSchema),
-  revokeSession: (id: string) => apiVoid(`/users/me/sessions/${enc(id)}`, { method: 'DELETE' }),
-  deleteAccount: (password: string) => apiVoid('/users/me', { method: 'DELETE', body: { password }, signOutOn401: false }),
-};
+  // profile & sessions
+  updateProfile: (b: Partial<{ fullName: string; organization: string; accountType: string; timezone: string; onboardingCompleted: boolean }>) => apiSend<{ profile: Profile }>('PATCH', '/profiles/me', b),
+  sessions: () => apiGet<{ sessions: SessionInfo[] }>('/users/me/sessions'),
+  revokeSession: (id: string) => apiSend<unknown>('DELETE', `/users/me/sessions/${encodeURIComponent(id)}`),
+  deleteAccount: (password: string) => apiSend<unknown>('DELETE', '/users/me', { password }),
 
-export type ConnectBody = {
-  accessToken?: string; apiKey?: string; accountId?: string; pageId?: string; channelId?: string; channelQuery?: string; organizationId?: string;
-};
+  // connections
+  connections: () => apiGet<Connection[]>('/connections'),
+  startOAuth: (p: Platform) => apiSend<{ authorizeUrl: string }>('POST', `/connections/${p}/oauth/start`),
+  connect: (p: Platform, b: ConnectInput) => apiSend<ConnectResult>('POST', `/connections/${p}/connect`, b),
+  sync: (p: Platform) => apiSend<SyncResult>('POST', `/connections/${p}/sync`),
+  syncAll: () => apiSend<{ syncRuns: SyncRun[] }>('POST', '/connections/sync-all'),
+  syncRun: (id: string) => apiGet<SyncRun>(`/connections/sync-runs/${encodeURIComponent(id)}`),
+  disconnect: (p: Platform) => apiSend<unknown>('POST', `/connections/${p}/disconnect`),
 
-export const connectionsApi = {
-  list: () => api('/connections', s.connectionsSchema),
-  oauthStart: (p: Platform) => api(`/connections/${p}/oauth/start`, s.oauthStartSchema, { method: 'POST' }),
-  connect: (p: Platform, body: ConnectBody) => api(`/connections/${p}/connect`, s.connectResultSchema, { method: 'POST', body }),
-  sync: (p: Platform) => api(`/connections/${p}/sync`, s.syncResultSchema, { method: 'POST' }),
-  syncAll: () => api('/connections/sync-all', s.syncAllResultSchema, { method: 'POST' }),
-  syncRun: (id: string) => api(`/connections/sync-runs/${enc(id)}`, s.syncRunSchema),
-  disconnect: (p: Platform) => apiVoid(`/connections/${p}/disconnect`, { method: 'POST' }),
-};
+  // media
+  media: (q: { platform?: Platform | 'all'; limit?: number; cursor?: string }) => page<MediaItem>('/media', { platform: q.platform, limit: q.limit, cursor: q.cursor }),
+  mediaItem: (id: string) => apiGet<MediaItem>(`/media/${encodeURIComponent(id)}`),
 
-export const mediaApi = {
-  page: (q: { platform?: Platform; cursor?: string; limit: number }) => apiPage('/media', s.mediaSchema, { query: q }),
-  get: (id: string) => api(`/media/${enc(id)}`, s.mediaSchema),
-};
+  // intelligence
+  summary: (q: { platform?: Platform; days: number }) => apiGet<Summary>('/intelligence/summary', q),
+  history: (q: { platform?: Platform; limit?: number }) => apiGet<HistoryPoint[]>('/intelligence/history', q),
+  overview: () => apiGet<Overview>('/intelligence/overview'),
+  timing: () => apiGet<Timing>('/intelligence/timing'),
+  signals: () => apiGet<SignalsResponse>('/intelligence/signals'),
+  performers: (sortBy: PerformerSort) => apiGet<PerformersResponse>('/intelligence/performers', { sortBy }),
+  patterns: () => apiGet<PatternRow[]>('/intelligence/patterns'),
+  recommendations: () => apiGet<RecommendationsResponse>('/intelligence/recommendations'),
+  trends: () => apiGet<TrendsResponse>('/intelligence/trends'),
+  intelligenceStatus: () => apiGet<IntelligenceStatus>('/intelligence/status'),
+  ask: (question: string) => apiSend<AskResult>('POST', '/intelligence/ask', { question }),
+  analyzeItem: (mediaId: string) => apiSend<AnalyzeItemResult>('POST', '/intelligence/analyze-item', { mediaId }),
+  diagnosePost: (mediaId: string) => apiSend<DiagnosePostResult>('POST', '/intelligence/diagnose-post', { mediaId }),
+  analyzeVideo: (mediaId: string) => apiSend<VideoAnalysisResult>('POST', '/intelligence/analyze-video', { mediaId }),
+  compare: (mediaIdA: string, mediaIdB: string) => apiSend<CompareResult>('POST', '/intelligence/compare', { mediaIdA, mediaIdB }),
 
-export const intelligenceApi = {
-  status: () => api('/intelligence/status', s.statusSchema),
-  overview: () => api('/intelligence/overview', s.overviewSchema),
-  summary: (q: { platform?: Platform; days: number }) => api('/intelligence/summary', s.summarySchema, { query: q }),
-  history: (q: { platform?: Platform; from?: string; to?: string; limit: number }) => api('/intelligence/history', s.historySchema, { query: q }),
-  timing: () => api('/intelligence/timing', s.timingSchema),
-  patterns: () => api('/intelligence/patterns', s.patternsSchema),
-  archive: () => api('/intelligence/archive-audit', s.archiveSchema),
-  recommendations: () => api('/intelligence/recommendations', s.recommendationsSchema),
-  trends: () => api('/intelligence/trends', s.trendsSchema),
-  ask: (question: string) => api('/intelligence/ask', s.askResultSchema, { method: 'POST', body: { question } }),
-  diagnose: (mediaId: string) => api('/intelligence/diagnose-post', s.diagnosisSchema, { method: 'POST', body: { mediaId } }),
-  analyzeVideo: (mediaId: string) => api('/intelligence/analyze-video', s.videoAnalysisSchema, { method: 'POST', body: { mediaId } }),
-  compare: (mediaIdA: string, mediaIdB: string) => api('/intelligence/compare', s.compareSchema, { method: 'POST', body: { mediaIdA, mediaIdB } }),
-};
+  // planner
+  planner: () => apiGet<PlannedItem[]>('/planner'),
+  plannerInsights: () => apiGet<PlannerInsights>('/planner/insights'),
+  addPlanned: (b: { day: Weekday; time: string; platform: Platform; contentType?: string; title: string }) => apiSend<PlannedItem>('POST', '/planner', b),
+  removePlanned: (id: string) => apiSend<unknown>('DELETE', `/planner/${encodeURIComponent(id)}`),
+  planRecommendation: (id: string, slot?: { day?: string; time?: string }) => apiSend<unknown>('POST', `/recommendations/${encodeURIComponent(id)}/plan`, slot ?? {}),
 
-export const plannerApi = {
-  list: () => api('/planner', s.plannerSchema),
-  insights: () => api('/planner/insights', s.plannerInsightsSchema),
-  add: (body: { day: Weekday; time: string; platform: Platform; contentType?: string; title: string }) =>
-    api('/planner', s.plannedItemSchema, { method: 'POST', body }),
-  remove: (id: string) => apiVoid(`/planner/${enc(id)}`, { method: 'DELETE' }),
-  planRecommendation: (id: string, body: { day?: Weekday; time?: string }) =>
-    api(`/recommendations/${enc(id)}/plan`, s.plannedItemSchema, { method: 'POST', body }),
-};
+  // notifications
+  notifications: (q: { cursor?: string; unreadOnly?: boolean } = {}) => page<NotificationItem>('/notifications', { cursor: q.cursor, limit: 25, unreadOnly: q.unreadOnly ? 'true' : undefined }),
+  unreadCount: () => apiGet<{ unread: number }>('/notifications/unread-count'),
+  markRead: (id: string) => apiSend<unknown>('POST', `/notifications/${encodeURIComponent(id)}/read`),
+  markAllRead: () => apiSend<unknown>('POST', '/notifications/read-all'),
 
-export const notificationsApi = {
-  page: (q: { cursor?: string; limit: number; unreadOnly?: boolean }) => apiPage('/notifications', s.notificationSchema, { query: q }),
-  unreadCount: () => api('/notifications/unread-count', s.unreadCountSchema),
-  markRead: (id: string) => api(`/notifications/${enc(id)}/read`, s.notificationSchema, { method: 'POST' }),
-  markAllRead: () => apiVoid('/notifications/read-all', { method: 'POST' }),
-  dismissAlert: (id: string) => apiVoid(`/alerts/${enc(id)}/dismiss`, { method: 'POST' }),
-};
+  // files
+  files: (q: { cursor?: string } = {}) => page<FileItem>('/files', { cursor: q.cursor, limit: 25 }),
+  file: (id: string) => apiGet<FileItem>(`/files/${encodeURIComponent(id)}`),
+  uploadFile: (file: File, purpose: string) => { const f = new FormData(); f.append('purpose', purpose); f.append('file', file); return apiRequest<FileItem>('/files', { method: 'POST', body: f }).then((r) => r.data); },
+  deleteFile: (id: string) => apiSend<unknown>('DELETE', `/files/${encodeURIComponent(id)}`),
 
-export const filesApi = {
-  page: (q: { cursor?: string; limit: number }) => apiPage('/files', s.fileSchema, { query: q }),
-  upload: (file: File, purpose: 'avatar' | 'media' | 'document') => {
-    const form = new FormData();
-    form.set('purpose', purpose);
-    form.set('file', file);
-    return api('/files', s.fileSchema, { method: 'POST', body: form });
-  },
-  access: (id: string) => api(`/files/${enc(id)}`, s.fileAccessSchema),
-  remove: (id: string) => apiVoid(`/files/${enc(id)}`, { method: 'DELETE' }),
-};
-
-export const adminApi = {
-  system: () => api('/admin/system', s.adminSystemSchema),
-  users: (q: { cursor?: string; limit: number; search?: string }) => apiPage('/admin/users', s.userSchema, { query: q }),
-  setRole: (id: string, role: 'user' | 'admin') => api(`/admin/users/${enc(id)}/role`, s.userSchema, { method: 'PATCH', body: { role } }),
-  setStatus: (id: string, status: 'active' | 'disabled') => api(`/admin/users/${enc(id)}/status`, s.userSchema, { method: 'PATCH', body: { status } }),
-  connections: (q: { cursor?: string; limit: number; status?: string; platform?: Platform }) => apiPage('/admin/connections', s.adminAccountSchema, { query: q }),
-  syncConnection: (id: string) => api(`/admin/connections/${enc(id)}/sync`, s.syncResultSchema, { method: 'POST' }),
-  syncRuns: (q: { cursor?: string; limit: number; status?: string; platform?: Platform }) => apiPage('/admin/sync-runs', s.syncRunSchema, { query: q }),
-  audit: (q: { cursor?: string; limit: number; action?: string }) => apiPage('/admin/audit-logs', s.auditEntrySchema, { query: q }),
+  // admin
+  adminSystem: () => apiGet<AdminSystem>('/admin/system'),
+  adminUsers: (q: { cursor?: string; search?: string }) => page<User>('/admin/users', { limit: 25, cursor: q.cursor, search: q.search }),
+  adminSetRole: (id: string, role: 'user' | 'admin') => apiSend<User>('PATCH', `/admin/users/${encodeURIComponent(id)}/role`, { role }),
+  adminSetStatus: (id: string, status: 'active' | 'disabled') => apiSend<User>('PATCH', `/admin/users/${encodeURIComponent(id)}/status`, { status }),
+  adminConnections: (q: { cursor?: string }) => page<AdminConnection>('/admin/connections', { limit: 25, cursor: q.cursor }),
+  adminSyncConnection: (id: string) => apiSend<{ alreadyQueued: boolean }>('POST', `/admin/connections/${encodeURIComponent(id)}/sync`),
+  adminSyncRuns: (q: { cursor?: string }) => page<SyncRun>('/admin/sync-runs', { limit: 25, cursor: q.cursor }),
+  adminAudit: (q: { cursor?: string }) => page<AdminAuditEntry>('/admin/audit-logs', { limit: 25, cursor: q.cursor }),
 };
