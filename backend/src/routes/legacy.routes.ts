@@ -9,7 +9,7 @@ import { syncLimiter } from '../middleware/rateLimit.js';
 import { connections as cv, planner as pv, notifications as nv } from '../validators/index.js';
 
 /**
- * Compatibility paths used by the existing web client (/api/v1/workspaces, /analytics/overview, /timing, /trends, ...).
+ * Compatibility paths kept for older clients (/api/v1/workspaces, /analytics/overview, /timing, /trends, ...).
  * They call the same controllers as the canonical resource routes, and they are authenticated like everything else.
  */
 export const legacyRouter = Router();
