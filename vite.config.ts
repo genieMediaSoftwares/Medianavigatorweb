@@ -1,27 +1,31 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import fs from 'fs';
 import { defineConfig, loadEnv } from 'vite';
 
-/** In development the API runs from backend/ — read its port from backend/.env (the only env file) so no frontend env is needed. */
-function localApiTarget(): string | undefined {
-  try {
-    const m = fs.readFileSync(path.resolve(__dirname, 'backend/.env'), 'utf8').match(/^\s*SERVER_PORT\s*=\s*(\d+)\s*$/m);
-    return m ? `http://localhost:${m[1]}` : undefined;
-  } catch { return undefined; }
-}
-
-/** Forward /api to the local backend (VITE_DEV_API_PROXY overrides the target). */
-const devProxy = (env: Record<string, string>) => { const target = env.VITE_DEV_API_PROXY || localApiTarget(); return target ? { '/api': { target, changeOrigin: true } } : undefined; };
-
-export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), 'VITE_');
+/**
+ * The web app is configured only through backend/.env, the project's single env file.
+ * Only variables prefixed VITE_ are exposed to the browser; backend secrets never are.
+ *   VITE_API_BASE_URL  where the API lives (required)
+ *   VITE_DEV_PORT      port for `npm run dev` / `npm run preview` (required for those commands)
+ */
+export default defineConfig(({ mode, command }) => {
+  const envDir = path.resolve(__dirname, 'backend');
+  const env = loadEnv(mode, envDir, 'VITE_');
+  const need = (name: string) => {
+    const v = env[name];
+    if (!v) throw new Error(`${name} is not set in backend/.env`);
+    return v;
+  };
+  const serving = command === 'serve' || process.argv.includes('preview');
+  const port = serving ? Number(need('VITE_DEV_PORT')) : undefined;
+  if (serving && !Number.isInteger(port)) throw new Error('VITE_DEV_PORT must be a whole number');
+  need('VITE_API_BASE_URL');
   return {
+    envDir,
     plugins: [react(), tailwindcss()],
     resolve: { alias: { '@': path.resolve(__dirname, '.') } },
-    server: { proxy: devProxy(env) },
-    // `vite preview` serves the production build; it needs the same /api forwarding.
-    preview: { proxy: devProxy(env) },
+    server: { port, strictPort: true },
+    preview: { port, strictPort: true },
   };
 });

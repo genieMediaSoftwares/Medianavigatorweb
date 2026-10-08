@@ -14,7 +14,7 @@ const LOGO: Record<PlatformType, React.ReactNode> = { instagram: <InstagramLogo 
 export const Onboarding: React.FC = () => {
   const { user, setUser, setAppView, setCurrentTab, connections, refreshConnections } = useMedia();
   const [step, setStep] = useState<1 | 2>(1);
-  const detected = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } })();
+  const detected = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { return ''; } })();
   const [organization, setOrganization] = useState(user.organization || '');
   const [accountType, setAccountType] = useState<string>(user.accountType || 'Creator');
   const [timezone, setTimezone] = useState(detected);
@@ -56,12 +56,12 @@ export const Onboarding: React.FC = () => {
                 <div><label htmlFor="o-org" className="text-sm font-semibold block mb-1.5">Brand or organization <span className="text-muted font-normal">(optional)</span></label><input id="o-org" className="input" maxLength={160} value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="e.g. Studio North" /></div>
                 <div><label htmlFor="o-type" className="text-sm font-semibold block mb-1.5">I am a</label><select id="o-type" className="input" value={accountType} onChange={(e) => setAccountType(e.target.value)}>{ACCOUNT_TYPES.map((t) => <option key={t}>{t}</option>)}</select></div>
                 <div><label htmlFor="o-tz" className="text-sm font-semibold block mb-1.5 flex items-center gap-1.5"><Globe className="w-4 h-4 text-muted" />Timezone</label>
-                  <input id="o-tz" className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)} list="tz-list" />
+                  <input id="o-tz" required className="input" value={timezone} onChange={(e) => setTimezone(e.target.value)} list="tz-list" />
                   <datalist id="tz-list">{(() => { try { return (Intl as unknown as { supportedValuesOf: (k: string) => string[] }).supportedValuesOf('timeZone').map((z) => <option key={z} value={z} />); } catch { return null; } })()}</datalist>
-                  <p className="text-xs text-muted mt-1.5">We detected this from your browser. It decides which hours count as “morning” or “evening” for your best posting times.</p></div>
+                  <p className="text-xs text-muted mt-1.5">Detected from your browser; choose yours if it is empty. It decides which hours count as “morning” or “evening” for your best posting times.</p></div>
               </div>
               {error && <p role="alert" className="mt-5 rounded-xl bg-rose-50 border border-rose-100 text-sm text-rose-900 p-3">{error}</p>}
-              <button className="btn btn-primary btn-lg w-full mt-8" disabled={saving}>{saving ? <Loader2 className="w-5 h-5 animate-spin" /> : null}Continue<ArrowRight className="w-5 h-5" /></button>
+              <button className="btn btn-primary btn-lg w-full mt-8" disabled={saving || !timezone.trim()}>{saving ? <Loader2 className="w-5 h-5 animate-spin" /> : null}Continue<ArrowRight className="w-5 h-5" /></button>
             </form>
           ) : (
             <div className="animate-fade-up">
