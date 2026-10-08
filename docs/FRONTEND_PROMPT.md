@@ -48,9 +48,45 @@ Product promise: *"Don't make users navigate their media. Let Media Navigator na
 - **Consistent patterns:** one card style, one button set, one badge set, one empty-state component, one confirm dialog, one toast style. Fast, with optimistic UI where safe.
 - **Navigation is small:** at most 7 items (section 5). Anything else lives inside a page as a tab.
 
-## 4. Visual direction
+## 4. Brand and visual direction (match the logo exactly)
 
-Warm, calm and friendly. Cream canvas (`#FAF7F2`), warm near-black ink (`#1F1611`), a single orange brand colour (buttons and links `#D4560C`, highlight `#F26A1B`, tint `#FFF4EC`), generous spacing, rounded cards (16px) with a hairline border and soft shadow, a serif display face for headlines (Newsreader) and a clean sans for UI (Plus Jakarta Sans), loaded with `next/font`. Platform logos in their real brand colours. Define everything as tokens; support light and dark themes (`prefers-color-scheme` plus a toggle). Charts use a restrained palette with direct labels and an accessible description. Smooth, subtle motion only.
+The official logo is `docs/brand/logo.jpg`: a blue gradient "M" with a navigation arrow, three social icons orbiting it, the wordmark **MEDIA** in deep navy over **NAVIGATOR** in bright blue, and the tagline **CONNECT · ANALYZE · IMPROVE · GROW**. The whole UI must feel like it belongs to that logo: clean, modern, confident blue on white.
+
+**Logo usage.** Export the mark (the "M" with the arrow) and the full horizontal lockup as SVG from the supplied artwork (ask the owner for the vector file; do not redraw it approximately and do not use the JPG on screen if an SVG exists). Use the **mark alone** in the collapsed sidebar, favicon, app icon and loading states; use the **full lockup** on the landing header, sign-in and sign-up pages and the footer. Keep clear space equal to the height of the "M" stem, never stretch, recolour or add effects, and on dark backgrounds use a white version of the wordmark with the same blue mark. Wordmark text in the product is "Media" (navy) + "Navigator" (blue), set in the same bold geometric sans as the logo.
+
+**Colour tokens (sampled from the logo).**
+
+| Token | Hex | Use |
+|---|---|---|
+| `--ink` / navy | `#021036` | headings, "MEDIA" colour, primary text |
+| `--text-muted` | `#303848` | tagline and secondary text (use a lighter tint `#5B6478` for captions, check AA) |
+| `--brand-600` | `#0B5FE6` | primary buttons, links, active nav, "NAVIGATOR" colour |
+| `--brand-500` | `#0A84F5` | hover, focus ring, charts primary |
+| `--brand-400` | `#18B8F8` | the cyan highlight of the mark: accents, gradients, progress |
+| `--brand-800` | `#0A2C8F` | pressed state, deep gradient end |
+| `--brand-50` / `--brand-100` | `#EEF5FF` / `#DCEAFF` | tinted backgrounds, selected rows, badges |
+| `--canvas` | `#FFFFFF` with `#F6F9FE` for app background | page and card surfaces |
+| `--line` | `#E3EAF5` | hairline borders |
+| Semantic | green `#12A150`, amber `#E8A100`, red `#E5384F` | good / caution / problem only |
+
+Primary gradient (buttons, hero accents, the active-nav indicator): `linear-gradient(135deg, #18B8F8 0%, #0B5FE6 55%, #0A2C8F 100%)`, used sparingly. Platform logos keep their own brand colours (Instagram gradient, YouTube red, Facebook and LinkedIn blue); keep them small inside neutral tiles so they do not fight the brand blue. Do **not** use orange anywhere.
+
+**Typography.** Bold geometric sans matching the wordmark (for example **Plus Jakarta Sans** or **Outfit** via `next/font`) for headings, in navy, with tight tracking; a neutral readable sans (Inter or the same family at regular weight) for body; tabular numbers for metrics. Tagline and small labels in uppercase with wide letter-spacing, like the logo's "CONNECT · ANALYZE · IMPROVE · GROW".
+
+**Layout and alignment rules (strict).**
+- A 4px base grid; spacing scale 4/8/12/16/24/32/48. Page content max-width 1200px; a consistent 24px gutter (16px on phones).
+- Every page uses the same skeleton: page title (32px, navy) and one-line subtitle on the left, primary action on the right on the same baseline; then content in a 12-column grid. Cards share one radius (16px), one border (`--line`) and one soft shadow (`0 1px 2px rgba(2,16,54,.06), 0 8px 24px rgba(2,16,54,.05)`).
+- Align text and controls to the same left edge; icons are 20px in 40px tiles; buttons are 44px tall (40px compact); inputs 44px. Numbers right-aligned in tables, text left-aligned. Equal heights for cards in a row; no orphan cards; consistent vertical rhythm (32px between sections).
+- Sidebar 264px (collapsed 72px) with the logo mark at top-left, nav items 44px tall with a blue pill for the active item, account card pinned to the bottom; top bar 72px with the same horizontal padding as the content.
+- Responsive from 360px: sidebar becomes a drawer plus bottom tab bar; grids collapse 4 → 2 → 1 columns; tables become cards; no horizontal scroll.
+
+**Posts must always render well.** The post card and library grid are the most visible part of the product, so they must be pixel-tidy and never look broken:
+- Fixed aspect-ratio thumbnail (4:5 for Instagram/Facebook/LinkedIn, 16:9 for YouTube) using `next/image` with `fill` and `object-cover`; **if `thumbnailUrl` is missing or fails to load, show a neutral tile with the platform logo and format icon**, never a broken image or an invented photo.
+- Provider image URLs can expire: handle `onError` by switching to the neutral tile, and add a small "Image unavailable" tooltip.
+- Card layout is identical for every post: thumbnail on top, platform + format badges overlaid at the top-left, title (2 lines, ellipsis), date, a row of three metrics (views, likes, comments) with icons and tabular numbers, the engagement rate, and the performance tag. Metrics the API marks unavailable show "N/A" with a tooltip, never 0.
+- The grid is `repeat(auto-fill, minmax(260px, 1fr))` with 24px gaps; skeleton cards with the same dimensions while loading, so the layout does not jump. Virtualise or paginate long lists.
+
+Support light and dark themes (dark navy `#04102E` surfaces with the same blues). Charts (Recharts) use brand-600 as the primary series, brand-400 as the secondary, a neutral for baselines, direct labels, and an accessible text summary. Subtle motion only (150–200ms), respecting `prefers-reduced-motion`.
 
 ## 5. Information architecture (simplified)
 
