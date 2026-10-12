@@ -52,6 +52,14 @@ export const intelligence = {
   item: z.object({ mediaId: z.string().min(1).max(200) }).strict(),
   diagnose: z.object({ mediaId: z.string().min(1).max(200), forcedStatus: z.enum(['working', 'underperforming', 'average']).optional() }).strict(),
   compare: z.object({ mediaIdA: z.string().min(1).max(200), mediaIdB: z.string().min(1).max(200) }).strict(),
+  contentAnalysis: z.object({
+    mediaId: z.string().min(1).max(200),
+    type: z.enum(['deep', 'why_top', 'why_bottom']),
+    reanalyze: z.boolean().optional(),
+    /** Position in the list the user came from, e.g. "#2 of 18 by views". Context only. */
+    rank: z.string().max(80).optional(),
+  }).strict(),
+  contentAnalysisQuery: z.object({ mediaId: z.string().min(1).max(200), type: z.enum(['deep', 'why_top', 'why_bottom']) }).strict(),
 };
 
 export const planner = {

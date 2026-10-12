@@ -4,7 +4,7 @@ Every client (website, React Native, admin) uses the same endpoints.
 
 **Envelope.** Success: `{ "success": true, "data": … , "meta"?: { "limit", "nextCursor", "total"? } }`.
 Error: `{ "success": false, "error": { "code", "message", "details"? } }`.
-Codes → HTTP: `BAD_REQUEST` 400 · `UNAUTHORIZED` 401 · `FORBIDDEN` 403 · `NOT_FOUND` 404 · `CONFLICT` 409 · `PAYLOAD_TOO_LARGE` 413 · `VALIDATION_ERROR` 422 · `RATE_LIMITED` 429 · `INTERNAL_ERROR` 500 · `PROVIDER_ERROR` 502 · `SERVICE_UNAVAILABLE` 503.
+Codes → HTTP: `BAD_REQUEST` 400 · `UNAUTHORIZED` 401 · `FORBIDDEN` 403 · `NOT_FOUND` 404 · `CONFLICT` 409 · `PAYLOAD_TOO_LARGE` 413 · `VALIDATION_ERROR` 422 · `RATE_LIMITED` 429 · `INTERNAL_ERROR` 500 · `PROVIDER_ERROR` 502 · `SERVICE_UNAVAILABLE` 503 · `MEDIA_UNAVAILABLE` 422 (the post's real media could not be obtained, e.g. Instagram withholds the file for some reels; no content analysis is produced from numbers alone).
 **Auth.** `Authorization: Bearer <accessToken>`. **Pagination.** `?limit=&cursor=` (cursor from `meta.nextCursor`). Every response carries `X-Request-Id`; send one to correlate logs.
 **Unknown fields are rejected (422)**, including any client-supplied `userId`.
 
@@ -72,6 +72,8 @@ Sync run statuses: `queued`, `running`, `succeeded`, `partial` (incomplete provi
 | `POST /intelligence/diagnose-post` | user, AI-limited | `{mediaId, forcedStatus?}` → diagnosis with `measured`, `calculated`, `ai`, `limitations` |
 | `POST /intelligence/analyze-video` | user, AI-limited | `{mediaId}` → qualitative hook/caption assessment + `unavailable[]` (no retention/hook-score is ever invented) |
 | `POST /intelligence/compare` | user | `{mediaIdA, mediaIdB}` → deterministic side-by-side |
+| `POST /intelligence/content-analysis` | user, AI-limited | `{mediaId, type: deep\|why_top\|why_bottom, reanalyze?, rank?}` → saved six-point analysis over the real media (fetched automatically: Instagram full video with audio, full image, or every carousel slide in order; YouTube public video. A video whose file cannot be obtained returns `MEDIA_UNAVAILABLE` instead of a cover-image or numbers-only analysis) plus live metrics, comparison, `mediaBasis`, `analyzedAt`, `fromCache`, `stale`, `refreshError?`. Returns the saved result unless the post's data changed materially, it is older than `CONTENT_ANALYSIS_STALE_HOURS`, or `reanalyze` is set. A failed refresh keeps the previous result |
+| `GET /intelligence/content-analysis?mediaId=&type=` | user | the saved analysis only (or `null`), never generates |
 
 `ai.status`: `ran` · `cached` · `unavailable` (not configured) · `failed` · `not_needed`. When not `ran`/`cached`, text fields contain measured facts only.
 

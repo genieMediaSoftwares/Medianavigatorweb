@@ -12,6 +12,19 @@ export const dynamic = 'force-dynamic';
 const FORWARD_RESPONSE_HEADERS = ['content-type', 'x-request-id', 'retry-after', 'content-disposition'];
 const BLOCKED = new Set(['auth/refresh']);
 
+/** Rejects writes from other sites (on top of SameSite cookies). */
+function isSameOrigin(req: NextRequest): boolean {
+  const site = req.headers.get('sec-fetch-site');
+  if (site) return site === 'same-origin';
+  const origin = req.headers.get('origin');
+  if (!origin) return false;
+  try {
+    return new URL(origin).host === (req.headers.get('x-forwarded-host') ?? req.headers.get('host'));
+  } catch {
+    return false;
+  }
+}
+
 function errorBody(code: string, message: string) {
   return JSON.stringify({ success: false, error: { code, message } });
 }
@@ -24,12 +37,19 @@ function respond(status: number, body: string, headers: Headers, cookies: string
 
 async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   const { path: segments } = await ctx.params;
-  const path = segments.join('/');
   const requestId = req.headers.get('x-request-id') ?? crypto.randomUUID();
   const secure = isHttps(req);
   const json = (status: number, body: string, cookies: string[] = []) => respond(status, body, new Headers({ 'content-type': 'application/json', 'x-request-id': requestId }), cookies);
 
-  if (BLOCKED.has(path)) return json(404, errorBody('NOT_FOUND', 'Not found'));
+  // fetch would resolve "." / ".." / empty segments into a different upstream path than the one checked below.
+  if (segments.some((s) => s === '' || s === '.' || s === '..')) return json(404, errorBody('NOT_FOUND', 'Not found'));
+  // Forwarded as-is (ids such as YouTube media ids are case-sensitive)...
+  const forwardPath = segments.map(encodeURIComponent).join('/');
+  // ...but every decision below uses a lower-cased copy, because the API matches routes case-insensitively.
+  const path = forwardPath.toLowerCase();
+
+  if (BLOCKED.has(path) || path === 'internal' || path.startsWith('internal/')) return json(404, errorBody('NOT_FOUND', 'Not found'));
+  if (req.method !== 'GET' && req.method !== 'HEAD' && !isSameOrigin(req)) return json(403, errorBody('FORBIDDEN', 'Cross-site requests are not allowed'));
 
   const bodyBuf = req.method === 'GET' || req.method === 'HEAD' ? undefined : await req.arrayBuffer();
   const baseHeaders: Record<string, string> = {};
@@ -48,7 +68,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
       if (tokens) { access = tokens.accessToken; newCookies = cookieHeaders(tokens, secure); }
     }
 
-    const send = (token?: string) => callApi(`/${path}${search}`, { method: req.method, headers: baseHeaders, body: bodyBuf, accessToken: token, requestId, userAgent: req.headers.get('user-agent') });
+    const send = (token?: string) => callApi(`/${forwardPath}${search}`, { method: req.method, headers: baseHeaders, body: bodyBuf, accessToken: token, requestId, userAgent: req.headers.get('user-agent') });
     let upstream = await send(access);
 
     if (upstream.status === 401 && !isLogin && refresh && newCookies.length === 0) {

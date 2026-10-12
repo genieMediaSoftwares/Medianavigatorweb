@@ -13,7 +13,8 @@ import { AiCache } from './AiCache.js';
 import { PlannedContentModel } from './PlannedContent.js';
 import { AuditLog } from './AuditLog.js';
 import { RateLimit } from './RateLimit.js';
+import { ContentAnalysis } from './ContentAnalysis.js';
 
-export const allModels = [User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit];
+export const allModels = [User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis];
 
-export { User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit };
+export { User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis };

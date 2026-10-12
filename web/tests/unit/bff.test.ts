@@ -5,8 +5,9 @@ vi.stubEnv('API_BASE_URL', 'https://api.test.example');
 const { GET, POST } = await import('@/app/api/v1/[...path]/route');
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
-const call = (m: typeof GET, method: string, path: string, opts: { cookie?: string; body?: unknown } = {}) =>
-  m(new NextRequest(`http://web.test/api/v1/${path}`, { method, headers: { ...(opts.cookie ? { cookie: opts.cookie } : {}), 'content-type': 'application/json' }, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) }), { params: Promise.resolve({ path: path.split('/') }) });
+// Browsers send Sec-Fetch-Site on every fetch; `site` lets a test pretend to be another website.
+const call = (m: typeof GET, method: string, path: string, opts: { cookie?: string; body?: unknown; site?: string } = {}) =>
+  m(new NextRequest(`http://web.test/api/v1/${path}`, { method, headers: { ...(opts.cookie ? { cookie: opts.cookie } : {}), 'content-type': 'application/json', 'sec-fetch-site': opts.site ?? 'same-origin' }, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) }), { params: Promise.resolve({ path: path.split('/') }) });
 const cookies = (r: Response) => r.headers.getSetCookie();
 const tokens = { accessToken: 'AT1', refreshToken: 'RT1', expiresIn: 900, refreshExpiresIn: 2592000 };
 
@@ -23,6 +24,26 @@ describe('backend-for-frontend proxy', () => {
     expect(JSON.parse(body).data.user.id).toBe('u1');
     const set = cookies(res).join('\n');
     expect(set).toMatch(/mn_at=AT1;.*HttpOnly.*SameSite=Lax/); expect(set).toMatch(/mn_rt=RT1;.*HttpOnly/);
+  });
+
+  it('cannot be tricked by case, dot-segments or internal paths (the API matches routes case-insensitively)', async () => {
+    for (const p of ['AUTH/Refresh', 'x/../auth/refresh', 'Internal/jobs/run']) expect((await call(POST, 'POST', p, { body: {} })).status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValueOnce(json(200, { success: true, data: { user: { id: 'u1' }, tokens } }));
+    const res = await call(POST, 'POST', 'Auth/LOGIN', { body: { email: 'a@b.co', password: 'x' } });
+    expect(await res.text()).not.toContain('AT1');
+    expect(cookies(res).join(' ')).toMatch(/mn_at=AT1/);
+  });
+
+  it('keeps the case of ids it forwards', async () => {
+    fetchMock.mockResolvedValueOnce(json(200, { success: true, data: {} }));
+    await call(GET, 'GET', 'media/yt_AbC', { cookie: 'mn_at=AT1' });
+    expect((fetchMock.mock.calls[0] as [string])[0]).toBe('https://api.test.example/api/v1/media/yt_AbC');
+  });
+
+  it('rejects writes coming from another website', async () => {
+    expect((await call(POST, 'POST', 'connections/sync-all', { cookie: 'mn_at=AT1', site: 'cross-site' })).status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('sends the access token from the cookie to the API', async () => {
