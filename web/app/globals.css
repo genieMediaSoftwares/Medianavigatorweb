@@ -1,11 +1,11 @@
 @import 'tailwindcss';
 
-/* Design tokens: #1D5FD1 Royal Cobalt Blue & Pure White palette */
+/* Design tokens: Pure White background & Black text with #1D5FD1 accents */
 :root {
-  --ink: #0a1a36;
-  --text: #1e293b;
-  --text-muted: #475569;
-  --text-subtle: #64748b;
+  --ink: #000000;
+  --text: #000000;
+  --text-muted: #374151;
+  --text-subtle: #4b5563;
   --brand-50: #f0f5ff;
   --brand-100: #e0ecff;
   --brand-200: #c2d8fe;
@@ -17,17 +17,17 @@
   --brand-800: #163f8f;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --app-bg: #f8faff;
-  --line: #e2eaf6;
-  --line-strong: #cbd7ec;
+  --app-bg: #ffffff;
+  --line: #e5e7eb;
+  --line-strong: #d1d5db;
   --good: #059669;
   --good-bg: #ecfdf5;
   --warn: #d97706;
   --warn-bg: #fffbeb;
   --bad: #e11d48;
   --bad-bg: #fff1f2;
-  --shadow: 0 1px 3px 0 rgb(10 26 54 / 0.05), 0 2px 6px -1px rgb(10 26 54 / 0.04);
-  --shadow-pop: 0 14px 34px -8px rgba(29, 95, 209, 0.24), 0 6px 14px -4px rgba(10, 26, 54, 0.08);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 2px 6px -1px rgb(0 0 0 / 0.04);
+  --shadow-pop: 0 14px 34px -8px rgba(29, 95, 209, 0.22), 0 6px 14px -4px rgba(0, 0, 0, 0.06);
   --gradient: linear-gradient(135deg, #1D5FD1 0%, #2f77f5 55%, #5a96fb 100%);
   color-scheme: light;
 }
