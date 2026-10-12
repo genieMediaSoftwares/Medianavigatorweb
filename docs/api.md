@@ -70,6 +70,7 @@ Sync run statuses: `queued`, `running`, `succeeded`, `partial` (incomplete provi
 | `POST /intelligence/ask` | user, AI-limited | `{question}` → `{answer, observedSignal, suggestedAction, source, ai, measured}` |
 | `POST /intelligence/analyze-item` | user, AI-limited | `{mediaId}` → `{observedFact, possibleReason, actionableRecommendations, …, measured, calculated, ai}` |
 | `POST /intelligence/diagnose-post` | user, AI-limited | `{mediaId, forcedStatus?}` → diagnosis with `measured`, `calculated`, `ai`, `limitations` |
+| `POST /intelligence/ai-report` | user, AI-limited | `{kind: executive\|trends\|strategy\|patterns\|audit, platform?, days 7-365 (30)}` → `{kind, report \| null, measured, ai{status,model,promptVersion,generatedAt,reason?}, scope}`. Gemini writes `report` from measured/calculated facts only; cached per data+prompt version. Without Gemini `report` is `null`, `ai.status` is `unavailable`/`failed`, and `measured` is still returned (nothing is invented) |
 | `POST /intelligence/analyze-video` | user, AI-limited | `{mediaId}` → qualitative hook/caption assessment + `unavailable[]` (no retention/hook-score is ever invented) |
 | `POST /intelligence/compare` | user | `{mediaIdA, mediaIdB}` → deterministic side-by-side |
 

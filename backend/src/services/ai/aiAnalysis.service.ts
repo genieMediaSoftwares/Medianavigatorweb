@@ -9,40 +9,15 @@ import { loadAnalyticsContext, dataVersionOf } from '../analytics.service.js';
 import { baselineFor, classify, groupBy, pctChange, median, type PerformanceClass, MIN_HISTORY_FOR_CLASSIFICATION } from '../analytics.stats.js';
 import { AiFailedError, AiUnavailableError, aiAvailable, aiModel, generateJson } from './geminiClient.js';
 import { askPrompt, itemPrompt, videoPrompt, PROMPT_VERSION, SYSTEM } from './prompts.js';
-import { cacheKey, getCached, putCached } from './aiCache.service.js';
-
-export interface AiMeta {
-  /** ran = fresh model output; cached = previous model output for identical data+prompt; unavailable = not configured; failed = call errored; not_needed = nothing to analyse */
-  status: 'ran' | 'cached' | 'unavailable' | 'failed' | 'not_needed';
-  model: string | null;
-  promptVersion: string;
-  generatedAt: string | null;
-  reason?: string;
-}
+import { runAiStep, aiMeta, type AiMeta } from './aiStep.js';
 
 const strList = z.array(z.string().max(500)).max(8);
 const askSchema = z.object({ answer: z.string().max(3000), observedSignal: z.string().max(600), suggestedAction: z.string().max(600) });
 const itemSchema = z.object({ interpretation: z.string().max(1500), whatWorked: strList, whatToImprove: strList, recommendations: strList, alternativeHook: z.string().max(400) });
 const videoSchema = z.object({ hookAssessment: z.string().max(1000), captionAssessment: z.string().max(1000), recommendations: strList, alternativeHook: z.string().max(400) });
 
-const meta = (status: AiMeta['status'], extra: Partial<AiMeta> = {}): AiMeta => ({ status, model: null, promptVersion: PROMPT_VERSION, generatedAt: null, ...extra });
-
-/** Runs (or reuses) one AI step. Never throws for AI problems: the caller still gets deterministic content plus an honest status. */
-async function aiStep<T>(args: { userId: Types.ObjectId; type: string; subject: string; dataVersion: string; system: string; prompt: string; schema: z.ZodType<T> }): Promise<{ data: T | null; ai: AiMeta }> {
-  if (!aiAvailable()) return { data: null, ai: meta('unavailable', { reason: 'Gemini is not configured on this server' }) };
-  const key = cacheKey({ userId: args.userId, type: args.type, subject: args.subject, dataVersion: args.dataVersion });
-  const hit = await getCached<T>(args.userId, key);
-  if (hit) return { data: hit.payload, ai: meta('cached', { model: hit.model, generatedAt: hit.generatedAt.toISOString() }) };
-  try {
-    const out = await generateJson({ system: args.system, prompt: args.prompt, schema: args.schema });
-    await putCached({ userId: args.userId, key, type: args.type, payload: out.data, model: out.model, dataVersion: args.dataVersion });
-    return { data: out.data, ai: meta('ran', { model: out.model, generatedAt: new Date().toISOString() }) };
-  } catch (err) {
-    if (err instanceof AiUnavailableError) return { data: null, ai: meta('unavailable', { reason: err.message }) };
-    if (err instanceof AiFailedError) return { data: null, ai: meta('failed', { reason: err.reason }) };
-    throw err;
-  }
-}
+const meta = aiMeta;
+const aiStep = runAiStep;
 
 async function loadItem(userId: Types.ObjectId, mediaId: string) {
   const doc = await mediaRepository.findByLegacyId(userId, mediaId);
@@ -86,7 +61,7 @@ export const aiAnalysisService = {
     const ctx = await loadAnalyticsContext(userId);
     const media = ctx.engine.getMedia();
     if (media.length === 0) {
-      return { answer: 'No content has been synced yet, so there is nothing to analyse. Connect an account and run a sync first.', observedSignal: 'No synced content.', suggestedAction: 'Connect a platform.', source: 'No data', ai: meta('not_needed'), measured: null };
+      return { answer: 'No content has been synced yet, so there is nothing to analyse. Connect an account and run a sync first.', observedSignal: 'No synced content.', suggestedAction: 'Connect a platform.', source: 'No data', ai: aiMeta('not_needed'), measured: null };
     }
     const archive = ctx.engine.getComprehensiveArchiveAnalysis();
     const byPlatform = Object.fromEntries(Object.entries(groupBy(media, (m) => m.platform)).map(([p, items]) => [p, baselineFor(items as NormalizedMedia[])]));

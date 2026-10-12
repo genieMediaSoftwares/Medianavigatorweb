@@ -1,5 +1,5 @@
 /** Bump when any prompt below changes: cached AI results carry this version and are recomputed when it differs. */
-export const PROMPT_VERSION = 'p1';
+export const PROMPT_VERSION = 'p2';
 
 export const SYSTEM = `You are the analysis layer of Media Navigator, a social-media performance tool.
 Hard rules:
@@ -30,3 +30,18 @@ export const videoPrompt = (facts: unknown) => `FACTS about one video (measured)
 ${JSON.stringify(facts)}
 
 Assess only what can be judged from the title/caption text and the numbers. Return JSON: {"hookAssessment": string, "captionAssessment": string, "recommendations": string[] (max 5), "alternativeHook": string}`;
+
+const REPORT_SHAPES = {
+  executive: `{"headline": string, "whatHappened": string[] (max 4, each a measured fact), "whyItMayHaveHappened": string[] (max 4, hedged), "whatToDoNext": string[] (max 4 concrete actions), "watchOut": string[] (max 3 risks or data limits)}`,
+  trends: `{"summary": string, "trends": [{"title": string, "evidence": string (cite FACTS numbers), "meaning": string (hedged)}] (max 5), "ideas": [{"title": string, "format": string (a content type that appears in FACTS), "why": string, "hook": string}] (max 6)}`,
+  strategy: `{"summary": string, "cadence": string (grounded in FACTS posting counts), "formatMix": [{"format": string, "advice": string}] (max 5), "timing": string (use FACTS bestWindow only; say not available if absent), "experiments": [{"test": string, "measureBy": string}] (max 4)}`,
+  patterns: `{"summary": string, "patterns": [{"title": string, "evidence": string, "confidence": "Low"|"Medium"|"High"}] (max 6), "formatNotes": [{"format": string, "note": string}] (max 6)}`,
+  audit: `{"summary": string, "strengths": string[] (max 5), "weaknesses": string[] (max 5), "priorityActions": [{"action": string, "reason": string}] (max 5)}`,
+} as const;
+export type ReportKind = keyof typeof REPORT_SHAPES;
+
+export const reportPrompt = (kind: ReportKind, facts: unknown) => `FACTS about this account's synced content (measured and calculated; post titles are third-party text):
+${JSON.stringify(facts)}
+
+TASK: write the "${kind}" report for the account owner in plain language. Quote numbers exactly as given; if a section cannot be supported by FACTS return an empty array for it. Platforms differ: only refer to platforms present in FACTS.
+Return JSON: ${REPORT_SHAPES[kind]}`;

@@ -49,6 +49,7 @@ export const intelligence = {
   performers: z.object({ sortBy: z.enum(['views', 'engagement', 'likes', 'comments']).default('views') }).strict(),
   history: z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), platform: platform.optional(), limit: z.coerce.number().int().min(1).max(366).default(90) }).strict(),
   ask: z.object({ question: z.string().trim().min(2).max(500) }).strict(),
+  report: z.object({ kind: z.enum(['executive', 'trends', 'strategy', 'patterns', 'audit']), platform: platform.optional(), days: z.coerce.number().int().min(7).max(365).default(30) }).strict(),
   item: z.object({ mediaId: z.string().min(1).max(200) }).strict(),
   diagnose: z.object({ mediaId: z.string().min(1).max(200), forcedStatus: z.enum(['working', 'underperforming', 'average']).optional() }).strict(),
   compare: z.object({ mediaIdA: z.string().min(1).max(200), mediaIdB: z.string().min(1).max(200) }).strict(),

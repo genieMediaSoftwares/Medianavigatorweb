@@ -34,6 +34,7 @@ beforeEach(async () => {
   await clearDb(); fake.reset(); gem.available = true; gem.calls = [];
   gem.impl = async ({ schema, prompt }: any) => {
     const data = prompt.includes('"answer"') ? { answer: 'AI says: reels do best.', observedSignal: 'Reels lead.', suggestedAction: 'Post a reel.' }
+      : prompt.includes('"whatHappened"') ? { headline: 'Reels lead', whatHappened: ['Reels at top'], whyItMayHaveHappened: ['May be timing'], whatToDoNext: ['Post a reel'], watchOut: [] }
       : prompt.includes('hookAssessment') ? { hookAssessment: 'Hook is a question.', captionAssessment: 'Caption is short.', recommendations: ['Try a stronger first line'], alternativeHook: 'What if…' }
       : { interpretation: 'May have resonated because of timing.', whatWorked: ['Strong opening'], whatToImprove: ['Longer caption'], recommendations: ['Test a carousel'], alternativeHook: 'Here is why…' };
     return { data: schema.parse(data), model: 'test-model', latencyMs: 5 };
@@ -45,12 +46,34 @@ beforeEach(async () => {
   postId = (await api().get('/api/v1/media?limit=1').set(user.auth)).body.data[0].id;
 });
 
+describe('AI reports', () => {
+  it('writes an executive report from facts, caches it, and degrades honestly without Gemini', async () => {
+    const body = { kind: 'executive', days: 365 };
+    const a = await api().post('/api/v1/intelligence/ai-report').set(user.auth).send(body);
+    expect(a.status).toBe(200);
+    expect(a.body.data.ai.status).toBe('ran');
+    expect(a.body.data.report.headline).toBe('Reels lead');
+    expect(a.body.data.measured.measured.postsInPeriod).toBeGreaterThan(0);
+    const b = await api().post('/api/v1/intelligence/ai-report').set(user.auth).send(body);
+    expect(b.body.data.ai.status).toBe('cached');
+    gem.available = false;
+    const c = await api().post('/api/v1/intelligence/ai-report').set(user.auth).send({ kind: 'audit', days: 365 });
+    expect(c.body.data.report).toBeNull();
+    expect(c.body.data.ai.status).toBe('unavailable');
+    expect(c.body.data.measured).not.toBeNull();
+  });
+  it('rejects unknown report kinds', async () => {
+    const r = await api().post('/api/v1/intelligence/ai-report').set(user.auth).send({ kind: 'nope' });
+    expect(r.status).toBe(422);
+  });
+});
+
 describe('AI analysis', () => {
   it('returns measured + calculated data separately from AI interpretation, and says AI ran', async () => {
     const res = await api().post('/api/v1/intelligence/diagnose-post').set(user.auth).send({ mediaId: postId });
     expect(res.status).toBe(200);
     const d = res.body.data;
-    expect(d.ai).toMatchObject({ status: 'ran', model: 'test-model', promptVersion: 'p1' });
+    expect(d.ai).toMatchObject({ status: 'ran', model: 'test-model', promptVersion: 'p2' });
     expect(d.measured).toHaveProperty('views');
     expect(d.calculated).toHaveProperty('classification');
     expect(d.executiveSummary).toContain('resonated');
@@ -65,7 +88,7 @@ describe('AI analysis', () => {
     expect(second.body.data.ai.status).toBe('cached');
     expect(gem.calls.length).toBe(callsAfterFirst);
     expect(await AiCache.countDocuments()).toBe(1);
-    expect((await AiCache.findOne().lean())).toMatchObject({ promptVersion: 'p1', model: 'test-model' });
+    expect((await AiCache.findOne().lean())).toMatchObject({ promptVersion: 'p2', model: 'test-model' });
   });
 
   it('invalidates the cache when the underlying numbers change', async () => {

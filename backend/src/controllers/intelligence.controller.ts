@@ -1,6 +1,7 @@
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { ok } from '../lib/response.js';
 import { analyticsService } from '../services/analytics.service.js';
+import { aiReportService } from '../services/ai/aiReport.service.js';
 import { aiAnalysisService } from '../services/ai/aiAnalysis.service.js';
 import { userService } from '../services/user.service.js';
 import { oauthEnabled } from '../services/oauth.service.js';
@@ -30,6 +31,7 @@ export const intelligenceController = {
     providers: PLATFORMS.map((p) => ({ platform: p, oauthAvailable: oauthEnabled(p), capabilities: getAdapter(p).capabilities })),
   })),
 
+  aiReport: asyncHandler(async (req, res) => ok(res, await aiReportService.generate(uid(req), req.body.kind, { platform: req.body.platform, days: req.body.days }))),
   ask: asyncHandler(async (req, res) => ok(res, await aiAnalysisService.ask(uid(req), req.body.question))),
   analyzeItem: asyncHandler(async (req, res) => ok(res, await aiAnalysisService.analyzeItem(uid(req), req.body.mediaId))),
   diagnose: asyncHandler(async (req, res) => ok(res, await aiAnalysisService.diagnosePost(uid(req), req.body.mediaId, req.body.forcedStatus))),

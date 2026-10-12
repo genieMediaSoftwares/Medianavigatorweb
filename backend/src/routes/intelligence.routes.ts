@@ -19,6 +19,7 @@ intelligenceRouter.get('/history', validate({ query: v.history }), c.history);
 intelligenceRouter.get('/recommendations', c.recommendations);
 intelligenceRouter.get('/trends', c.trends);
 intelligenceRouter.post('/ask', aiLimiter, validate({ body: v.ask }), c.ask);
+intelligenceRouter.post('/ai-report', aiLimiter, validate({ body: v.report }), c.aiReport);
 intelligenceRouter.post('/analyze-item', aiLimiter, validate({ body: v.item }), c.analyzeItem);
 intelligenceRouter.post('/diagnose-post', aiLimiter, validate({ body: v.diagnose }), c.diagnose);
 intelligenceRouter.post('/analyze-video', aiLimiter, validate({ body: v.item }), c.analyzeVideo);
