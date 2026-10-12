@@ -449,6 +449,7 @@ export interface DiagnosePostResult {
   baselineComparison: string;
   topSuccessDrivers: string[];
   bottomImprovementPoints: string[];
+  sixBulletAnalysis?: string[];
   metricBreakdown: { viewsAnalysis: string; engagementHealth: string; commentVelocity: string; shareabilityAnalysis: string };
   suggestedHookAlternative: string;
   recommendedFormatAndTiming: string;

@@ -19,7 +19,7 @@ export function NavList({ isAdmin, collapsed, onNavigate }: { isAdmin: boolean; 
         return (
           <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined} title={collapsed ? item.label : undefined}
             className={cn('relative flex h-11 items-center gap-3 rounded-xl px-3.5 text-[15px] font-semibold transition-all duration-150', collapsed && 'justify-center px-0',
-              active ? 'bg-gradient-to-r from-sky-500 via-sky-600 to-blue-600 text-white shadow-[0_4px_16px_rgba(0,163,255,0.32)]' : 'text-muted hover:bg-sky-50 hover:text-sky-700 dark:hover:bg-sky-950/40')}>
+              active ? 'bg-brand-600 text-white shadow-xs' : 'text-muted hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-slate-900')}>
             <Icon className={cn('h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110', active ? 'text-white' : 'text-slate-500 dark:text-slate-400')} aria-hidden="true" />
             {!collapsed && <span>{item.label}</span>}
             {collapsed && <span className="sr-only">{item.label}</span>}
@@ -32,14 +32,14 @@ export function NavList({ isAdmin, collapsed, onNavigate }: { isAdmin: boolean; 
 
 export function Sidebar({ isAdmin, collapsed, onToggle }: { isAdmin: boolean; collapsed: boolean; onToggle: () => void }) {
   return (
-    <aside className={cn('fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-sky-100/90 bg-white/95 backdrop-blur-md transition-[width] duration-200 dark:border-sky-900/40 dark:bg-slate-950/95 lg:flex', collapsed ? 'w-[72px]' : 'w-[264px]')}>
-      <div className={cn('flex h-[76px] shrink-0 items-center border-b border-sky-100/60 dark:border-sky-900/30', collapsed ? 'justify-center' : 'px-6')}>
+    <aside className={cn('fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line bg-surface/95 backdrop-blur-md transition-[width] duration-200 dark:bg-slate-950/95 lg:flex', collapsed ? 'w-[72px]' : 'w-[264px]')}>
+      <div className={cn('flex h-[76px] shrink-0 items-center border-b border-line', collapsed ? 'justify-center' : 'px-6')}>
         <Wordmark href="/home" collapsed={collapsed} showTagline={!collapsed} />
       </div>
       <div className={cn('custom-scroll flex-1 overflow-y-auto py-4', collapsed ? 'px-3' : 'px-4')}><NavList isAdmin={isAdmin} collapsed={collapsed} /></div>
-      <div className={cn('shrink-0 space-y-3 border-t border-sky-100/80 dark:border-sky-900/40 py-4', collapsed ? 'px-3' : 'px-4')}>
+      <div className={cn('shrink-0 space-y-3 border-t border-line py-4', collapsed ? 'px-3' : 'px-4')}>
         <AccountCard collapsed={collapsed} />
-        <button onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-subtle hover:bg-sky-50 hover:text-sky-700 dark:hover:bg-sky-950/40">
+        <button onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} className="flex h-10 w-full items-center justify-center gap-2 rounded-xl text-sm font-semibold text-subtle hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-slate-900">
           {collapsed ? <ChevronsRight className="h-4 w-4" /> : <><ChevronsLeft className="h-4 w-4" />Collapse</>}
         </button>
       </div>

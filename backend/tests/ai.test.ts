@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { startTestDb, stopTestDb, clearDb, api, registerUser } from './helpers.js';
 import { fake, makeMedia } from './fakes.js';
+import { PROMPT_VERSION } from '../src/services/ai/prompts.js';
 
 vi.mock('../src/integrations/registry.js', async () => {
   const { fakeAdapter } = await import('./fakes.js');
@@ -50,7 +51,7 @@ describe('AI analysis', () => {
     const res = await api().post('/api/v1/intelligence/diagnose-post').set(user.auth).send({ mediaId: postId });
     expect(res.status).toBe(200);
     const d = res.body.data;
-    expect(d.ai).toMatchObject({ status: 'ran', model: 'test-model', promptVersion: 'p1' });
+    expect(d.ai).toMatchObject({ status: 'ran', model: 'test-model', promptVersion: PROMPT_VERSION });
     expect(d.measured).toHaveProperty('views');
     expect(d.calculated).toHaveProperty('classification');
     expect(d.executiveSummary).toContain('resonated');
@@ -65,7 +66,7 @@ describe('AI analysis', () => {
     expect(second.body.data.ai.status).toBe('cached');
     expect(gem.calls.length).toBe(callsAfterFirst);
     expect(await AiCache.countDocuments()).toBe(1);
-    expect((await AiCache.findOne().lean())).toMatchObject({ promptVersion: 'p1', model: 'test-model' });
+    expect((await AiCache.findOne().lean())).toMatchObject({ promptVersion: PROMPT_VERSION, model: 'test-model' });
   });
 
   it('invalidates the cache when the underlying numbers change', async () => {

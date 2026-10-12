@@ -20,6 +20,7 @@ import { compact, dateShort, percent, whole } from '@/lib/format';
 import { useChannel } from '@/lib/hooks/useChannel';
 import { platformName, typeLabel } from '@/lib/platforms';
 import { qk } from '@/lib/queryKeys';
+import { WhyPerformerModal } from './why-performer-modal';
 import type {
   AiInsight, ArchiveResponse, AskResult, Performer, PerformersResponse,
   PerformerSort, Platform
@@ -45,6 +46,11 @@ export function InsightsView() {
   const params = useSearchParams();
   const { channel } = useChannel();
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [whyModal, setWhyModal] = useState<{ open: boolean; item: Performer | null; type: 'top' | 'bottom' }>({
+    open: false,
+    item: null,
+    type: 'top',
+  });
 
   const rawTab = params.get('tab') ?? 'full_archive';
   const activeTab: TabId = TAB_MAP[rawTab] ?? 'full_archive';
@@ -147,10 +153,16 @@ export function InsightsView() {
           />
         )}
         {activeTab === 'whats_working' && (
-          <WhatsWorkingView onOpenDetail={(id) => setSelectedPostId(id)} />
+          <WhatsWorkingView
+            onOpenDetail={(id) => setSelectedPostId(id)}
+            onOpenWhyModal={(item) => setWhyModal({ open: true, item, type: 'top' })}
+          />
         )}
         {activeTab === 'needs_attention' && (
-          <NeedsAttentionView onOpenDetail={(id) => setSelectedPostId(id)} />
+          <NeedsAttentionView
+            onOpenDetail={(id) => setSelectedPostId(id)}
+            onOpenWhyModal={(item) => setWhyModal({ open: true, item, type: 'bottom' })}
+          />
         )}
         {activeTab === 'executive_insights' && (
           <ExecutiveInsightsView
@@ -174,6 +186,15 @@ export function InsightsView() {
       <PostDetailDrawer
         postId={selectedPostId}
         onClose={() => setSelectedPostId(null)}
+      />
+
+      {/* 6-Bullet Forensic Gemini Analysis Modal */}
+      <WhyPerformerModal
+        open={whyModal.open}
+        onOpenChange={(open) => setWhyModal((prev) => ({ ...prev, open }))}
+        item={whyModal.item}
+        type={whyModal.type}
+        onOpenFullDetail={(id) => setSelectedPostId(id)}
       />
     </div>
   );
@@ -437,7 +458,13 @@ function FullArchiveAuditView({
 }
 
 /** Tab 2: What's Working View */
-function WhatsWorkingView({ onOpenDetail }: { onOpenDetail: (id: string) => void }) {
+function WhatsWorkingView({
+  onOpenDetail,
+  onOpenWhyModal,
+}: {
+  onOpenDetail: (id: string) => void;
+  onOpenWhyModal: (item: Performer) => void;
+}) {
   const [sortBy, setSortBy] = useState<PerformerSort>('views');
   const q = useQuery({
     queryKey: qk.performers(sortBy),
@@ -497,6 +524,7 @@ function WhatsWorkingView({ onOpenDetail }: { onOpenDetail: (id: string) => void
               item={item}
               rank={idx + 1}
               onOpenDetail={onOpenDetail}
+              onOpenWhyModal={onOpenWhyModal}
             />
           ))}
         </div>
@@ -509,10 +537,12 @@ function PerformerCard({
   item,
   rank,
   onOpenDetail,
+  onOpenWhyModal,
 }: {
   item: Performer;
   rank: number;
   onOpenDetail: (id: string) => void;
+  onOpenWhyModal: (item: Performer) => void;
 }) {
   return (
     <Card className="p-6 space-y-4 hover:border-brand-200 transition-all shadow-xs">
@@ -601,7 +631,7 @@ function PerformerCard({
               <Button
                 size="sm"
                 variant="primary"
-                onClick={() => onOpenDetail(item.mediaId)}
+                onClick={() => onOpenWhyModal(item)}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 <Sparkles className="h-3.5 w-3.5 mr-1" />
@@ -611,7 +641,7 @@ function PerformerCard({
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => onOpenDetail(item.mediaId)}
+                  onClick={() => onOpenWhyModal(item)}
                 >
                   <Video className="h-3.5 w-3.5 mr-1" />
                   Deep Video Analysis
@@ -629,7 +659,13 @@ function PerformerCard({
 }
 
 /** Tab 3: Needs Attention View */
-function NeedsAttentionView({ onOpenDetail }: { onOpenDetail: (id: string) => void }) {
+function NeedsAttentionView({
+  onOpenDetail,
+  onOpenWhyModal,
+}: {
+  onOpenDetail: (id: string) => void;
+  onOpenWhyModal: (item: Performer) => void;
+}) {
   const q = useQuery({
     queryKey: qk.performers('views'),
     queryFn: () => api.performers('views'),
@@ -669,7 +705,12 @@ function NeedsAttentionView({ onOpenDetail }: { onOpenDetail: (id: string) => vo
       ) : (
         <div className="space-y-6">
           {bottomItems.map((item) => (
-            <UnderperformerCard key={item.id} item={item} onOpenDetail={onOpenDetail} />
+            <UnderperformerCard
+              key={item.id}
+              item={item}
+              onOpenDetail={onOpenDetail}
+              onOpenWhyModal={onOpenWhyModal}
+            />
           ))}
         </div>
       )}
@@ -680,9 +721,11 @@ function NeedsAttentionView({ onOpenDetail }: { onOpenDetail: (id: string) => vo
 function UnderperformerCard({
   item,
   onOpenDetail,
+  onOpenWhyModal,
 }: {
   item: Performer;
   onOpenDetail: (id: string) => void;
+  onOpenWhyModal: (item: Performer) => void;
 }) {
   return (
     <Card className="p-6 space-y-4 hover:border-rose-200 transition-all shadow-xs">
@@ -768,11 +811,11 @@ function UnderperformerCard({
               <Button
                 size="sm"
                 variant="primary"
-                onClick={() => onOpenDetail(item.mediaId)}
+                onClick={() => onOpenWhyModal(item)}
                 className="bg-rose-600 hover:bg-rose-700 text-white"
               >
                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-                What to Improve
+                Why It's in Bottom
               </Button>
               <Button
                 size="sm"

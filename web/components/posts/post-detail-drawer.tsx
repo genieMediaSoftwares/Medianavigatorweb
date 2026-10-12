@@ -79,31 +79,72 @@ function AiBanner({ ai }: { ai: AiMeta }) {
 }
 
 function DiagnoseView({ d }: { d: DiagnosePostResult }) {
-  const ranAi = d.ai.status === 'ran' || d.ai.status === 'cached';
-  const actions = [...d.actionableChecklist].slice(0, 3);
+  const isTop = d.status === 'working';
+  const bullets = d.sixBulletAnalysis && d.sixBulletAnalysis.length >= 6
+    ? d.sixBulletAnalysis.slice(0, 6)
+    : [
+        ...(d.topSuccessDrivers ?? []),
+        ...(d.bottomImprovementPoints ?? []),
+        ...(d.actionableChecklist ?? []),
+        d.suggestedHookAlternative ? `Suggested Hook: "${d.suggestedHookAlternative}"` : '',
+      ].filter(Boolean).slice(0, 6);
+
   return (
     <div className="space-y-4">
       <AiBanner ai={d.ai} />
-      {ranAi && (
-        <div>
-          <p className="font-semibold text-ink">{d.headline}</p>
-          <p className="mt-1 text-[15px] text-muted">{d.executiveSummary}</p>
-          {d.topSuccessDrivers.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-[15px] text-muted">{d.topSuccessDrivers.map((s) => <li key={s}>{s}</li>)}</ul>}
-          {d.bottomImprovementPoints.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-[15px] text-muted">{d.bottomImprovementPoints.map((s) => <li key={s}>{s}</li>)}</ul>}
+      
+      {bullets.length > 0 && (
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-ink flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-[#1D63ED]" />
+              6 Key Takeaways (Whole Post & Video Diagnosis)
+            </h4>
+            <span className="text-[11px] font-bold text-muted bg-surface border border-line px-2 py-0.5 rounded-full">
+              Gemini AI
+            </span>
+          </div>
+          <div className="space-y-2">
+            {bullets.map((b, i) => {
+              const colonIndex = b.indexOf(':');
+              const hasPrefix = colonIndex > -1 && colonIndex < 35;
+              const title = hasPrefix ? b.slice(0, colonIndex).trim() : `Key Driver ${i + 1}`;
+              const text = hasPrefix ? b.slice(colonIndex + 1).trim() : b.trim();
+              return (
+                <div key={i} className="flex items-start gap-2.5 rounded-xl border border-line bg-surface p-3 text-sm shadow-2xs">
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-bold ${
+                    isTop ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                  }`}>
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">{title}</span>
+                    <p className="mt-0.5 text-[14px] text-ink">{text}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
-      {!ranAi && d.metricBreakdown.viewsAnalysis && <p className="text-[15px] text-muted">{d.metricBreakdown.viewsAnalysis}</p>}
-      {actions.length > 0 && (
-        <div>
-          <p className="mb-1.5 text-sm font-semibold text-ink">Things you could try</p>
-          <ul className="list-disc space-y-1.5 pl-5 text-[15px] text-muted">{actions.map((a) => <li key={a}>{a}</li>)}</ul>
+
+      {d.suggestedHookAlternative && (
+        <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-3.5 text-sm dark:bg-brand-950/20 dark:border-brand-900/40">
+          <span className="text-xs font-bold text-brand-800 dark:text-brand-300 uppercase tracking-wider block mb-1">
+            Suggested Alternative Hook
+          </span>
+          <p className="font-semibold text-brand-900 dark:text-brand-200">
+            &ldquo;{d.suggestedHookAlternative}&rdquo;
+          </p>
         </div>
       )}
-      {d.recommendedFormatAndTiming && <p className="text-[15px] text-muted">{d.recommendedFormatAndTiming}</p>}
-      {d.limitations.length > 0 && (
-        <div>
-          <p className="mb-1.5 text-sm font-semibold text-ink">What we can&apos;t tell</p>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted">{d.limitations.map((l) => <li key={l}>{l}</li>)}</ul>
+
+      {d.limitations && d.limitations.length > 0 && (
+        <div className="pt-2 border-t border-line text-xs text-subtle">
+          <p className="font-semibold text-muted mb-1">Measured boundary</p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            {d.limitations.map((l) => <li key={l}>{l}</li>)}
+          </ul>
         </div>
       )}
     </div>

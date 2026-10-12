@@ -16,7 +16,7 @@ export function Wordmark({ className, collapsed, showTagline = false, href = '/'
         <div className="flex flex-col">
           <span className="font-display text-[19px] font-extrabold leading-none tracking-tight">
             <span className="text-ink">MEDIA </span>
-            <span className="bg-gradient-to-r from-sky-500 via-sky-600 to-blue-600 bg-clip-text text-transparent dark:from-sky-400 dark:to-blue-400">NAVIGATOR</span>
+            <span className="text-[#1D63ED] dark:text-[#3B82F6]">NAVIGATOR</span>
           </span>
           {showTagline && (
             <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-subtle">

@@ -258,6 +258,7 @@ export interface PostAIDiagnosis {
   };
   topSuccessDrivers?: string[];
   bottomImprovementPoints?: string[];
+  sixBulletAnalysis?: string[];
   videoAnalysis?: VideoAnalysisResult;
   metricBreakdown: {
     viewsAnalysis: string;

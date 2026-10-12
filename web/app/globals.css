@@ -1,56 +1,56 @@
 @import 'tailwindcss';
 
-/* Design tokens sampled from the Media Navigator logo. Everything in the UI reads from these. */
+/* Design tokens sampled from the Media Navigator logo and authentic app palette. */
 :root {
-  --ink: #030f26;
-  --text: #081a38;
-  --text-muted: #4b6385;
-  --text-subtle: #6d88ae;
-  --brand-50: #f0f8ff;
-  --brand-100: #e0f2fe;
-  --brand-200: #bae6fd;
-  --brand-300: #7dd3fc;
-  --brand-400: #38bdf8;
-  --brand-500: #00a3ff;
-  --brand-600: #0085ff;
-  --brand-700: #0066cc;
-  --brand-800: #004b99;
+  --ink: #0f172a;
+  --text: #1e293b;
+  --text-muted: #475569;
+  --text-subtle: #64748b;
+  --brand-50: #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;
+  --brand-600: #1d63ed;
+  --brand-700: #1e40af;
+  --brand-800: #1e3a8a;
   --surface: #ffffff;
   --surface-raised: #ffffff;
-  --app-bg: #f4f9ff;
-  --line: #e0edfb;
-  --line-strong: #c4deea;
+  --app-bg: #f8fafc;
+  --line: #e2e8f0;
+  --line-strong: #cbd5e1;
   --good: #10b981;
   --good-bg: #ecfdf5;
   --warn: #f59e0b;
   --warn-bg: #fffbeb;
   --bad: #ef4444;
   --bad-bg: #fef2f2;
-  --shadow: 0 4px 20px -2px rgba(0, 163, 255, 0.08), 0 2px 6px -1px rgba(3, 15, 38, 0.04);
-  --shadow-pop: 0 20px 40px -15px rgba(0, 163, 255, 0.25), 0 0 1px 1px rgba(0, 163, 255, 0.1);
-  --gradient: linear-gradient(135deg, #00C2FF 0%, #0085FF 50%, #0052D4 100%);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.07), 0 1px 2px -1px rgb(0 0 0 / 0.05);
+  --shadow-pop: 0 12px 30px -6px rgba(29, 99, 237, 0.18), 0 6px 12px -4px rgba(29, 99, 237, 0.1);
+  --gradient: linear-gradient(135deg, #2563eb 0%, #1d63ed 60%, #1e40af 100%);
   color-scheme: light;
 }
 
 :root[data-theme='dark'] {
-  --ink: #ffffff;
+  --ink: #f8fafc;
   --text: #e2efff;
-  --text-muted: #8eb4e3;
-  --text-subtle: #6086ba;
-  --brand-50: #07152b;
-  --brand-100: #0c2448;
-  --brand-200: #123569;
-  --brand-300: #184b94;
-  --brand-400: #0088e0;
-  --brand-500: #00a3ff;
-  --brand-600: #2bbaff;
-  --brand-700: #60cfff;
-  --brand-800: #99e3ff;
-  --surface: #07152b;
-  --surface-raised: #0d203f;
-  --app-bg: #030a18;
-  --line: #132b52;
-  --line-strong: #1d417a;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --brand-50: #0b192c;
+  --brand-100: #172554;
+  --brand-200: #1e3a8a;
+  --brand-300: #1e40af;
+  --brand-400: #2563eb;
+  --brand-500: #3b82f6;
+  --brand-600: #3b82f6;
+  --brand-700: #60a5fa;
+  --brand-800: #93c5fd;
+  --surface: #0f172a;
+  --surface-raised: #1e293b;
+  --app-bg: #0b1120;
+  --line: #1e293b;
+  --line-strong: #334155;
   --good: #34d399;
   --good-bg: #064e3b;
   --warn: #fbbf24;
@@ -58,8 +58,8 @@
   --bad: #f87171;
   --bad-bg: #7f1d1d;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --shadow-pop: 0 20px 45px rgba(0, 163, 255, 0.2);
-  --gradient: linear-gradient(135deg, #38BDF8 0%, #0085FF 60%, #1D4ED8 100%);
+  --shadow-pop: 0 20px 45px rgba(29, 99, 237, 0.2);
+  --gradient: linear-gradient(135deg, #3b82f6 0%, #1d63ed 60%, #1e40af 100%);
   color-scheme: dark;
 }
 

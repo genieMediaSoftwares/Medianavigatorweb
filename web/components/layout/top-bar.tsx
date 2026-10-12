@@ -23,18 +23,18 @@ export function TopBar({ collapsed }: { collapsed: boolean }) {
   const hasLive = live.length > 0;
 
   return (
-    <header className={`fixed inset-x-0 top-0 z-20 h-[76px] border-b border-sky-100/90 bg-white/80 backdrop-blur-md transition-[padding] duration-200 dark:border-sky-900/40 dark:bg-slate-950/80 ${collapsed ? 'lg:pl-[72px]' : 'lg:pl-[264px]'}`}>
+    <header className={`fixed inset-x-0 top-0 z-20 h-[76px] border-b border-line bg-surface/85 backdrop-blur-md transition-[padding] duration-200 dark:bg-slate-950/85 ${collapsed ? 'lg:pl-[72px]' : 'lg:pl-[264px]'}`}>
       <div className="mx-auto flex h-full max-w-[1200px] items-center gap-3 px-4 sm:px-6">
         <div className="flex items-center gap-2.5 lg:hidden"><LogoMark size={30} /><span className="font-display text-lg font-bold text-ink">{titleFor(pathname)}</span></div>
         <div className="hidden lg:block">
           {hasLive && (
             <label className="relative flex items-center">
               <span className="sr-only">Channel</span>
-              <select value={channel} onChange={(e) => setChannel(e.target.value as Platform | 'all')} className="h-11 appearance-none rounded-xl border border-sky-200/90 bg-white pl-4 pr-10 text-sm font-semibold text-ink shadow-sm transition-colors hover:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-900/60 dark:bg-slate-900">
+              <select value={channel} onChange={(e) => setChannel(e.target.value as Platform | 'all')} className="h-11 appearance-none rounded-xl border border-line bg-surface pl-4 pr-10 text-sm font-semibold text-ink shadow-xs transition-colors hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:bg-slate-900">
                 <option value="all">All channels</option>
                 {live.map((c) => <option key={c.platform} value={c.platform}>{platformName(c.platform)}</option>)}
               </select>
-              <svg aria-hidden="true" viewBox="0 0 20 20" className="pointer-events-none absolute right-3.5 h-4 w-4 text-sky-500"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              <svg aria-hidden="true" viewBox="0 0 20 20" className="pointer-events-none absolute right-3.5 h-4 w-4 text-brand-600"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </label>
           )}
         </div>
