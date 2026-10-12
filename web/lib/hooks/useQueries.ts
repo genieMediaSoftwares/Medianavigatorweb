@@ -4,7 +4,7 @@ import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { qk } from '@/lib/queryKeys';
-import type { Platform } from '@/types/api';
+import type { AiReportKind, Platform } from '@/types/api';
 
 type Opts<T> = Omit<UseQueryOptions<T, ApiError>, 'queryKey' | 'queryFn'>;
 
@@ -22,3 +22,7 @@ export function shouldRetry(count: number, error: unknown): boolean {
   if (error instanceof ApiError) return error.status === 0 || error.status >= 500;
   return false;
 }
+
+/** Gemini-written report for the chosen channel and period. The server caches it until the numbers change. */
+export const useAiReport = <K extends AiReportKind>(kind: K, platform: Platform | 'all', days: number) =>
+  useQuery({ queryKey: qk.aiReport(kind, platform, days), queryFn: () => api.aiReport(kind, { platform: platform === 'all' ? undefined : platform, days }), staleTime: 600_000, retry: false });

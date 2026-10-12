@@ -564,3 +564,19 @@ export interface AdminAuditEntry {
   requestId: string | null;
   createdAt: string;
 }
+
+// ── AI reports (POST /intelligence/ai-report) ─────────────────────────────
+export type AiReportKind = 'executive' | 'trends' | 'strategy' | 'patterns' | 'audit';
+export interface ExecutiveReport { headline: string; whatHappened: string[]; whyItMayHaveHappened: string[]; whatToDoNext: string[]; watchOut: string[] }
+export interface TrendsReport { summary: string; trends: Array<{ title: string; evidence: string; meaning: string }>; ideas: Array<{ title: string; format: string; why: string; hook: string }> }
+export interface StrategyReport { summary: string; cadence: string; formatMix: Array<{ format: string; advice: string }>; timing: string; experiments: Array<{ test: string; measureBy: string }> }
+export interface PatternsReport { summary: string; patterns: Array<{ title: string; evidence: string; confidence: 'Low' | 'Medium' | 'High' }>; formatNotes: Array<{ format: string; note: string }> }
+export interface AuditReport { summary: string; strengths: string[]; weaknesses: string[]; priorityActions: Array<{ action: string; reason: string }> }
+export interface AiReportMap { executive: ExecutiveReport; trends: TrendsReport; strategy: StrategyReport; patterns: PatternsReport; audit: AuditReport }
+export interface AiReportResult<K extends AiReportKind = AiReportKind> {
+  kind: K;
+  report: AiReportMap[K] | null;
+  measured: unknown;
+  ai: AiMeta;
+  scope: { platform: Platform | 'all'; days: number };
+}

@@ -1,7 +1,5 @@
-import { BestTimesView } from '@/components/insights/best-times-view';
-
-export const metadata = { title: 'Best times · Media Navigator' };
+import { redirect } from 'next/navigation';
 
 export default function BestTimesPage() {
-  return <BestTimesView />;
+  redirect('/strategy');
 }

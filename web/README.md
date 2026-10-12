@@ -54,7 +54,8 @@ Mocks exist only inside `tests/`.
 | Onboarding | `PATCH /profiles/me`, `GET /connections` |
 | Home | `GET /intelligence/overview`, `/intelligence/summary`, `/connections`, `/media/:id` |
 | Posts, Post detail | `GET /media`, `/intelligence/summary`, `/intelligence/performers`; `POST /intelligence/diagnose-post`, `/analyze-item`, `/analyze-video`, `/compare` |
-| Insights | `GET /intelligence/summary`, `/history`, `/trends`, `/patterns`, `/signals`, `/status`; `POST /intelligence/ask` |
+| AI Intelligence (`/insights`) | `GET /intelligence/summary`, `/status`; `POST /intelligence/ai-report` (audit, executive), `/ask`, `/diagnose-post` |
+| Trends & ideas, Posting strategy, Pattern analysis | `POST /intelligence/ai-report` (trends, strategy, patterns) plus `GET /intelligence/trends`, `/timing`, `/patterns` |
 | Best times | `GET /intelligence/timing` |
 | Plan | `GET /intelligence/recommendations`, `/planner`, `/planner/insights`; `POST /recommendations/:id/plan`, `/planner`; `DELETE /planner/:id` |
 | Connections | `GET /connections`; `POST /connections/:platform/oauth/start`, `/connect`, `/sync`, `/disconnect`, `/sync-all`; `GET /connections/sync-runs/:id` |
@@ -69,3 +70,7 @@ See the end of this file's parent task report; items that the API cannot support
 ## End-to-end tests
 
 `npm run test:e2e` drives a real browser against a running web app **and a real API with a development database** (they sign in with real credentials). It is therefore not part of CI; run it locally with the `E2E_*` variables listed above.
+
+
+## AI
+All written analysis comes from Gemini on the server (`GEMINI_API_KEY` and `GEMINI_MODEL` in `backend/.env`). Without them the pages say AI is not available and show measured numbers only; nothing is invented.

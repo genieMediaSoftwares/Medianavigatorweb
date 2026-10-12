@@ -96,7 +96,7 @@ Support light and dark themes (dark navy `#04102E` surfaces with the same blues)
 
 1. **Home**
 2. **Posts** (tabs: All, What's working, Needs attention)
-3. **Insights** (tabs: Overview, Trends, Patterns, Ask)
+3. **AI Intelligence** `/insights` (tabs: Full audit, What's working, Needs attention, Executive insights, Ask a question). The sidebar is grouped: Core intelligence (Overview, Posts, AI Intelligence), Strategy & discovery (Trends & ideas, Posting strategy, Pattern analysis, Plan), Configuration (Connections, Settings, Admin). The top bar has the channel picker and a 7d/30d/90d/1y range that every page follows. AI text comes from `POST /intelligence/ai-report`
 4. **Best times**
 5. **Plan** (tabs: Ideas, Planner)
 6. **Connections**

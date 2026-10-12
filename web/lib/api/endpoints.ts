@@ -1,4 +1,5 @@
 import type {
+  AiReportKind, AiReportResult,
   AdminAuditEntry, AdminConnection, AdminSystem, AnalyzeItemResult, AskResult, CompareResult, Connection, ConnectInput, ConnectResult, DiagnosePostResult,
   FileItem, HistoryPoint, IntelligenceStatus, MediaItem, MeResponse, NotificationItem, Overview, PageMeta, PatternRow, PerformerSort, PerformersResponse, Platform,
   PlannedItem, PlannerInsights, Profile, RecommendationsResponse, SessionInfo, SignalsResponse, Summary, SyncResult, SyncRun, Timing, TrendsResponse, User,
@@ -54,6 +55,7 @@ export const api = {
   recommendations: () => apiGet<RecommendationsResponse>('/intelligence/recommendations'),
   trends: () => apiGet<TrendsResponse>('/intelligence/trends'),
   intelligenceStatus: () => apiGet<IntelligenceStatus>('/intelligence/status'),
+  aiReport: <K extends AiReportKind>(kind: K, q: { platform?: Platform; days: number }) => apiSend<AiReportResult<K>>('POST', '/intelligence/ai-report', { kind, ...q }),
   ask: (question: string) => apiSend<AskResult>('POST', '/intelligence/ask', { question }),
   analyzeItem: (mediaId: string) => apiSend<AnalyzeItemResult>('POST', '/intelligence/analyze-item', { mediaId }),
   diagnosePost: (mediaId: string) => apiSend<DiagnosePostResult>('POST', '/intelligence/diagnose-post', { mediaId }),

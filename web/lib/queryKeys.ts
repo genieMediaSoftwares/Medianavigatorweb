@@ -14,6 +14,7 @@ export const qk = {
   recommendations: ['recommendations'] as const,
   trends: ['trends'] as const,
   intelStatus: ['intelligence-status'] as const,
+  aiReport: (kind: string, platform: Platform | 'all', days: number) => ['ai-report', kind, platform, days] as const,
   planner: ['planner'] as const,
   plannerInsights: ['planner-insights'] as const,
   notifications: ['notifications'] as const,

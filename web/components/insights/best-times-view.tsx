@@ -25,10 +25,10 @@ function planLink(w: NonNullable<Timing['strongestWindow']>): string {
   return `/plan?${q.toString()}`;
 }
 
-export function BestTimesView() {
+export function BestTimesView({ embedded = false }: { embedded?: boolean } = {}) {
   const timing = useTiming();
   const me = useMe();
-  const header = <PageHeader title="Best times" subtitle="When your posts tend to get the most reaction." />;
+  const header = embedded ? null : <PageHeader title="Best times" subtitle="When your posts tend to get the most reaction." />;
 
   if (timing.isPending) return <>{header}<div className="space-y-6"><Skeleton className="h-36" /><Skeleton className="h-80" /></div></>;
   if (timing.isError) return <>{header}<ErrorState error={timing.error} onRetry={() => timing.refetch()} /></>;

@@ -4,12 +4,13 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from 're
 import type { Platform } from '@/types/api';
 
 type Channel = Platform | 'all';
-const Ctx = createContext<{ channel: Channel; setChannel: (c: Channel) => void } | null>(null);
+const Ctx = createContext<{ channel: Channel; setChannel: (c: Channel) => void; days: number; setDays: (d: number) => void } | null>(null);
 
-/** The "All channels / one channel" choice in the top bar. Pages that can be filtered read it from here. */
+/** The channel and date-range choices in the top bar. Pages that can be filtered read it from here. */
 export function ChannelProvider({ children }: { children: ReactNode }) {
   const [channel, setChannel] = useState<Channel>('all');
-  const value = useMemo(() => ({ channel, setChannel }), [channel]);
+  const [days, setDays] = useState(30);
+  const value = useMemo(() => ({ channel, setChannel, days, setDays }), [channel, days]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

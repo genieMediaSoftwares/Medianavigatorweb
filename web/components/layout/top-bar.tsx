@@ -4,6 +4,7 @@ import { RefreshCw } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { LogoMark } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
+import { Segmented } from '@/components/ui/tabs';
 import { useChannel } from '@/lib/hooks/useChannel';
 import { useConnections } from '@/lib/hooks/useQueries';
 import { useSync } from '@/lib/hooks/useSync';
@@ -15,7 +16,7 @@ import { NotificationBell } from './notification-bell';
 
 export function TopBar({ collapsed }: { collapsed: boolean }) {
   const pathname = usePathname();
-  const { channel, setChannel } = useChannel();
+  const { channel, setChannel, days, setDays } = useChannel();
   const { data: connections } = useConnections();
   const sync = useSync();
   const live = (connections ?? []).filter((c) => c.connected);
@@ -38,6 +39,7 @@ export function TopBar({ collapsed }: { collapsed: boolean }) {
             </label>
           )}
         </div>
+        {hasLive && <div className="hidden xl:block"><Segmented label="Date range" value={days} onChange={setDays} options={[{ value: 7, label: '7d' }, { value: 30, label: '30d' }, { value: 90, label: '90d' }, { value: 365, label: '1y' }]} /></div>}
         <div className="ml-auto flex items-center gap-2.5">
           {hasLive && (
             <Button size="md" variant="primary" onClick={() => void sync.start(channel === 'all' ? 'all' : channel)} disabled={syncing} aria-live="polite">

@@ -1,9 +1,9 @@
 import { Suspense } from 'react';
-import { InsightsView } from '@/components/insights/insights-view';
+import { IntelligenceHub } from '@/components/intelligence/hub';
 import { PageSkeleton } from '@/components/ui/skeleton';
 
-export const metadata = { title: 'Insights · Media Navigator' };
+export const metadata = { title: 'AI Intelligence · Media Navigator' };
 
 export default function InsightsPage() {
-  return <Suspense fallback={<PageSkeleton />}><InsightsView /></Suspense>;
+  return <Suspense fallback={<PageSkeleton />}><IntelligenceHub /></Suspense>;
 }

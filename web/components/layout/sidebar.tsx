@@ -4,28 +4,34 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Wordmark } from '@/components/brand/logo';
-import { ADMIN_NAV, NAV, isActive, type NavItem } from '@/lib/nav';
+import { ADMIN_NAV, NAV_GROUPS, isActive, type NavItem } from '@/lib/nav';
 import { cn } from '@/lib/utils';
 import { AccountCard } from './account';
 
 export function NavList({ isAdmin, collapsed, onNavigate }: { isAdmin: boolean; collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const items: NavItem[] = isAdmin ? [...NAV, ADMIN_NAV] : NAV;
+  const groups = isAdmin ? [...NAV_GROUPS, { label: 'Administration', items: [ADMIN_NAV] }] : NAV_GROUPS;
+  const link = (item: NavItem) => {
+    const active = isActive(item, pathname);
+    const Icon = item.icon;
+    return (
+      <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined} title={collapsed ? item.label : undefined}
+        className={cn('relative flex h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-semibold transition-colors', collapsed && 'justify-center px-0',
+          active ? 'bg-brand-600 text-white shadow-[0_6px_16px_rgba(11,95,230,.28)]' : 'text-muted hover:bg-brand-50 hover:text-ink')}>
+        <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+        {!collapsed && <span>{item.label}</span>}
+        {collapsed && <span className="sr-only">{item.label}</span>}
+      </Link>
+    );
+  };
   return (
-    <nav aria-label="Main" className="flex flex-col gap-1">
-      {items.map((item) => {
-        const active = isActive(item, pathname);
-        const Icon = item.icon;
-        return (
-          <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined} title={collapsed ? item.label : undefined}
-            className={cn('relative flex h-11 items-center gap-3 rounded-xl px-3 text-[15px] font-semibold transition-colors', collapsed && 'justify-center px-0',
-              active ? 'bg-brand-600 text-white shadow-[0_6px_16px_rgba(11,95,230,.28)]' : 'text-muted hover:bg-brand-50 hover:text-ink')}>
-            <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-            {!collapsed && <span>{item.label}</span>}
-            {collapsed && <span className="sr-only">{item.label}</span>}
-          </Link>
-        );
-      })}
+    <nav aria-label="Main" className="flex flex-col gap-5">
+      {groups.map((g) => (
+        <div key={g.label} className="flex flex-col gap-1">
+          {collapsed ? <div className="mx-3 mb-1 h-px bg-line" aria-hidden="true" /> : <p className="px-3 pb-1 text-[11px] font-bold uppercase tracking-[.08em] text-subtle">{g.label}</p>}
+          {g.items.map(link)}
+        </div>
+      ))}
     </nav>
   );
 }

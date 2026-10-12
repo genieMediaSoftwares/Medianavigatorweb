@@ -21,21 +21,21 @@ function relative(pct: number | null, word: string): string {
   return r < 1 ? `About the same ${word} as your usual.` : `${r}% ${pct > 0 ? 'more' : 'less'} ${word} than your usual.`;
 }
 
-function headline(summary: Summary, channelLabel: string): string {
+function headline(summary: Summary, channelLabel: string, days: number): string {
   const n = summary.dataPeriod.current.count;
-  if (n === 0) return `You haven't published anything ${channelLabel} in the last 30 days.`;
+  if (n === 0) return `You haven't published anything ${channelLabel} in the last ${days} days.`;
   const m = summary.platformsIncluded.length;
-  return `We looked at ${n} ${n === 1 ? 'post' : 'posts'} ${channelLabel === 'across all channels' ? `across ${m} ${m === 1 ? 'channel' : 'channels'}` : channelLabel} from the last 30 days.`;
+  return `We looked at ${n} ${n === 1 ? 'post' : 'posts'} ${channelLabel === 'across all channels' ? `across ${m} ${m === 1 ? 'channel' : 'channels'}` : channelLabel} from the last ${days} days.`;
 }
 
 export function HomeView() {
-  const { channel } = useChannel();
+  const { channel, days } = useChannel();
   const sync = useSync();
   const connections = useConnections({ refetchInterval: (q) => ((q.state.data ?? []).some((c) => c.connected && c.dataPointsCount === 0) ? 5000 : false) });
   const connected = (connections.data ?? []).filter((c) => c.connected);
   const visible = channel === 'all' ? connected : connected.filter((c) => c.platform === channel);
   const hasPosts = connected.some((c) => c.dataPointsCount > 0);
-  const summary = useSummary(channel, 30);
+  const summary = useSummary(channel, days);
   const overview = useOverview();
   const [open, setOpen] = useState<string | null>(null);
   const syncing = sync.active.length > 0;
@@ -57,25 +57,25 @@ export function HomeView() {
     const hasTiming = signals.some((x) => x.actionTarget === 'timing');
     const next = s.dataPeriod.current.count === 0 || !hasTiming
       ? { href: '/plan', label: 'Plan your next post', why: s.dataPeriod.current.count === 0 ? "You haven't posted lately, so a plan can help you get going." : 'Pick a day and a channel for your next post.' }
-      : { href: '/best-times', label: 'See your best times to post', why: 'We found a time when your posts do best.' };
+      : { href: '/strategy', label: 'See your best times to post', why: 'We found a time when your posts do best.' };
     body = (
       <div className="space-y-8">
         <Card>
-          <h2 className="text-2xl">{hero ? hero.heading : headline(s, label)}</h2>
-          <p className="mt-2 max-w-2xl text-[15px] text-muted">{hero ? hero.summary : s.dataPeriod.current.count > 0 ? 'Here is how the last 30 days went.' : 'Share a new post and it will show up here after the next update.'}</p>
+          <h2 className="text-2xl">{hero ? hero.heading : headline(s, label, days)}</h2>
+          <p className="mt-2 max-w-2xl text-[15px] text-muted">{hero ? hero.summary : s.dataPeriod.current.count > 0 ? `Here is how the last ${days} days went.` : 'Share a new post and it will show up here after the next update.'}</p>
           <div className="mt-5 border-t border-line pt-4"><UpdatedLine connections={visible} syncing={syncing} /></div>
         </Card>
 
-        {s.dataPeriod.current.count === 0 && <Notice tone="info">There are no posts from the last 30 days, so the numbers below are empty. Your older posts are still on the Posts page.</Notice>}
+        {s.dataPeriod.current.count === 0 && <Notice tone="info">There are no posts from the last {days} days, so the numbers below are empty. Your older posts are still on the Posts page.</Notice>}
         <StatRow summary={s} />
 
         {overview.isError ? <Notice tone="warn">We couldn&apos;t load your signals right now. <button className="font-semibold underline" onClick={() => void overview.refetch()}>Try again</button></Notice>
           : <SignalList signals={signals} scopeNote={channel === 'all' ? undefined : 'Signals look at all your channels together.'} />}
 
         <div className="grid gap-8 md:grid-cols-2">
-          <FeaturedPost title="Your best post this month" post={top} summary={s} onOpen={setOpen} tagOverride="doing-well"
+          <FeaturedPost title="Your best post lately" post={top} summary={s} onOpen={setOpen} tagOverride="doing-well"
             line={top ? <>{relative(top.vsMedianEngagementPct, 'engagement') || 'This is your strongest post lately.'} Well done.</> : null}
-            empty="We need a few more posts in the last 30 days before we can pick a best one." />
+            empty={`We need a few more posts in the last ${days} days before we can pick a best one.`} />
           <FeaturedPost title="A post to look at" post={low} summary={s} onOpen={setOpen} tagOverride="could-be-better"
             line={low ? <>{relative(low.vsMedianEngagementPct, 'engagement') || 'This one is worth a second look.'} Open it for ideas to try next time.</> : null}
             empty="Nothing stands out as needing attention. That is a good sign." />
