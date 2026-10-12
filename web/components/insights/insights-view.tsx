@@ -21,6 +21,7 @@ import { useChannel } from '@/lib/hooks/useChannel';
 import { platformName, typeLabel } from '@/lib/platforms';
 import { qk } from '@/lib/queryKeys';
 import { WhyPerformerModal } from './why-performer-modal';
+import { DeepVideoAnalysisModal } from './deep-video-analysis-modal';
 import type {
   AiInsight, ArchiveResponse, AskResult, Performer, PerformersResponse,
   PerformerSort, Platform
@@ -50,6 +51,10 @@ export function InsightsView() {
     open: false,
     item: null,
     type: 'top',
+  });
+  const [videoModal, setVideoModal] = useState<{ open: boolean; item: Performer | null }>({
+    open: false,
+    item: null,
   });
 
   const rawTab = params.get('tab') ?? 'full_archive';
@@ -156,12 +161,14 @@ export function InsightsView() {
           <WhatsWorkingView
             onOpenDetail={(id) => setSelectedPostId(id)}
             onOpenWhyModal={(item) => setWhyModal({ open: true, item, type: 'top' })}
+            onOpenVideoModal={(item) => setVideoModal({ open: true, item })}
           />
         )}
         {activeTab === 'needs_attention' && (
           <NeedsAttentionView
             onOpenDetail={(id) => setSelectedPostId(id)}
             onOpenWhyModal={(item) => setWhyModal({ open: true, item, type: 'bottom' })}
+            onOpenVideoModal={(item) => setVideoModal({ open: true, item })}
           />
         )}
         {activeTab === 'executive_insights' && (
@@ -195,6 +202,14 @@ export function InsightsView() {
         item={whyModal.item}
         type={whyModal.type}
         onOpenFullDetail={(id) => setSelectedPostId(id)}
+        onOpenVideoAnalysis={(item) => setVideoModal({ open: true, item })}
+      />
+
+      {/* Deep Video Analysis Modal */}
+      <DeepVideoAnalysisModal
+        open={videoModal.open}
+        onOpenChange={(open) => setVideoModal((prev) => ({ ...prev, open }))}
+        item={videoModal.item}
       />
     </div>
   );
@@ -461,9 +476,11 @@ function FullArchiveAuditView({
 function WhatsWorkingView({
   onOpenDetail,
   onOpenWhyModal,
+  onOpenVideoModal,
 }: {
   onOpenDetail: (id: string) => void;
   onOpenWhyModal: (item: Performer) => void;
+  onOpenVideoModal: (item: Performer) => void;
 }) {
   const [sortBy, setSortBy] = useState<PerformerSort>('views');
   const q = useQuery({
@@ -525,6 +542,7 @@ function WhatsWorkingView({
               rank={idx + 1}
               onOpenDetail={onOpenDetail}
               onOpenWhyModal={onOpenWhyModal}
+              onOpenVideoModal={onOpenVideoModal}
             />
           ))}
         </div>
@@ -538,11 +556,13 @@ function PerformerCard({
   rank,
   onOpenDetail,
   onOpenWhyModal,
+  onOpenVideoModal,
 }: {
   item: Performer;
   rank: number;
   onOpenDetail: (id: string) => void;
   onOpenWhyModal: (item: Performer) => void;
+  onOpenVideoModal: (item: Performer) => void;
 }) {
   return (
     <Card className="p-6 space-y-4 hover:border-brand-200 transition-all shadow-xs">
@@ -641,9 +661,9 @@ function PerformerCard({
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => onOpenWhyModal(item)}
+                  onClick={() => onOpenVideoModal(item)}
                 >
-                  <Video className="h-3.5 w-3.5 mr-1" />
+                  <Video className="h-3.5 w-3.5 mr-1 text-brand-600" />
                   Deep Video Analysis
                 </Button>
               )}
@@ -662,9 +682,11 @@ function PerformerCard({
 function NeedsAttentionView({
   onOpenDetail,
   onOpenWhyModal,
+  onOpenVideoModal,
 }: {
   onOpenDetail: (id: string) => void;
   onOpenWhyModal: (item: Performer) => void;
+  onOpenVideoModal: (item: Performer) => void;
 }) {
   const q = useQuery({
     queryKey: qk.performers('views'),
@@ -710,6 +732,7 @@ function NeedsAttentionView({
               item={item}
               onOpenDetail={onOpenDetail}
               onOpenWhyModal={onOpenWhyModal}
+              onOpenVideoModal={onOpenVideoModal}
             />
           ))}
         </div>
@@ -722,10 +745,12 @@ function UnderperformerCard({
   item,
   onOpenDetail,
   onOpenWhyModal,
+  onOpenVideoModal,
 }: {
   item: Performer;
   onOpenDetail: (id: string) => void;
   onOpenWhyModal: (item: Performer) => void;
+  onOpenVideoModal: (item: Performer) => void;
 }) {
   return (
     <Card className="p-6 space-y-4 hover:border-rose-200 transition-all shadow-xs">
@@ -817,6 +842,16 @@ function UnderperformerCard({
                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
                 Why It's in Bottom
               </Button>
+              {['reel', 'short', 'video'].includes(item.contentType) && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onOpenVideoModal(item)}
+                >
+                  <Video className="h-3.5 w-3.5 mr-1 text-brand-600" />
+                  Deep Video Analysis
+                </Button>
+              )}
               <Button
                 size="sm"
                 variant="secondary"

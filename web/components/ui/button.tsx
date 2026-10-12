@@ -12,10 +12,10 @@ export function buttonClasses(variant: Variant = 'primary', size: Size = 'md', c
     size === 'sm' && 'h-10 px-4 text-sm',
     size === 'md' && 'h-11 px-5 text-[15px]',
     size === 'lg' && 'h-12 px-7 text-base',
-    variant === 'primary' && 'bg-[#1D63ED] text-white shadow-sm hover:bg-[#1554D1] active:bg-[#1044B2] hover:shadow transition-all duration-200',
-    variant === 'secondary' && 'bg-surface text-ink border border-line shadow-xs hover:bg-brand-50 hover:border-brand-200 hover:text-brand-700 dark:bg-slate-900 dark:border-slate-800 dark:hover:bg-slate-800',
-    variant === 'ghost' && 'text-brand-600 hover:bg-brand-50 hover:text-brand-700 dark:text-brand-400 dark:hover:bg-slate-800',
-    variant === 'danger' && 'bg-rose-600 text-white shadow-sm hover:bg-rose-700 active:bg-rose-800',
+    variant === 'primary' && 'bg-[#1D5FD1] hover:bg-[#174cb0] text-white shadow-sm hover:shadow-[0_4px_18px_rgba(29,95,209,0.32)] active:brightness-95 transition-all duration-200',
+    variant === 'secondary' && 'bg-surface text-ink border border-line shadow-2xs hover:bg-brand-50 hover:border-brand-300 hover:text-brand-700 dark:bg-slate-900/90 dark:border-slate-800 dark:hover:bg-slate-800/80 transition-all duration-200',
+    variant === 'ghost' && 'text-[#1D5FD1] hover:bg-brand-50 hover:text-[#174cb0] dark:text-brand-400 dark:hover:bg-slate-800/60 transition-all duration-200',
+    variant === 'danger' && 'bg-rose-600 hover:bg-rose-700 text-white shadow-sm hover:shadow-[0_4px_16px_rgba(225,29,72,0.3)] active:brightness-95 transition-all duration-200',
     className,
   );
 }

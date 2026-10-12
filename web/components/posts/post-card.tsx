@@ -51,7 +51,7 @@ function Metric({ icon: Icon, label, value, na, platform }: { icon: LucideIcon; 
 /** One card layout for every post, so a grid always looks tidy. */
 export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag; onOpen: () => void }) {
   return (
-    <button onClick={onOpen} className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-sky-100/90 bg-white text-left shadow-[0_4px_20px_-2px_rgba(0,163,255,0.06)] transition-all duration-200 hover:border-sky-300 hover:shadow-[0_12px_36px_rgba(0,163,255,0.18)] dark:border-sky-900/40 dark:bg-slate-900/95 dark:hover:border-sky-700">
+    <button onClick={onOpen} className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-line bg-white text-left shadow-2xs transition-all duration-200 hover:border-[#1D5FD1] hover:shadow-[0_12px_32px_rgba(29,95,209,0.16)] dark:border-slate-800 dark:bg-slate-900/95 dark:hover:border-brand-400">
       <div className="relative">
         <PostThumb item={item} uniform />
         <div className="absolute left-3 top-3 flex items-center gap-1.5">
@@ -61,7 +61,7 @@ export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag;
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
-          <h3 className="line-clamp-2 min-h-[2.8em] font-display text-[15px] font-bold leading-snug text-ink group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">{item.title || item.caption || 'Untitled post'}</h3>
+          <h3 className="line-clamp-2 min-h-[2.8em] font-display text-[15px] font-bold leading-snug text-ink group-hover:text-[#1D5FD1] dark:group-hover:text-brand-300 transition-colors">{item.title || item.caption || 'Untitled post'}</h3>
           <p className="mt-1 text-[13px] text-subtle">{dateShort(item.publishedAt)}</p>
         </div>
         <div className="flex items-center justify-between gap-2">
@@ -69,7 +69,7 @@ export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag;
           <Metric icon={Heart} label="likes" value={item.likes} na={isUnavailable(item, 'likes')} platform={item.platform} />
           <Metric icon={MessageCircle} label="comments" value={item.comments} na={isUnavailable(item, 'comments')} platform={item.platform} />
         </div>
-        <div className="mt-auto flex items-center justify-between gap-2 border-t border-sky-100/80 dark:border-sky-900/40 pt-3">
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-line dark:border-slate-800/80 pt-3">
           <span className="text-[13px] text-muted">Engagement <strong className="font-bold text-ink tabular">{percent(item.engagementRate)}</strong></span>
           <Badge tone={TAG_TONE[tag]}>{TAG_LABEL[tag]}</Badge>
         </div>

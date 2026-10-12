@@ -1,5 +1,5 @@
 /** Bump when any prompt below changes: cached AI results carry this version and are recomputed when it differs. */
-export const PROMPT_VERSION = 'p2';
+export const PROMPT_VERSION = 'p3';
 
 export const SYSTEM = `You are the analysis layer of Media Navigator, a social-media performance tool.
 Hard rules:
@@ -46,4 +46,10 @@ Return JSON: {
 export const videoPrompt = (facts: unknown) => `FACTS about one video (measured). Retention curves, audio and frame content are NOT available to you.
 ${JSON.stringify(facts)}
 
-Assess only what can be judged from the title/caption text and the numbers. Return JSON: {"hookAssessment": string, "captionAssessment": string, "recommendations": string[] (max 5), "alternativeHook": string}`;
+Assess only what can be judged from the title/caption text and the numbers. Provide a detailed forensic analysis of the opening hook, caption copy, pacing, and concrete recommendations.
+Return JSON: {
+  "hookAssessment": string (detailed evaluation of the opening hook, title, first-line curiosity trigger, and retention risks),
+  "captionAssessment": string (analysis of caption copy, readability, and engagement drivers),
+  "recommendations": string[] (max 4 concrete video editing or scripting recommendations),
+  "alternativeHook": string (a word-for-word opening script/hook to test next time)
+}`;

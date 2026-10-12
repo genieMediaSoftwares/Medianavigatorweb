@@ -22,6 +22,7 @@ import { PostCard, PostThumb } from './post-card';
 import { PostDetailDrawer } from './post-detail-drawer';
 import { plainComparison } from './plain-language';
 import { WhyPerformerModal } from '@/components/insights/why-performer-modal';
+import { DeepVideoAnalysisModal } from '@/components/insights/deep-video-analysis-modal';
 
 type Tab = 'all' | 'working' | 'attention';
 const TABS = [{ id: 'all', label: 'All' }, { id: 'working', label: "What's working" }, { id: 'attention', label: 'Needs attention' }];
@@ -144,8 +145,17 @@ function AllPosts({ channel, query, format, onOpen }: { channel: Platform | 'all
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const f = all.filter((p) => (format === 'all' || p.contentType === format) && (!q || `${p.title} ${p.caption}`.toLowerCase().includes(q)));
-    return [...f].sort((a, b) => sort === 'views' ? b.views - a.views : sort === 'engagement' ? b.engagementRate - a.engagementRate : +new Date(b.publishedAt) - +new Date(a.publishedAt));
+    const f = all.filter((p) => {
+      const matchesFormat = format === 'all' || p.contentType === format;
+      const text = `${p.title ?? ''} ${p.caption ?? ''}`.toLowerCase();
+      const matchesQuery = !q || text.includes(q);
+      return matchesFormat && matchesQuery;
+    });
+    return [...f].sort((a, b) => {
+      if (sort === 'views') return (b.views ?? 0) - (a.views ?? 0);
+      if (sort === 'engagement') return (b.engagementRate ?? 0) - (a.engagementRate ?? 0);
+      return +new Date(b.publishedAt) - +new Date(a.publishedAt);
+    });
   }, [all, query, format, sort]);
 
   if (feed.isLoading) return <PostGridSkeleton />;
@@ -175,7 +185,7 @@ function AllPosts({ channel, query, format, onOpen }: { channel: Platform | 'all
           action={feed.hasNextPage ? <Button variant="secondary" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>Show more posts</Button> : undefined} />
       ) : (
         <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
-          {items.map((p) => <PostCard key={p.id} item={p} tag={tagFor(p, summary.data)} onOpen={() => onOpen(p.id)} />)}
+          {items.map((p, idx) => <PostCard key={p.id || `post-${idx}`} item={p} tag={tagFor(p, summary.data)} onOpen={() => onOpen(p.id)} />)}
         </div>
       )}
       {feed.hasNextPage && items.length > 0 && <div className="flex justify-center"><Button variant="secondary" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>Show more</Button></div>}
@@ -202,6 +212,10 @@ export function PostsView() {
     open: false,
     item: null,
     type: 'top',
+  });
+  const [videoModal, setVideoModal] = useState<{ open: boolean; item: Performer | null }>({
+    open: false,
+    item: null,
   });
 
   const connected = (connections.data ?? []).filter((c) => c.connected);
@@ -252,6 +266,12 @@ export function PostsView() {
         item={whyModal.item}
         type={whyModal.type}
         onOpenFullDetail={(id) => setOpen(id)}
+        onOpenVideoAnalysis={(item) => setVideoModal({ open: true, item })}
+      />
+      <DeepVideoAnalysisModal
+        open={videoModal.open}
+        onOpenChange={(o) => setVideoModal((prev) => ({ ...prev, open: o }))}
+        item={videoModal.item}
       />
     </>
   );

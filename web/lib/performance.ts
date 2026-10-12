@@ -15,16 +15,18 @@ export const TAG_TONE: Record<PostTag, Tone> = { 'doing-well': 'good', typical: 
  * Plain-language tag for one post. The API ranks the best and weakest posts against the person's own history and lists
  * channels with too little history; everything else is "typical". Without a summary we say we don't know yet.
  */
-export function tagFor(post: { id: string; platform: Platform }, summary: Summary | undefined): PostTag {
-  if (!summary) return 'not-enough-data';
-  if (summary.insufficientHistory.includes(post.platform)) return 'not-enough-data';
-  if (summary.topContent.some((p) => p.id === post.id)) return 'doing-well';
-  if (summary.needsImprovement.some((p) => p.id === post.id)) return 'could-be-better';
+export function tagFor(post: { id: string; platform: Platform } | undefined | null, summary: Summary | undefined): PostTag {
+  if (!summary || !post) return 'not-enough-data';
+  if (summary.insufficientHistory?.includes(post.platform)) return 'not-enough-data';
+  if (summary.topContent?.some((p) => p.id === post.id)) return 'doing-well';
+  if (summary.needsImprovement?.some((p) => p.id === post.id)) return 'could-be-better';
   return 'typical';
 }
 
 type Metric = 'views' | 'likes' | 'comments' | 'reach' | 'shares';
 /** True when the platform did not give us this number for this post, so it must read "N/A", never 0. */
-export function isUnavailable(item: Pick<MediaItem, 'unavailableMetrics' | 'missingMetrics'>, metric: Metric): boolean {
-  return item.unavailableMetrics.includes(metric) || (item.missingMetrics ?? []).includes(metric);
+export function isUnavailable(item: Pick<MediaItem, 'unavailableMetrics' | 'missingMetrics'> | undefined | null, metric: Metric): boolean {
+  if (!item) return false;
+  return (item.unavailableMetrics ?? []).includes(metric) || (item.missingMetrics ?? []).includes(metric);
 }
+

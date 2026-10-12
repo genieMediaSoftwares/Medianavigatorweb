@@ -488,10 +488,30 @@ export interface ComparePost {
   engagementRatePct: number;
   durationSeconds: number | null;
 }
-/** Video analysis is qualitative only and lists what cannot be seen. Fields beyond `ai` are optional text. */
+export interface VideoTimelinePoint {
+  secondRange: string;
+  stage: string;
+  retentionEstimate: string;
+  actionableInsight: string;
+}
+
+/** Detailed forensic video analysis result */
 export interface VideoAnalysisResult {
-  ai?: AiMeta;
+  mediaId?: string;
+  classification?: string;
+  hookScore?: number;
+  hookQuality?: 'Exceptional' | 'Above Average' | 'Needs Improvement';
+  hookAssessment?: string;
+  captionAssessment?: string | null;
+  audioPacingFeedback?: string;
+  soundOffOptimizationTip?: string;
+  viralReplicationConcept?: string;
+  testedAlternativeHook?: string;
+  recommendations?: string[];
+  timelineCurve?: VideoTimelinePoint[];
   unavailable?: string[];
+  limitations?: string[];
+  ai?: AiMeta;
   [key: string]: unknown;
 }
 

@@ -18,9 +18,10 @@ export const mediaService = {
     const rows = await mediaRepository.page(uid, live.map((a) => a._id), { limit, cursor: cur, platform: q.platform && q.platform !== 'all' ? q.platform : undefined });
     const pageRows = rows.slice(0, limit);
     const last = pageRows[pageRows.length - 1] as ContentItemDoc | undefined;
+    const lastPubTime = last ? (last.publishedAt instanceof Date ? last.publishedAt.getTime() : new Date(last.publishedAt).getTime()) : 0;
     return {
       items: pageRows.map(toNormalized),
-      nextCursor: rows.length > limit && last ? encodeCursor({ t: last.publishedAt.getTime(), id: String(last._id) }) : null,
+      nextCursor: rows.length > limit && last ? encodeCursor({ t: lastPubTime, id: String(last._id) }) : null,
       limit,
     };
   },

@@ -30,6 +30,7 @@ interface WhyPerformerModalProps {
   item: Performer | null;
   type: 'top' | 'bottom';
   onOpenFullDetail?: (mediaId: string) => void;
+  onOpenVideoAnalysis?: (item: Performer) => void;
 }
 
 const BULLET_LABELS_TOP = [
@@ -56,8 +57,10 @@ export function WhyPerformerModal({
   item,
   type,
   onOpenFullDetail,
+  onOpenVideoAnalysis,
 }: WhyPerformerModalProps) {
   const [copied, setCopied] = useState(false);
+  const [copiedHook, setCopiedHook] = useState(false);
 
   const query = useQuery({
     queryKey: ['diagnose-post-6bullets', item?.mediaId],
@@ -171,7 +174,7 @@ export function WhyPerformerModal({
 
   const handleCopy = () => {
     const textToCopy = [
-      `Media Navigator — ${isTop ? "Why It's Top (Gemini AI Analysis)" : "Why It's Bottom (Gemini AI Diagnostic)"}`,
+      `Media Navigator — ${isTop ? "Why It's Top (Performance Breakdown)" : "Why It's Below Baseline (Diagnostic)"}`,
       `Post: "${item.title || item.caption || 'Untitled'}" (${platformName(item.platform)})`,
       `Performance: ${item.baselineComparison}`,
       '',
@@ -183,6 +186,10 @@ export function WhyPerformerModal({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const rewrittenHook =
+    query.data?.suggestedHookAlternative ||
+    (item.alternativeApproach ? item.alternativeApproach : `Stop making this mistake with ${(item.title || item.caption || 'your content').slice(0, 35)} — here is the exact fix.`);
+
   const isVideo = ['reel', 'short', 'video'].includes(item.contentType);
 
   return (
@@ -190,20 +197,20 @@ export function WhyPerformerModal({
       open={open}
       onOpenChange={onOpenChange}
       title={isTop ? "Why It's in Top" : "Why It's Below Baseline"}
-      description={`Forensic 6-point Gemini AI analysis for this ${typeLabel(item.contentType)}.`}
-      className="max-w-2xl"
+      description={`Forensic analysis for this ${typeLabel(item.contentType)}.`}
+      className="max-w-2xl max-h-[90vh] overflow-y-auto custom-scroll"
     >
       <div className="space-y-5">
         {/* Post Quick Header */}
-        <div className="flex items-start gap-3.5 rounded-xl border border-line bg-surface p-3.5 shadow-2xs">
+        <div className="flex items-start gap-3.5 rounded-2xl border border-line bg-surface p-4 shadow-2xs">
           {item.thumbnailUrl ? (
             <img
               src={item.thumbnailUrl}
               alt={item.title}
-              className="h-16 w-16 shrink-0 rounded-lg object-cover border border-line"
+              className="h-16 w-16 shrink-0 rounded-xl object-cover border border-line shadow-2xs"
             />
           ) : (
-            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-lg bg-brand-50 border border-line">
+            <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-brand-50 border border-line text-brand-600">
               <PlatformIcon platform={item.platform} className="h-6 w-6" />
             </div>
           )}
@@ -214,7 +221,7 @@ export function WhyPerformerModal({
                 {platformName(item.platform)}
               </span>
               <span className="text-xs text-subtle">·</span>
-              <span className="text-xs font-medium text-muted uppercase">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted">
                 {typeLabel(item.contentType)}
               </span>
               <span
@@ -247,25 +254,14 @@ export function WhyPerformerModal({
           </div>
         </div>
 
-        {/* Gemini Badge */}
-        <div className="flex items-center justify-between rounded-xl bg-brand-50 border border-brand-200/80 px-4 py-2.5 dark:bg-brand-950/30 dark:border-brand-900/60">
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-[#1D63ED] text-white">
-              <Sparkles className="h-3.5 w-3.5" />
-            </div>
-            <span className="text-xs font-bold text-[#1D63ED] dark:text-brand-300">
-              Analyzed with Gemini API (Full Post & Video Diagnosis)
-            </span>
-          </div>
-          <span className="text-[11px] font-medium text-muted">6 Core Bullet Points</span>
-        </div>
-
-        {/* Loading State */}
+        {/* Loading / Processing State */}
         {query.isLoading && (
           <div className="space-y-3 py-2">
-            <div className="flex items-center gap-2.5 text-sm font-semibold text-brand-700 dark:text-brand-300">
-              <RefreshCw className="h-4 w-4 animate-spin text-[#1D63ED]" />
-              <span>Analyzing whole post, hook, captions, and retention metrics...</span>
+            <div className="flex items-center gap-3 rounded-xl border border-brand-200/80 bg-brand-50/70 p-3.5 dark:border-brand-900/50 dark:bg-brand-950/30">
+              <RefreshCw className="h-4 w-4 animate-spin text-brand-600" />
+              <div className="text-xs font-medium text-brand-900 dark:text-brand-200">
+                <strong>Processing post diagnosis...</strong> Evaluating hook, copy, format dynamics, and baseline metrics.
+              </div>
             </div>
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Skeleton key={i} className="h-16 w-full rounded-xl" />
@@ -278,7 +274,7 @@ export function WhyPerformerModal({
           <ErrorState
             error={query.error}
             onRetry={() => query.refetch()}
-            title="We couldn't complete the Gemini analysis"
+            title="We couldn't complete the analysis"
           />
         )}
 
@@ -312,26 +308,103 @@ export function WhyPerformerModal({
           </div>
         )}
 
+        {/* Actionable Content Improvement Ideas for Bottom Performers */}
+        {!query.isLoading && !isTop && (
+          <div className="rounded-2xl border border-amber-200/90 bg-gradient-to-br from-amber-50/70 to-orange-50/40 p-4 dark:border-amber-900/60 dark:from-amber-950/30 dark:to-slate-900 shadow-2xs space-y-3">
+            <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+              <Sparkles className="h-4 w-4" />
+              <h5 className="text-xs font-bold uppercase tracking-wider">
+                Improved Content Ideas & Rewritten Hook
+              </h5>
+            </div>
+
+            <div className="rounded-xl border border-amber-200/60 bg-white/90 p-3.5 dark:border-amber-900/40 dark:bg-slate-900/90">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted">
+                  Suggested Rewritten Hook Script
+                </span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    navigator.clipboard.writeText(rewrittenHook);
+                    setCopiedHook(true);
+                    setTimeout(() => setCopiedHook(false), 2000);
+                  }}
+                  className="h-6 text-[11px] px-2"
+                >
+                  {copiedHook ? (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-600 mr-1" />
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-3 w-3 mr-1" />
+                      Copy Hook
+                    </>
+                  )}
+                </Button>
+              </div>
+              <p className="text-sm font-bold text-ink">
+                &ldquo;{rewrittenHook}&rdquo;
+              </p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 text-xs text-ink">
+              <div className="rounded-xl bg-white/70 p-3 dark:bg-slate-900/60 border border-amber-100 dark:border-amber-950">
+                <strong className="block text-amber-900 dark:text-amber-300 font-semibold mb-1">
+                  Visual Angle Adjustment
+                </strong>
+                Open with immediate movement or dynamic on-screen text in the first 1.5 seconds instead of a talking-head pause.
+              </div>
+              <div className="rounded-xl bg-white/70 p-3 dark:bg-slate-900/60 border border-amber-100 dark:border-amber-950">
+                <strong className="block text-amber-900 dark:text-amber-300 font-semibold mb-1">
+                  Repackaged Content Concept
+                </strong>
+                {item.patternToReplicateOrImprove || 'Turn this into a quick 3-step solution addressing a specific creator pain point.'}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action Footer */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-line">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleCopy}
-            className="text-xs"
-          >
-            {copied ? (
-              <>
-                <Check className="h-3.5 w-3.5 text-emerald-600 mr-1.5" />
-                Copied 6 Points!
-              </>
-            ) : (
-              <>
-                <Copy className="h-3.5 w-3.5 mr-1.5" />
-                Copy 6 Bullet Points
-              </>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleCopy}
+              className="text-xs"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-emerald-600 mr-1.5" />
+                  Copied 6 Points!
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5 mr-1.5" />
+                  Copy 6 Bullet Points
+                </>
+              )}
+            </Button>
+
+            {isVideo && onOpenVideoAnalysis && (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  onOpenChange(false);
+                  onOpenVideoAnalysis(item);
+                }}
+                className="text-xs"
+              >
+                <Video className="h-3.5 w-3.5 mr-1.5 text-brand-600" />
+                Deep Video Analysis
+              </Button>
             )}
-          </Button>
+          </div>
 
           {onOpenFullDetail && (
             <Button
@@ -352,3 +425,4 @@ export function WhyPerformerModal({
     </Modal>
   );
 }
+
