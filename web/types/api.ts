@@ -323,6 +323,31 @@ export interface PerformersResponse {
 }
 export type PerformerSort = 'views' | 'engagement' | 'likes' | 'comments';
 
+export interface ArchiveFormatStats {
+  format: string;
+  count: number;
+  percentageOfLibrary: number;
+  totalViews: number;
+  avgViews: number;
+  avgLikes: number;
+  avgComments: number;
+  avgEngagement: number;
+  recommendationNote?: string;
+  isTopFormat?: boolean;
+}
+export interface ArchiveResponse {
+  hasData?: boolean;
+  totalAnalyzed: number;
+  totalReels: number;
+  totalPostsAndCarousels: number;
+  totalVerifiedViews: number;
+  totalInteractions: number;
+  avgEngagementRate: number;
+  formats: ArchiveFormatStats[];
+  topWinningFormat: string;
+  message?: string;
+}
+
 export interface PatternRow {
   format: string;
   count: number;

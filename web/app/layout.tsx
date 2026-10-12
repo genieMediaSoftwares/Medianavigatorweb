@@ -18,7 +18,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={`${heading.variable} ${body.variable}`}>
       <head><script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} /></head>
-      <body><Providers>{children}</Providers></body>
+      {/* Browser extensions (e.g. ColorZilla's cz-shortcut-listen, Grammarly) add attributes to <body> before React
+          loads. This only ignores attribute differences on <body> itself; everything inside is still checked. */}
+      <body suppressHydrationWarning><Providers>{children}</Providers></body>
     </html>
   );
 }

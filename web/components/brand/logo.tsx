@@ -4,18 +4,26 @@ import { cn } from '@/lib/utils';
 
 /** The "M" with the navigation arrow, from the supplied artwork. Never stretched or recoloured. */
 export function LogoMark({ className, size = 36 }: { className?: string; size?: number }) {
-  return <Image src="/brand/mark.png" alt="" width={size} height={Math.round(size * 1.07)} priority unoptimized className={cn('h-auto select-none', className)} style={{ width: size }} />;
+  return <Image src="/brand/mark.png" alt="Media Navigator logo" width={size} height={Math.round(size * 1.07)} priority unoptimized className={cn('h-auto select-none transition-transform duration-300 hover:scale-105', className)} style={{ width: size }} />;
 }
 
-/** Mark + the wordmark in text ("Media" in navy, "Navigator" in brand blue) so it follows light and dark themes. */
-export function Wordmark({ className, collapsed, href = '/' }: { className?: string; collapsed?: boolean; href?: string }) {
+/** Mark + the wordmark ("MEDIA" in dark navy/ink, "NAVIGATOR" in sky blue) with optional tagline. */
+export function Wordmark({ className, collapsed, showTagline = false, href = '/' }: { className?: string; collapsed?: boolean; showTagline?: boolean; href?: string }) {
   return (
-    <Link href={href} aria-label="Media Navigator home" className={cn('inline-flex items-center gap-2.5', className)}>
-      <LogoMark size={32} />
+    <Link href={href} aria-label="Media Navigator home" className={cn('group inline-flex items-center gap-3', className)}>
+      <LogoMark size={34} />
       {!collapsed && (
-        <span className="font-display text-[19px] font-extrabold leading-none tracking-tight">
-          <span className="text-ink">Media</span><span className="text-brand-600">Navigator</span>
-        </span>
+        <div className="flex flex-col">
+          <span className="font-display text-[19px] font-extrabold leading-none tracking-tight">
+            <span className="text-ink">MEDIA </span>
+            <span className="bg-gradient-to-r from-sky-500 via-sky-600 to-blue-600 bg-clip-text text-transparent dark:from-sky-400 dark:to-blue-400">NAVIGATOR</span>
+          </span>
+          {showTagline && (
+            <span className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-subtle">
+              CONNECT • ANALYZE • IMPROVE • GROW
+            </span>
+          )}
+        </div>
       )}
     </Link>
   );
@@ -23,5 +31,6 @@ export function Wordmark({ className, collapsed, href = '/' }: { className?: str
 
 /** The full lockup (mark, orbiting platforms, wordmark and tagline) for the landing and sign-in pages. Light backgrounds only. */
 export function LogoLockup({ className, width = 300 }: { className?: string; width?: number }) {
-  return <Image src="/brand/logo.png" alt="Media Navigator: connect, analyze, improve, grow" width={width} height={Math.round(width * 0.3194)} priority unoptimized className={cn('h-auto select-none', className)} style={{ width }} />;
+  return <Image src="/brand/logo.png" alt="Media Navigator: CONNECT • ANALYZE • IMPROVE • GROW" width={width} height={Math.round(width * 0.3194)} priority unoptimized className={cn('h-auto select-none transition-transform duration-300 hover:scale-[1.02]', className)} style={{ width }} />;
 }
+

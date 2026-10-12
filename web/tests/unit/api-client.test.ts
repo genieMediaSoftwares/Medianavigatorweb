@@ -1,3 +1,4 @@
+// @vitest-environment happy-dom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, SIGNED_OUT_EVENT, apiGet, apiRequest } from '@/lib/api/client';
 

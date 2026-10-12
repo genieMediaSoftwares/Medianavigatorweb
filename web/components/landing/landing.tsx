@@ -88,7 +88,7 @@ export function Landing() {
 
       <section id="privacy" className="scroll-mt-20 py-6">
         <div className="mx-auto max-w-[1200px] px-5">
-          <div className="grid gap-10 overflow-hidden rounded-[28px] p-8 text-white md:grid-cols-[1fr_1fr] md:p-14" style={{ background: 'linear-gradient(150deg, #0a2c8f 0%, #0b5fe6 60%, #18b8f8 130%)' }}>
+          <div className="grid gap-10 overflow-hidden rounded-[28px] p-8 text-white md:grid-cols-[1fr_1fr] md:p-14 shadow-[0_12px_36px_rgba(0,163,255,0.25)]" style={{ background: 'linear-gradient(135deg, #00C2FF 0%, #0085FF 55%, #0052D4 100%)' }}>
             <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-white/70">Privacy</p><h2 className="mt-3 text-[34px] text-white sm:text-[40px]">Read-only, encrypted, and yours to delete.</h2><p className="mt-4 text-white/85">We built Media Navigator to look, not touch. Here is exactly what that means.</p></div>
             <ul className="space-y-5">
               {[{ icon: Eye, t: 'Read-only', d: 'It can’t post, edit or delete anything on your accounts.' }, { icon: Lock, t: 'Encrypted access', d: 'Your access is encrypted on our server and never shown in your browser.' }, { icon: Trash2, t: 'Deletable', d: 'Disconnect any time, or delete your whole account from Settings.' }].map(({ icon: Icon, t, d }) => (

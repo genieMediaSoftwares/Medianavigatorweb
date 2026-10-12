@@ -81,10 +81,10 @@ export function HomeView() {
             empty="Nothing stands out as needing attention. That is a good sign." />
         </div>
 
-        <Card className="flex flex-wrap items-center justify-between gap-4 bg-brand-50 border-brand-100">
+        <Card className="flex flex-wrap items-center justify-between gap-4 border-sky-100/90 bg-gradient-to-r from-sky-50/80 via-blue-50/50 to-white p-6 shadow-sm dark:border-sky-900/50 dark:from-sky-950/40 dark:via-blue-950/20 dark:to-slate-900">
           <div className="min-w-0">
-            <p className="eyebrow">Next best action</p>
-            <p className="mt-1 text-[15px] text-ink">{next.why}</p>
+            <p className="eyebrow text-sky-600 dark:text-sky-400">Next best action</p>
+            <p className="mt-1 text-[15px] font-semibold text-ink">{next.why}</p>
           </div>
           <LinkButton href={next.href} size="lg">{next.label}<ArrowRight className="h-5 w-5" aria-hidden="true" /></LinkButton>
         </Card>
