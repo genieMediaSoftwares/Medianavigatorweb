@@ -37,7 +37,7 @@ function Block({ step, title, hint, children }: { step: string; title: string; h
 
 function MetricBox({ label, value, platform, na }: { label: string; value: string; platform: string; na?: boolean }) {
   return (
-    <div className="rounded-xl bg-app px-3 py-2.5">
+    <div className="rounded-xl border border-line bg-brand-50/40 px-3 py-2.5">
       <dt className="text-[13px] text-muted">{label}</dt>
       <dd className="mt-0.5 font-display text-lg font-bold text-ink tabular">
         {na ? <span className="text-sm font-semibold text-subtle">Not available from {platform}</span> : value}
@@ -169,7 +169,7 @@ function CompareView({ result, mine }: { result: CompareResult; mine: string }) 
     <div className="space-y-3">
       <div className="grid grid-cols-[1fr_1fr] gap-3 text-sm">
         {[a, b].map((p, i) => (
-          <div key={p.id} className="rounded-xl bg-app p-3">
+          <div key={p.id} className="rounded-xl border border-line bg-brand-50/40 p-3">
             <p className="text-[13px] font-semibold text-muted">{i === 0 ? 'This post' : 'Other post'}</p>
             <p className="line-clamp-2 font-semibold text-ink">{p.title || 'Untitled post'}</p>
             <p className="text-[13px] text-subtle">{platformName(p.platform)} · {typeLabel(p.contentType)} · {dateShort(p.publishedAt)}</p>

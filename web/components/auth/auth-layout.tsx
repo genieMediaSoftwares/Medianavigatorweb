@@ -25,9 +25,9 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
           {footer && <div className="mt-8 text-center text-sm text-muted">{footer}</div>}
         </div>
       </div>
-      <aside className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between p-12 text-white" style={{ background: 'linear-gradient(150deg, #0a2c8f 0%, #0b5fe6 58%, #18b8f8 120%)' }}>
+      <aside className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between p-12 text-white" style={{ background: 'linear-gradient(150deg, #123e94 0%, #1D5FD1 65%, #347ee8 100%)' }}>
         <div aria-hidden="true" className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div aria-hidden="true" className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-[#18b8f8]/30 blur-3xl" />
+        <div aria-hidden="true" className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-[#1D5FD1]/30 blur-3xl" />
         <div className="relative rounded-2xl bg-white p-5 shadow-[var(--shadow-pop)] self-start"><LogoLockup width={260} /></div>
         <div className="relative">
           <p className="font-display text-4xl font-extrabold leading-[1.1] tracking-tight">Know what to post <span className="text-[#bfe9ff]">before</span> you post it.</p>

@@ -343,30 +343,30 @@ function FullArchiveAuditView({
   return (
     <div className="space-y-6">
       {/* Archive Header Banner */}
-      <Card className="p-6 bg-gradient-to-r from-brand-900 via-brand-800 to-ink text-white overflow-hidden relative">
+      <Card className="p-6 bg-gradient-to-r from-[#1D5FD1] via-[#1a55bd] to-[#144294] text-white overflow-hidden relative shadow-[0_12px_36px_rgba(29,95,209,0.25)]">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2 max-w-3xl">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="bg-brand-500/20 text-brand-200 border border-brand-400/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="bg-white/20 text-white border border-white/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                 FULL HISTORICAL INDEX
               </span>
-              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+              <span className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
                 Zero Pagination Limit
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
               Exhaustive Archive Audit: {archive.totalAnalyzed.toLocaleString()} Total Posts & Reels
             </h2>
-            <p className="text-xs sm:text-sm text-brand-100 leading-relaxed">
+            <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
               Every published reel, video, carousel, and photo has been retrieved directly from platform APIs. All baselines are computed across your entire catalogue.
             </p>
           </div>
           <Button
             onClick={handleAuditAll}
             loading={auditing}
-            className="bg-white hover:bg-brand-50 text-brand-900 font-bold shrink-0 shadow-lg"
+            className="bg-white hover:bg-brand-50 text-[#1D5FD1] font-bold shrink-0 shadow-sm"
           >
-            <Sparkles className="h-4 w-4 mr-2 text-brand-600" />
+            <Sparkles className="h-4 w-4 mr-2 text-[#1D5FD1]" />
             Audit All Posts with AI
           </Button>
         </div>

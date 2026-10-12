@@ -18,8 +18,8 @@ const TYPE_ICON: Record<string, LucideIcon> = { reel: Film, short: Film, video: 
 export function ThumbFallback({ platform, type, label }: { platform: Platform; type: string; label?: string }) {
   const Icon = TYPE_ICON[type] ?? ImageIcon;
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-sky-50 text-subtle dark:bg-sky-950/40" title={label}>
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-sky-100 bg-white shadow-sm dark:border-sky-900/60 dark:bg-slate-900"><PlatformIcon platform={platform} className="h-8 w-8" /></span>
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-brand-50 text-subtle dark:bg-slate-900" title={label}>
+      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-brand-100 bg-white shadow-2xs dark:border-slate-800 dark:bg-slate-900"><PlatformIcon platform={platform} className="h-8 w-8" /></span>
       <Icon className="h-5 w-5" aria-hidden="true" />
       {label && <span className="flex items-center gap-1 text-xs font-medium"><ImageOff className="h-3.5 w-3.5" aria-hidden="true" />{label}</span>}
     </div>
@@ -31,7 +31,7 @@ export function PostThumb({ item, className, uniform = false }: { item: Pick<Med
   const [failed, setFailed] = useState(false);
   const show = Boolean(item.thumbnailUrl) && !failed;
   return (
-    <div className={cn('relative w-full overflow-hidden bg-sky-50 dark:bg-sky-950/40', uniform ? 'aspect-[4/5]' : PLATFORM_ASPECT[item.platform], className)}>
+    <div className={cn('relative w-full overflow-hidden bg-brand-50 dark:bg-slate-900', uniform ? 'aspect-[4/5]' : PLATFORM_ASPECT[item.platform], className)}>
       {show
         ? <Image src={item.thumbnailUrl} alt="" fill sizes="(max-width: 640px) 100vw, 320px" unoptimized referrerPolicy="no-referrer" className={item.platform === 'youtube' && uniform ? 'object-contain' : 'object-cover'} onError={() => setFailed(true)} />
         : <ThumbFallback platform={item.platform} type={item.contentType} label={item.thumbnailUrl ? 'Image unavailable' : undefined} />}

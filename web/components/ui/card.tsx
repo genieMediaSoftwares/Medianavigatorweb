@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn('rounded-2xl border border-sky-100/90 bg-white p-6 shadow-[0_4px_20px_-2px_rgba(0,163,255,0.06)] transition-all duration-200 dark:border-sky-900/40 dark:bg-slate-900/95 dark:shadow-none', className)} {...props} />;
+  return <div className={cn('rounded-2xl border border-line bg-white p-6 shadow-2xs transition-all duration-200 dark:border-slate-800 dark:bg-slate-900/95', className)} {...props} />;
 }
 
 export function SectionHeader({ title, description, action, className }: { title: string; description?: ReactNode; action?: ReactNode; className?: string }) {

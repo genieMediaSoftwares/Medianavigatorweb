@@ -262,7 +262,7 @@ export function DeepVideoAnalysisModal({
               {/* Sound-Off Optimization */}
               <div className="rounded-2xl border border-line bg-surface p-4 shadow-2xs">
                 <div className="flex items-center gap-2 mb-2">
-                  <VolumeX className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  <VolumeX className="h-4 w-4 text-[#1D5FD1] dark:text-brand-300" />
                   <h5 className="text-xs font-bold uppercase tracking-wider text-muted">
                     Sound-Off Strategy
                   </h5>

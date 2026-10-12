@@ -20,13 +20,13 @@ export function BottomNav({ isAdmin }: { isAdmin: boolean }) {
   const tab = 'flex h-full flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold';
   return (
     <>
-      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-30 flex h-16 border-t border-sky-100/90 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md dark:border-sky-900/40 dark:bg-slate-950/95 lg:hidden">
+      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-30 flex h-16 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95 lg:hidden">
         {primary.map((item) => {
           const active = isActive(item, pathname);
           const Icon = item.icon;
-          return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined} className={cn(tab, active ? 'text-sky-600 font-bold dark:text-sky-400' : 'text-muted hover:text-sky-600')}><Icon className={cn('h-5 w-5 transition-transform', active && 'scale-110')} aria-hidden="true" />{item.label}</Link>;
+          return <Link key={item.href} href={item.href} aria-current={active ? 'page' : undefined} className={cn(tab, active ? 'text-[#1D5FD1] font-bold dark:text-brand-300' : 'text-muted hover:text-[#1D5FD1]')}><Icon className={cn('h-5 w-5 transition-transform', active && 'scale-110')} aria-hidden="true" />{item.label}</Link>;
         })}
-        <button onClick={() => setMore(true)} aria-haspopup="dialog" className={cn(tab, moreActive ? 'text-sky-600 font-bold dark:text-sky-400' : 'text-muted hover:text-sky-600')}><MoreHorizontal className="h-5 w-5" aria-hidden="true" />More</button>
+        <button onClick={() => setMore(true)} aria-haspopup="dialog" className={cn(tab, moreActive ? 'text-[#1D5FD1] font-bold dark:text-brand-300' : 'text-muted hover:text-[#1D5FD1]')}> <MoreHorizontal className="h-5 w-5" aria-hidden="true" />More</button>
       </nav>
       <Drawer open={more} onOpenChange={setMore} title="Menu">
         <div className="space-y-6"><NavList isAdmin={isAdmin} onNavigate={() => setMore(false)} /><AccountCard /></div>

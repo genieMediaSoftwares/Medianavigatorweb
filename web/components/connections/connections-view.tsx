@@ -31,7 +31,7 @@ const WHAT: Record<Platform, string> = {
 
 function Stat({ icon: Icon, label, children }: { icon: typeof Users; label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-app p-3">
+    <div className="rounded-xl border border-line bg-brand-50/40 p-3">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-muted"><Icon className="h-3.5 w-3.5" aria-hidden="true" />{label}</div>
       <div className="mt-1 font-display text-lg font-bold text-ink tabular">{children}</div>
     </div>

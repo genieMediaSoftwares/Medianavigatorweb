@@ -8,10 +8,10 @@ export function StatCard({ label, value, meaning, delta, icon }: { label: string
   const up = delta !== null && delta !== undefined && delta > 0;
   const down = delta !== null && delta !== undefined && delta < 0;
   return (
-    <div className="rounded-2xl border border-sky-100/90 bg-white p-5 shadow-[0_4px_20px_-2px_rgba(0,163,255,0.06)] transition-all duration-200 hover:shadow-[0_8px_26px_-4px_rgba(0,163,255,0.12)] dark:border-sky-900/40 dark:bg-slate-900/95 dark:shadow-none flex h-full flex-col">
+    <div className="rounded-2xl border border-line bg-white p-5 shadow-2xs transition-all duration-200 hover:border-brand-200 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900/95 flex h-full flex-col">
       <div className="flex items-start justify-between gap-3">
         <span className="text-sm font-semibold text-muted">{label}</span>
-        {icon && <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 text-sky-600 border border-sky-100 dark:bg-sky-950/60 dark:border-sky-800/50 dark:text-sky-400" aria-hidden="true">{icon}</span>}
+        {icon && <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-[#1D5FD1] border border-brand-100 dark:bg-brand-950/60 dark:border-brand-800/50 dark:text-brand-400" aria-hidden="true">{icon}</span>}
       </div>
       <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-display text-[34px] font-bold leading-none tracking-tight text-ink tabular">{value}</span>
