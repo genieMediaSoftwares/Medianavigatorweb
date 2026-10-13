@@ -58,6 +58,13 @@ export const mediaRepository = {
     return ContentItem.find(filter).sort({ publishedAt: -1, _id: -1 }).limit(params.limit + 1).lean<ContentItemDoc[]>();
   },
 
+  countForFeed: (userId: Types.ObjectId, accountIds: Types.ObjectId[], platform?: string) =>
+    ContentItem.countDocuments({
+      $or: [{ userId }, { userId: String(userId) }],
+      connectedAccountId: { $in: [...accountIds, ...accountIds.map((a) => String(a))] },
+      ...(platform ? { platform } : {}),
+    } as any),
+
   countForAccount: (connectedAccountId: Types.ObjectId) => ContentItem.countDocuments({ connectedAccountId }),
   latestPublishedAt: async (connectedAccountId: Types.ObjectId) =>
     (await ContentItem.findOne({ connectedAccountId }).sort({ publishedAt: -1 }).select('publishedAt').lean<{ publishedAt: Date }>())?.publishedAt ?? null,

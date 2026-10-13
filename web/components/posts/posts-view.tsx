@@ -25,7 +25,7 @@ import { WhyPerformerModal } from '@/components/insights/why-performer-modal';
 import { DeepVideoAnalysisModal } from '@/components/insights/deep-video-analysis-modal';
 
 type Tab = 'all' | 'working' | 'attention';
-const TABS = [{ id: 'all', label: 'All' }, { id: 'working', label: "What's working" }, { id: 'attention', label: 'Needs attention' }];
+const TABS = [{ id: 'all', label: 'All' }, { id: 'working', label: "What's working" }, { id: 'attention', label: 'Needs work' }];
 type AllSort = 'newest' | 'views' | 'engagement';
 const ALL_SORTS: Array<{ value: AllSort; label: string }> = [{ value: 'newest', label: 'Newest' }, { value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }];
 const RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }, { value: 'likes', label: 'Most likes' }, { value: 'comments', label: 'Most comments' }];
@@ -76,7 +76,7 @@ function RankedCard({ p, kind, rank, onOpen, onOpenWhy }: { p: Performer; kind: 
             className={kind === 'working' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'}
           >
             <Sparkles className="h-3.5 w-3.5 mr-1" />
-            {kind === 'working' ? "Why It's in Top" : "Why It's in Bottom"}
+            {kind === 'working' ? 'Why it is doing well' : 'Why it needs attention'}
           </Button>
         </div>
       </div>
@@ -257,7 +257,7 @@ export function PostsView() {
 
   return (
     <>
-      <PageHeader title="Posts" subtitle="Every post we've imported, with a plain note on how it is doing compared with your usual." />
+      <PageHeader title="Posts" subtitle="Browse every imported post, or switch to see what is working and what needs work." />
       {body}
       <PostDetailDrawer postId={open} onClose={() => setOpen(null)} />
       <WhyPerformerModal

@@ -1,39 +1,24 @@
 'use client';
-
 import { useMutation, useQuery } from '@tanstack/react-query';
-import {
-  AlertTriangle, ArrowRight, Bot, ChevronDown, ChevronRight, Database,
-  FileText, Flame, Layers, RefreshCw, Send, Sparkles, TrendingUp, Trophy, Video
-} from 'lucide-react';
-import Link from 'next/link';
+import { Bot, ChevronDown, Database, Flame, Layers, Send, Sparkles } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PlatformTile } from '@/components/ui/platform-logo';
-import { PostDetailDrawer } from '@/components/posts/post-detail-drawer';
 import { api } from '@/lib/api/endpoints';
-import { compact, dateShort, percent, whole } from '@/lib/format';
-import { useChannel } from '@/lib/hooks/useChannel';
-import { platformName, typeLabel } from '@/lib/platforms';
+import { compact, percent, whole } from '@/lib/format';
 import { qk } from '@/lib/queryKeys';
-import { WhyPerformerModal } from './why-performer-modal';
-import { DeepVideoAnalysisModal } from './deep-video-analysis-modal';
-import type {
-  AiInsight, ArchiveResponse, AskResult, Performer, PerformersResponse,
-  PerformerSort, Platform
-} from '@/types/api';
+import type { AiInsight, ArchiveResponse, AskResult } from '@/types/api';
 
-type TabId = 'full_archive' | 'whats_working' | 'needs_attention' | 'executive_insights' | 'format_patterns';
+type TabId = 'full_archive' | 'executive_insights' | 'format_patterns';
 
 const TAB_MAP: Record<string, TabId> = {
   full_archive: 'full_archive',
   overview: 'full_archive',
-  whats_working: 'whats_working',
-  needs_attention: 'needs_attention',
   executive_insights: 'executive_insights',
   trends: 'executive_insights',
   signals: 'executive_insights',
@@ -45,28 +30,15 @@ export function InsightsView() {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
-  const { channel } = useChannel();
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [whyModal, setWhyModal] = useState<{ open: boolean; item: Performer | null; type: 'top' | 'bottom' }>({
-    open: false,
-    item: null,
-    type: 'top',
-  });
-  const [videoModal, setVideoModal] = useState<{ open: boolean; item: Performer | null }>({
-    open: false,
-    item: null,
-  });
 
   const rawTab = params.get('tab') ?? 'full_archive';
+  // Ranked posts live on the Posts page now; keep old links working.
+  const moved = rawTab === 'whats_working' ? 'working' : rawTab === 'needs_attention' ? 'attention' : null;
+  useEffect(() => { if (moved) router.replace(`/posts?tab=${moved}`); }, [moved, router]);
   const activeTab: TabId = TAB_MAP[rawTab] ?? 'full_archive';
 
   // Data Queries
   const archive = useQuery({ queryKey: qk.archive, queryFn: api.archive, staleTime: 60_000 });
-  const performers = useQuery({
-    queryKey: qk.performers('views'),
-    queryFn: () => api.performers('views'),
-    staleTime: 60_000,
-  });
   const signals = useQuery({ queryKey: qk.signals, queryFn: api.signals, staleTime: 60_000 });
   const patterns = useQuery({ queryKey: qk.patterns, queryFn: api.patterns, staleTime: 60_000 });
 
@@ -75,69 +47,37 @@ export function InsightsView() {
   };
 
   const archiveCount = archive.data?.totalAnalyzed ?? 0;
-  const workingCount = performers.data?.top.length ?? 0;
-  const attentionCount = performers.data?.bottom.length ?? 0;
   const executiveCount = signals.data?.insights.length ?? 0;
   const patternsCount = patterns.data?.length ?? 0;
 
   const tabs = [
-    { id: 'full_archive' as TabId, label: `Full Archive Audit (${archiveCount})`, icon: Database },
-    { id: 'whats_working' as TabId, label: `What's Working (${workingCount})`, icon: Trophy },
-    { id: 'needs_attention' as TabId, label: `Needs Attention (${attentionCount})`, icon: AlertTriangle },
-    { id: 'executive_insights' as TabId, label: `Executive Insights (${executiveCount})`, icon: Sparkles },
-    { id: 'format_patterns' as TabId, label: `Format Patterns (${patternsCount})`, icon: Layers },
+    { id: 'full_archive' as TabId, label: 'Overview', count: archiveCount, icon: Database },
+    { id: 'executive_insights' as TabId, label: 'Key takeaways', count: executiveCount, icon: Sparkles },
+    { id: 'format_patterns' as TabId, label: 'Formats', count: patternsCount, icon: Layers },
   ];
 
   return (
     <div className="space-y-6 animate-fade">
-      {/* Top Header Section */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-ink">AI Intelligence & Performance</h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Verified Data Engine
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-muted">
-            Performance analysis across your synced posts. Open Content Library to browse every imported post.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href="/posts"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 text-xs font-semibold text-ink hover:bg-brand-50 hover:border-brand-200 transition-colors"
-          >
-            Content library <ArrowRight className="h-3.5 w-3.5 text-subtle" />
-          </Link>
-          <Link
-            href="/best-times"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 text-xs font-semibold text-ink hover:bg-brand-50 hover:border-brand-200 transition-colors"
-          >
-            Timing matrix <ArrowRight className="h-3.5 w-3.5 text-subtle" />
-          </Link>
-        </div>
-      </div>
+      <PageHeader title="Insights" subtitle="What is working, what needs attention, and what to try next, based on your own posts." />
 
-      {/* Pill Navigation Tabs */}
-      <div className="no-print overflow-x-auto custom-scroll pb-1">
-        <div className="inline-flex items-center gap-1.5 rounded-2xl border border-line bg-surface/80 p-1.5 backdrop-blur-sm min-w-max">
+      <div className="no-print overflow-x-auto custom-scroll pb-1" role="tablist" aria-label="Insights sections">
+        <div className="inline-flex items-center gap-1.5 rounded-2xl border border-line bg-surface/80 p-1.5 min-w-max">
           {tabs.map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
             return (
               <button
                 key={t.id}
+                role="tab"
+                aria-selected={active}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
-                  active
-                    ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30'
-                    : 'text-muted hover:bg-brand-50 hover:text-ink'
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+                  active ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30' : 'text-muted hover:bg-brand-50 hover:text-ink'
                 }`}
               >
-                <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-subtle'}`} />
+                <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-subtle'}`} aria-hidden="true" />
                 <span>{t.label}</span>
+                {t.count > 0 && <span className={`rounded-full px-1.5 text-xs ${active ? 'bg-white/20' : 'bg-brand-50 text-brand-700'}`}>{t.count}</span>}
               </button>
             );
           })}
@@ -157,20 +97,6 @@ export function InsightsView() {
             onRetry={() => archive.refetch()}
           />
         )}
-        {activeTab === 'whats_working' && (
-          <WhatsWorkingView
-            onOpenDetail={(id) => setSelectedPostId(id)}
-            onOpenWhyModal={(item) => setWhyModal({ open: true, item, type: 'top' })}
-            onOpenVideoModal={(item) => setVideoModal({ open: true, item })}
-          />
-        )}
-        {activeTab === 'needs_attention' && (
-          <NeedsAttentionView
-            onOpenDetail={(id) => setSelectedPostId(id)}
-            onOpenWhyModal={(item) => setWhyModal({ open: true, item, type: 'bottom' })}
-            onOpenVideoModal={(item) => setVideoModal({ open: true, item })}
-          />
-        )}
         {activeTab === 'executive_insights' && (
           <ExecutiveInsightsView
             signals={signals.data?.insights ?? []}
@@ -188,29 +114,6 @@ export function InsightsView() {
           />
         )}
       </div>
-
-      {/* Post Details & AI Analysis Drawer */}
-      <PostDetailDrawer
-        postId={selectedPostId}
-        onClose={() => setSelectedPostId(null)}
-      />
-
-      {/* 6-Bullet Forensic Gemini Analysis Modal */}
-      <WhyPerformerModal
-        open={whyModal.open}
-        onOpenChange={(open) => setWhyModal((prev) => ({ ...prev, open }))}
-        item={whyModal.item}
-        type={whyModal.type}
-        onOpenFullDetail={(id) => setSelectedPostId(id)}
-        onOpenVideoAnalysis={(item) => setVideoModal({ open: true, item })}
-      />
-
-      {/* Deep Video Analysis Modal */}
-      <DeepVideoAnalysisModal
-        open={videoModal.open}
-        onOpenChange={(open) => setVideoModal((prev) => ({ ...prev, open }))}
-        item={videoModal.item}
-      />
     </div>
   );
 }
@@ -236,21 +139,16 @@ function AskMediaNavigatorSection() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-              ASK MEDIA NAVIGATOR
-            </span>
-            <span className="text-xs text-subtle">· Real-time Gemini AI Engine</span>
+            <span className="text-sm font-bold text-ink">Ask about your posts</span>
           </div>
-          <p className="text-xs text-muted mt-0.5">
-            Real-time answers synthesized directly from your verified channel history
-          </p>
+          <p className="text-xs text-muted mt-0.5">Get an answer based on your own post history.</p>
 
           <form onSubmit={handleAsk} className="mt-3 flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="e.g. Which posts generated the highest verified views and what opening patterns worked?"
+              placeholder="e.g. Which posts got the most views, and how did they start?"
               className="flex-1 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
             <Button
@@ -269,10 +167,10 @@ function AskMediaNavigatorSection() {
               <div className="flex items-center justify-between gap-2 border-b border-line pb-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-brand-500" />
-                  <span className="text-xs font-bold text-ink">AI Synthesis</span>
+                  <span className="text-xs font-bold text-ink">Answer</span>
                 </div>
                 <Badge tone="brand">
-                  {ask.data.ai.status === 'cached' ? 'Cached Analysis' : 'Live Gemini 3.5'}
+                  {ask.data.ai.status === 'cached' ? 'Saved answer' : 'New answer'}
                 </Badge>
               </div>
               <p className="text-sm font-medium text-ink leading-relaxed">{ask.data.answer}</p>
@@ -294,7 +192,7 @@ function AskMediaNavigatorSection() {
   );
 }
 
-/** Tab 1: Full Archive Audit View */
+/** Overview */
 function FullArchiveAuditView({
   archive,
   loading,
@@ -346,19 +244,11 @@ function FullArchiveAuditView({
       <Card className="p-6 bg-gradient-to-r from-brand-50 via-brand-100 to-surface text-ink overflow-hidden relative shadow-card">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2 max-w-3xl">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="bg-surface text-brand-700 border border-brand-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                FULL HISTORICAL INDEX
-              </span>
-              <span className="bg-good-bg text-good border border-good/20 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                Synced content
-              </span>
-            </div>
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-ink">
-              Exhaustive Archive Audit: {archive.totalAnalyzed.toLocaleString()} Total Posts & Reels
+              {archive.totalAnalyzed.toLocaleString()} posts analysed
             </h2>
             <p className="text-xs sm:text-sm text-muted leading-relaxed">
-              Baselines are computed from synced content available to this analysis. Open Content Library to browse all imported posts.
+              Your usual numbers are worked out from the posts we have imported. Open Posts to browse them all.
             </p>
           </div>
           <Button
@@ -472,406 +362,7 @@ function FullArchiveAuditView({
   );
 }
 
-/** Tab 2: What's Working View */
-function WhatsWorkingView({
-  onOpenDetail,
-  onOpenWhyModal,
-  onOpenVideoModal,
-}: {
-  onOpenDetail: (id: string) => void;
-  onOpenWhyModal: (item: Performer) => void;
-  onOpenVideoModal: (item: Performer) => void;
-}) {
-  const [sortBy, setSortBy] = useState<PerformerSort>('views');
-  const q = useQuery({
-    queryKey: qk.performers(sortBy),
-    queryFn: () => api.performers(sortBy),
-    staleTime: 60_000,
-  });
-
-  if (q.isPending) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-64 rounded-2xl" />
-        ))}
-      </div>
-    );
-  }
-
-  if (q.isError) {
-    return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
-  }
-
-  const topItems = q.data.top;
-
-  return (
-    <div className="space-y-6">
-      {/* Control Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
-        <div>
-          <h2 className="text-lg font-bold text-ink">What&apos;s Working — Top-Performing Media</h2>
-          <p className="text-xs text-muted">Ranked by verified metrics. Mini post previews and inferred repeatable patterns.</p>
-        </div>
-        <div className="flex items-center gap-1.5 bg-surface border border-line rounded-xl p-1 shrink-0 text-xs font-semibold">
-          <span className="text-subtle px-2">Rank by:</span>
-          {(['views', 'likes', 'comments', 'engagement'] as PerformerSort[]).map((s) => (
-            <button
-              key={s}
-              onClick={() => setSortBy(s)}
-              className={`px-3 py-1.5 rounded-lg capitalize transition-colors ${
-                sortBy === s
-                  ? 'bg-brand-600 text-white shadow-xs'
-                  : 'text-muted hover:text-ink'
-              }`}
-            >
-              {s === 'views' ? 'Views (Plays)' : s === 'engagement' ? 'Engagement %' : s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {topItems.length === 0 ? (
-        <EmptyState title="No top performing posts yet" description="Connect your channels and sync your catalogue to discover winning content patterns." />
-      ) : (
-        <div className="space-y-6">
-          {topItems.map((item, idx) => (
-            <PerformerCard
-              key={item.id}
-              item={item}
-              rank={idx + 1}
-              onOpenDetail={onOpenDetail}
-              onOpenWhyModal={onOpenWhyModal}
-              onOpenVideoModal={onOpenVideoModal}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PerformerCard({
-  item,
-  rank,
-  onOpenDetail,
-  onOpenWhyModal,
-  onOpenVideoModal,
-}: {
-  item: Performer;
-  rank: number;
-  onOpenDetail: (id: string) => void;
-  onOpenWhyModal: (item: Performer) => void;
-  onOpenVideoModal: (item: Performer) => void;
-}) {
-  return (
-    <Card className="p-6 space-y-4 hover:border-brand-200 transition-all shadow-xs">
-      <div className="flex flex-col md:flex-row gap-5">
-        {/* Left Post Thumbnail Preview */}
-        <div className="relative w-full md:w-36 h-36 shrink-0 rounded-xl overflow-hidden bg-brand-50 border border-line">
-          {item.thumbnailUrl ? (
-            <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-subtle p-2 text-center">
-              <PlatformTile platform={item.platform} size="sm" />
-              <span className="text-[10px] font-bold mt-1 uppercase">{typeLabel(item.contentType)}</span>
-            </div>
-          )}
-          <span className="absolute top-2 left-2 bg-ink text-white text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
-            #{rank} {typeLabel(item.contentType).toUpperCase()}
-          </span>
-          <span className="absolute bottom-2 left-2 bg-white/90 dark:bg-black/80 backdrop-blur-xs text-[10px] font-bold px-2 py-0.5 rounded uppercase text-ink">
-            {item.platform}
-          </span>
-        </div>
-
-        {/* Main Body */}
-        <div className="flex-1 space-y-3 min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
-              {item.baselineComparison}
-            </span>
-          </div>
-
-          <h3 className="text-base font-bold text-ink leading-snug line-clamp-2">
-            {item.title || item.caption || 'Untitled Media'}
-          </h3>
-          {item.caption && item.caption !== item.title && (
-            <p className="text-xs text-muted line-clamp-2">{item.caption}</p>
-          )}
-
-          {/* Metric Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-app/60 dark:bg-surface-raised p-3 rounded-xl border border-line/50">
-            <div>
-              <span className="text-[10px] font-bold text-subtle uppercase">VIEWS / PLAYS</span>
-              <p className="text-sm font-bold text-ink tabular">{compact(item.views)}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-subtle uppercase">LIKES</span>
-              <p className="text-sm font-bold text-ink tabular">{whole(item.likes)}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-subtle uppercase">COMMENTS</span>
-              <p className="text-sm font-bold text-ink tabular">{whole(item.comments)}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-subtle uppercase">ENGAGEMENT RATE</span>
-              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 tabular">
-                {percent(item.engagementRate, 2)}
-              </p>
-            </div>
-          </div>
-
-          {/* Observed Factors & Pattern */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
-            <div className="bg-surface p-3 rounded-xl border border-line space-y-1.5">
-              <span className="font-bold uppercase tracking-wider text-[10px] text-subtle">
-                OBSERVED CONTRIBUTING FACTORS
-              </span>
-              <ul className="list-disc pl-4 space-y-1 text-muted">
-                {item.possibleFactors.map((f, i) => (
-                  <li key={i}>{f}</li>
-                ))}
-              </ul>
-            </div>
-            <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-3 rounded-xl border border-emerald-200/60 dark:border-emerald-800/40 space-y-1.5">
-              <span className="font-bold uppercase tracking-wider text-[10px] text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
-                <Sparkles className="h-3 w-3" />
-                RECOMMENDED PATTERN TO REPLICATE
-              </span>
-              <p className="text-emerald-900 dark:text-emerald-200 font-medium">
-                {item.patternToReplicateOrImprove}
-              </p>
-            </div>
-          </div>
-
-          {/* Action Footer */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-line/60">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => onOpenWhyModal(item)}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
-              >
-                <Sparkles className="h-3.5 w-3.5 mr-1" />
-                Why It&apos;s in Top
-              </Button>
-              {['reel', 'short', 'video'].includes(item.contentType) && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onOpenVideoModal(item)}
-                >
-                  <Video className="h-3.5 w-3.5 mr-1 text-brand-600" />
-                  Deep Video Analysis
-                </Button>
-              )}
-            </div>
-            <span className="text-[11px] text-subtle italic">
-              Outperforming baseline by {item.baselineComparison}
-            </span>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-/** Tab 3: Needs Attention View */
-function NeedsAttentionView({
-  onOpenDetail,
-  onOpenWhyModal,
-  onOpenVideoModal,
-}: {
-  onOpenDetail: (id: string) => void;
-  onOpenWhyModal: (item: Performer) => void;
-  onOpenVideoModal: (item: Performer) => void;
-}) {
-  const q = useQuery({
-    queryKey: qk.performers('views'),
-    queryFn: () => api.performers('views'),
-    staleTime: 60_000,
-  });
-
-  if (q.isPending) {
-    return (
-      <div className="space-y-4">
-        {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-64 rounded-2xl" />
-        ))}
-      </div>
-    );
-  }
-
-  if (q.isError) {
-    return <ErrorState error={q.error} onRetry={() => q.refetch()} />;
-  }
-
-  const bottomItems = q.data.bottom;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-4">
-        <div>
-          <h2 className="text-lg font-bold text-ink">What Needs Improvement — Content Below Baseline</h2>
-          <p className="text-xs text-muted">Posts that struggled with initial view retention or reach, with diagnostic alternative approaches.</p>
-        </div>
-        <span className="bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 text-xs font-bold px-3 py-1 rounded-full shrink-0">
-          {bottomItems.length} below account average
-        </span>
-      </div>
-
-      {bottomItems.length === 0 ? (
-        <EmptyState title="No posts needing improvement" description="All your posts are meeting or exceeding historical baseline performance!" />
-      ) : (
-        <div className="space-y-6">
-          {bottomItems.map((item) => (
-            <UnderperformerCard
-              key={item.id}
-              item={item}
-              onOpenDetail={onOpenDetail}
-              onOpenWhyModal={onOpenWhyModal}
-              onOpenVideoModal={onOpenVideoModal}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function UnderperformerCard({
-  item,
-  onOpenDetail,
-  onOpenWhyModal,
-  onOpenVideoModal,
-}: {
-  item: Performer;
-  onOpenDetail: (id: string) => void;
-  onOpenWhyModal: (item: Performer) => void;
-  onOpenVideoModal: (item: Performer) => void;
-}) {
-  return (
-    <Card className="p-6 space-y-4 hover:border-rose-200 transition-all shadow-xs">
-      <div className="flex flex-col md:flex-row gap-5">
-        {/* Left Thumbnail */}
-        <div className="relative w-full md:w-36 h-36 shrink-0 rounded-xl overflow-hidden bg-rose-50 border border-line">
-          {item.thumbnailUrl ? (
-            <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover opacity-90" />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-subtle p-2 text-center">
-              <PlatformTile platform={item.platform} size="sm" />
-              <span className="text-[10px] font-bold mt-1 uppercase">{typeLabel(item.contentType)}</span>
-            </div>
-          )}
-          <span className="absolute top-2 left-2 bg-rose-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded uppercase tracking-wider">
-            {typeLabel(item.contentType).toUpperCase()}
-          </span>
-          <span className="absolute bottom-2 left-2 bg-white/90 dark:bg-black/80 backdrop-blur-xs text-[10px] font-bold px-2 py-0.5 rounded uppercase text-ink">
-            {item.platform}
-          </span>
-        </div>
-
-        {/* Main Body */}
-        <div className="flex-1 space-y-3 min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
-              {item.baselineComparison}
-            </span>
-          </div>
-
-          <h3 className="text-base font-bold text-ink leading-snug line-clamp-2">
-            {item.title || item.caption || 'Untitled Media'}
-          </h3>
-          {item.caption && item.caption !== item.title && (
-            <p className="text-xs text-muted line-clamp-2">{item.caption}</p>
-          )}
-
-          {/* Metric Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-app/60 dark:bg-surface-raised p-3 rounded-xl border border-line/50">
-            <div>
-              <span className="text-[10px] font-bold text-subtle uppercase">VIEWS</span>
-              <p className="text-sm font-bold text-ink tabular">{compact(item.views)}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-subtle uppercase">LIKES</span>
-              <p className="text-sm font-bold text-ink tabular">{whole(item.likes)}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-subtle uppercase">COMMENTS</span>
-              <p className="text-sm font-bold text-ink tabular">{whole(item.comments)}</p>
-            </div>
-            <div>
-              <span className="text-[10px] font-bold text-subtle uppercase">ENGAGEMENT</span>
-              <p className="text-sm font-bold text-rose-600 dark:text-rose-400 tabular">
-                {percent(item.engagementRate, 2)}
-              </p>
-            </div>
-          </div>
-
-          {/* Diagnostic Opportunity & Suggested Alternative Hook */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 text-xs">
-            <div className="bg-surface p-3 rounded-xl border border-line space-y-1">
-              <span className="font-bold uppercase tracking-wider text-[10px] text-subtle">
-                DIAGNOSTIC OPPORTUNITY
-              </span>
-              <p className="text-muted">
-                Refine the opening line and lead with the most surprising fact or punchline before testing this topic again.
-              </p>
-            </div>
-            <div className="bg-amber-50/60 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-200/60 dark:border-amber-800/40 space-y-1">
-              <span className="font-bold uppercase tracking-wider text-[10px] text-amber-800 dark:text-amber-300">
-                SUGGESTED ALTERNATIVE HOOK
-              </span>
-              <p className="text-amber-900 dark:text-amber-200 font-medium">
-                {item.alternativeApproach || 'Repackage this topic into a fast-paced 30-second Reel or high-contrast carousel with bold headline overlays.'}
-              </p>
-            </div>
-          </div>
-
-          {/* Footer Actions */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-line/60">
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => onOpenWhyModal(item)}
-                className="bg-rose-600 hover:bg-rose-700 text-white"
-              >
-                <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-                Why It&apos;s in Bottom
-              </Button>
-              {['reel', 'short', 'video'].includes(item.contentType) && (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => onOpenVideoModal(item)}
-                >
-                  <Video className="h-3.5 w-3.5 mr-1 text-brand-600" />
-                  Deep Video Analysis
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => onOpenDetail(item.mediaId)}
-              >
-                <Sparkles className="h-3.5 w-3.5 mr-1" />
-                Deep Analysis
-              </Button>
-            </div>
-            <span className="text-[11px] text-subtle italic">
-              Forensic hook & pacing remedies
-            </span>
-          </div>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-/** Tab 4: Executive Insights View */
+/** Key takeaways */
 function ExecutiveInsightsView({
   signals,
   loading,

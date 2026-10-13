@@ -1,7 +1,7 @@
 'use client';
 import { useQuery } from '@tanstack/react-query';
 import { Modal } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+import { Button, LinkButton } from '@/components/ui/button';
 import { ErrorState, Notice } from '@/components/ui/states';
 import { api } from '@/lib/api/endpoints';
 import type { Performer } from '@/types/api';
@@ -16,7 +16,11 @@ export function DeepVideoAnalysisModal({ open, onOpenChange, item }: { open: boo
       {query.isFetching && <Notice>Sending the video to Gemini and reviewing its content. This can take a few minutes.</Notice>}
       {query.isError && <ErrorState error={query.error} onRetry={() => void query.refetch()} />}
       {!query.isFetching && data && <>
-        {!analyzed ? <Notice tone="warn">{data.ai?.reason || 'Video analysis could not be completed.'}<Button variant="secondary" onClick={() => void query.refetch()}>Retry</Button></Notice> : <>
+        {!analyzed ? <Notice tone="warn">{data.ai?.reason || 'Video analysis could not be completed.'}
+          <span className="mt-3 flex flex-wrap gap-2">
+            {/reconnect/i.test(data.ai?.reason ?? '') && <LinkButton href="/connections">Reconnect Instagram</LinkButton>}
+            <Button variant="secondary" onClick={() => void query.refetch()}>Try again</Button>
+          </span></Notice> : <>
           <p className="text-xs text-muted">Gemini video analysis · {data.ai?.model} · {data.ai?.status === 'cached' ? 'Saved analysis' : 'New analysis'}</p>
           {data.report && <VideoReportView report={data.report} />}
         </>}

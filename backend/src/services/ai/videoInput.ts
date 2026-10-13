@@ -80,6 +80,7 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): P
   // Refresh signed CDN URLs on demand: persisted permalinks are HTML pages, not videos.
   let source: string | undefined;
   const problems: string[] = [];
+  let loginExpired = false;
   for (const host of ['graph.facebook.com', 'graph.instagram.com']) {
     const url = new URL(`https://${host}/${config.providers.metaApiVersion}/${encodeURIComponent(doc.providerMediaId)}`);
     url.searchParams.set('fields', 'media_url,media_type,media_product_type');
@@ -91,15 +92,20 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): P
         response = await fetch(withQuery, { redirect: 'error', signal: AbortSignal.timeout(10_000) });
       }
       const body = await response.json().catch(() => ({})) as { media_url?: string; media_type?: string; media_product_type?: string; error?: { code?: number; message?: string } };
-      if (!response.ok) { problems.push(describeGraphError(body.error)); continue; }
+      if (!response.ok) { if (body.error?.code === 190) loginExpired = true; problems.push(describeGraphError(body.error)); continue; }
       const isVideo = body.media_type === 'VIDEO' || body.media_product_type === 'REELS';
       if (isVideo && body.media_url) { source = body.media_url; break; }
       problems.push(isVideo ? 'Instagram returned no video URL for this post (it can be withheld for Reels with licensed music, or when the account is connected without media access).' : 'This post is not a video.');
     } catch { problems.push('Instagram could not be reached.'); }
   }
   // Last resort: the direct file URL saved at sync time, which is still valid for a while after syncing.
-  const synced = (doc as { mediaUrl?: string }).mediaUrl;
+  const synced = (doc as { videoUrl?: string }).videoUrl;
   if (!source && synced) { try { if (isVideoCdn(new URL(synced))) source = synced; } catch { /* not a URL */ } }
+  if (!source && loginExpired) {
+    // The token is dead: record it so the Connections page asks for a reconnect instead of failing again later.
+    await connectionRepository.setStatus(account._id, 'connection_expired', 'Instagram login expired; reconnect required').catch(() => undefined);
+    throw failure('Your Instagram login has expired. Reconnect Instagram from Connections, then run the analysis again.');
+  }
   if (!source) throw failure(`${[...new Set(problems)].join(' ') || 'Instagram did not grant access to the video file.'} Reconnect Instagram (Instagram Business/Creator account with media permissions) and sync again.`);
   return { blob: await downloadVideo(source) };
 }
