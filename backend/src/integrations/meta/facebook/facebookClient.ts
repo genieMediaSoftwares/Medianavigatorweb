@@ -116,26 +116,25 @@ export class FacebookClient extends MetaClient {
       const totalInteractions = reactionsCount + commentsCount + sharesCount;
 
       let postImpressions = 0;
-      let postEngagedUsers = 0;
 
       // Query post insights if permissions allow
       try {
         const insightsRes = await this.get<any>(`${post.id}/insights`, effectiveToken, {
-          metric: 'post_impressions,post_engaged_users',
+          metric: 'post_impressions',
         });
         if (insightsRes.data && Array.isArray(insightsRes.data)) {
           for (const item of insightsRes.data) {
             const val = item.values?.[0]?.value || 0;
             if (item.name === 'post_impressions') postImpressions = val;
-            if (item.name === 'post_engaged_users') postEngagedUsers = val;
           }
         }
       } catch {
         // Leave at 0 if restricted by Facebook API permissions
       }
 
-      const divisor = postImpressions > 0 ? postImpressions : (reactionsCount + commentsCount > 0 ? (reactionsCount + commentsCount) * 15 : 100);
-      const engagementRate = Number(((totalInteractions / divisor) * 100).toFixed(2));
+      // Engagement rate needs measured impressions. Without them it is unknown, never estimated.
+      const engagementRate = postImpressions > 0 ? Number(((totalInteractions / postImpressions) * 100).toFixed(2)) : 0;
+      const missingMetrics = postImpressions > 0 ? [] : ['engagementRate', 'views'];
 
       let tier: PerformanceTier = 'Average';
       if (engagementRate > 4.5 || totalInteractions > 100) tier = 'Strong';
@@ -162,7 +161,9 @@ export class FacebookClient extends MetaClient {
           status: tier,
         },
         views: postImpressions,
-        reach: postEngagedUsers,
+        // post_engaged_users counts people who interacted, which is not reach; reach is left unavailable.
+        reach: 0,
+        missingMetrics,
         engagementRate,
         shares: sharesCount,
         likes: reactionsCount,

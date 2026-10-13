@@ -7,6 +7,8 @@ export interface YouTubeSyncResult {
   channel: YouTubeChannelDetails;
   media: NormalizedMedia[];
   analytics: YouTubeAnalyticsReport;
+  /** Why per-video watch time is missing (no analytics permission), or undefined when it was measured. */
+  watchTimeUnavailable?: string;
 }
 
 export class YouTubeClient {
@@ -29,13 +31,21 @@ export class YouTubeClient {
       media = await YouTubeDataApi.getVideos({ ...credentials, channelId: channel.id }, playlistId);
     }
 
-    // 3. Query analytics if OAuth token available
+    // 3. Per-video watch time from YouTube Analytics. Never estimated: without permission it stays unavailable.
+    const watch = await YouTubeAnalyticsApi.getVideoWatchStats(credentials.accessToken, media.map((m) => m.platformContentId));
+    media = media.map((m) => {
+      const w = watch.stats.get(m.platformContentId);
+      if (w) return { ...m, watchTimeMinutes: Math.round(w.estimatedMinutesWatched) };
+      return { ...m, watchTimeMinutes: undefined, missingMetrics: [...new Set([...(m.missingMetrics ?? []), 'watchTimeMinutes'])] };
+    });
+
     const analytics = await YouTubeAnalyticsApi.getChannelAnalytics(credentials.accessToken);
 
     return {
       channel,
       media,
       analytics,
+      watchTimeUnavailable: watch.available ? undefined : watch.reason,
     };
   }
 }

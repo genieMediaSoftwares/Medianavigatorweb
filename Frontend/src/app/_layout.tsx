@@ -58,6 +58,8 @@ function RootNavigator() {
         <Stack.Screen name="connect/[platform]" options={{ headerShown: false }} />
         <Stack.Screen name="settings/security" options={{ ...pushedScreenOptions, title: 'Security' }} />
         <Stack.Screen name="settings/preferences" options={{ ...pushedScreenOptions, title: 'Profile details' }} />
+        <Stack.Screen name="settings/notifications" options={{ ...pushedScreenOptions, title: 'Notifications' }} />
+        <Stack.Screen name="settings/about" options={{ ...pushedScreenOptions, title: 'About' }} />
         <Stack.Screen name="settings/help" options={{ ...pushedScreenOptions, title: 'Help' }} />
         <Stack.Screen name="settings/privacy" options={{ ...pushedScreenOptions, title: 'Privacy Policy' }} />
         <Stack.Screen name="settings/terms" options={{ ...pushedScreenOptions, title: 'Terms' }} />

@@ -1,5 +1,5 @@
 import { ReactNode, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from 'react-native';
 
 import { Button } from '@/components/ui/Button';
 import { Notice } from '@/components/ui/Notice';
@@ -9,6 +9,7 @@ import { validateNewPassword } from '@/features/auth/validation';
 import { changePassword, deleteAccount, fetchSessions, logoutAllSessions, revokeSession } from '@/features/profile/api';
 import { useApiResource } from '@/hooks/useApiResource';
 import { ApiError, clearTokens } from '@/lib/api/client';
+import { confirmDestructive, showMessage } from '@/lib/confirm';
 import { formatRelativeTime } from '@/lib/format';
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
@@ -50,73 +51,52 @@ export default function SecurityScreen() {
       setNext('');
       setConfirm('');
       await sessions.refresh();
-      Alert.alert('Password changed', 'Every other device has been signed out.');
+      showMessage('Password changed', 'Every other device has been signed out.');
     } catch (error) {
       const fields = error instanceof ApiError ? error.fields : undefined;
       if (fields) setErrors({ current: fields.currentPassword, next: fields.newPassword });
-      else Alert.alert('Unable to change password', error instanceof Error ? error.message : 'Please try again.');
+      else showMessage('Unable to change password', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const confirmRevoke = (id: string) =>
-    Alert.alert('Sign out this device?', undefined, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await revokeSession(id);
-            await sessions.refresh();
-          } catch (error) {
-            Alert.alert('Unable to sign out device', error instanceof Error ? error.message : 'Please try again.');
-          }
-        },
-      },
-    ]);
+  // confirmDestructive/showMessage work on iOS, Android and web (Alert.alert does nothing in a browser).
+  const confirmRevoke = async (id: string) => {
+    if (!(await confirmDestructive('Sign out this device?', 'That device will need to sign in again.', 'Sign out'))) return;
+    try {
+      await revokeSession(id);
+      await sessions.refresh();
+    } catch (error) {
+      showMessage('Unable to sign out device', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
 
-  const confirmLogoutAll = () =>
-    Alert.alert('Sign out everywhere?', 'Every device, including this one, will need to sign in again.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out everywhere',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await logoutAllSessions();
-            await clearTokens();
-            await restoreSession();
-          } catch (error) {
-            Alert.alert('Unable to sign out', error instanceof Error ? error.message : 'Please try again.');
-          }
-        },
-      },
-    ]);
+  const confirmLogoutAll = async () => {
+    if (!(await confirmDestructive('Sign out everywhere?', 'Every device, including this one, will need to sign in again.', 'Sign out everywhere'))) return;
+    try {
+      await logoutAllSessions();
+      await clearTokens();
+      await restoreSession();
+    } catch (error) {
+      showMessage('Unable to sign out', error instanceof Error ? error.message : 'Please try again.');
+    }
+  };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deletePassword) {
-      Alert.alert('Enter your password', 'Confirm with your password to delete your account.');
+      showMessage('Enter your password', 'Confirm with your password to delete your account.');
       return;
     }
-    Alert.alert('Delete your account?', 'This permanently deletes your Media Navigator account and its data. This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete account',
-        style: 'destructive',
-        onPress: async () => {
-          setDeleting(true);
-          try {
-            await deleteAccount(deletePassword);
-            await signOut();
-          } catch (error) {
-            setDeleting(false);
-            Alert.alert('Unable to delete account', error instanceof Error ? error.message : 'Please try again.');
-          }
-        },
-      },
-    ]);
+    if (!(await confirmDestructive('Delete your account?', 'This permanently deletes your Media Navigator account and its data. This cannot be undone.', 'Delete account'))) return;
+    setDeleting(true);
+    try {
+      await deleteAccount(deletePassword);
+      await signOut();
+    } catch (error) {
+      setDeleting(false);
+      showMessage('Unable to delete account', error instanceof Error ? error.message : 'Please try again.');
+    }
   };
 
   return (

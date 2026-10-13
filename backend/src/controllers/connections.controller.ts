@@ -1,12 +1,10 @@
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { ok } from '../lib/response.js';
-import { badRequest } from '../lib/errors.js';
 import { config } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { connectionService } from '../services/connection.service.js';
 import { oauthService } from '../services/oauth.service.js';
 import { getAdapter } from '../integrations/registry.js';
-import { YouTubeClient } from '../integrations/youtube/youtubeClient.js';
 import type { PlatformType } from '../../../shared/types.js';
 
 export const connectionsController = {
@@ -50,9 +48,4 @@ export const connectionsController = {
     }
   }),
 
-  /** Legacy helper: look up a YouTube channel with a key/token without connecting it. */
-  youtubeLookup: asyncHandler(async (req, res) => {
-    if (!req.body.apiKey && !req.body.accessToken) throw badRequest('apiKey or accessToken is required');
-    ok(res, await new YouTubeClient().getChannel(req.body));
-  }),
 };

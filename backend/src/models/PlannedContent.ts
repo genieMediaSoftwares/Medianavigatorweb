@@ -22,7 +22,7 @@ const schema = new Schema<PlannedContentDoc>(
     platform: { type: String, required: true, maxlength: 20 },
     contentType: { type: String, required: true, maxlength: 30 },
     title: { type: String, required: true, maxlength: 300 },
-    status: { type: String, default: 'scheduled', maxlength: 30 },
+    status: { type: String, default: 'planned', maxlength: 30 },
     isRecommended: { type: Boolean, default: false },
     recommendationReason: { type: String, maxlength: 1000 },
   },

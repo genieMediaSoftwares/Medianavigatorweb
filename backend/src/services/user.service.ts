@@ -3,6 +3,7 @@ import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { logger } from '../lib/logger.js';
 import { userRepository } from '../repositories/user.repository.js';
+import type { NotificationPrefs } from '../models/Profile.js';
 import { profileRepository } from '../repositories/profile.repository.js';
 import { sessionRepository } from '../repositories/session.repository.js';
 import { connectionRepository } from '../repositories/connection.repository.js';
@@ -21,7 +22,16 @@ import { publicUser } from './auth.service.js';
 import type { ProfileDoc } from '../models/Profile.js';
 
 export const profileView = (p: ProfileDoc | null) =>
-  p ? { fullName: p.fullName, organization: p.organization ?? null, accountType: p.accountType ?? null, timezone: p.timezone ?? null, avatarFileId: p.avatarFileId ? String(p.avatarFileId) : null, onboardingCompleted: p.onboardingCompleted } : null;
+  p ? {
+    fullName: p.fullName, organization: p.organization ?? null, accountType: p.accountType ?? null, timezone: p.timezone ?? null,
+    avatarFileId: p.avatarFileId ? String(p.avatarFileId) : null, onboardingCompleted: p.onboardingCompleted,
+    // Profiles created before preferences existed have none stored: every category is on.
+    notificationPrefs: {
+      syncUpdates: p.notificationPrefs?.syncUpdates ?? true,
+      connectionProblems: p.notificationPrefs?.connectionProblems ?? true,
+      performanceAlerts: p.notificationPrefs?.performanceAlerts ?? true,
+    },
+  } : null;
 
 export const userService = {
   async me(userId: string) {
@@ -31,7 +41,7 @@ export const userService = {
     return { user: publicUser(user), profile: profileView(profile) };
   },
 
-  async updateProfile(userId: string, data: { fullName?: string; organization?: string; accountType?: string; timezone?: string; onboardingCompleted?: boolean }) {
+  async updateProfile(userId: string, data: { fullName?: string; organization?: string; accountType?: string; timezone?: string; onboardingCompleted?: boolean; notificationPrefs?: Partial<NotificationPrefs> }) {
     return profileView(await profileRepository.upsert(toObjectId(userId), data));
   },
 

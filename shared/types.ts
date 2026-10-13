@@ -62,6 +62,8 @@ export interface PlatformConnection {
   lastSyncedAt: string;
   status: ConnectionStatus;
   statusMessage?: string;
+  /** How the live account was connected; 'api_key' means public data only (e.g. no YouTube watch time). */
+  authMethod?: 'oauth' | 'token' | 'api_key' | null;
   primaryStrength: string;
   dataPointsCount: number;
   permissions?: string[];
@@ -187,7 +189,7 @@ export interface PlannedContent {
   title: string;
   isRecommended?: boolean;
   recommendationReason?: string;
-  status: 'scheduled' | 'draft' | 'published';
+  status: 'planned' | 'draft' | 'published';
 }
 
 export interface AlertItem {
@@ -207,15 +209,6 @@ export interface TimingSlot {
   timeOfDay: 'Morning' | 'Afternoon' | 'Evening' | 'Night';
   score: number; // 0 to 100
   sampleCount: number;
-}
-
-export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  businessType: string;
-  plan: 'Growth' | 'Enterprise';
-  demoMode: boolean;
 }
 
 export interface VideoTimelinePoint {

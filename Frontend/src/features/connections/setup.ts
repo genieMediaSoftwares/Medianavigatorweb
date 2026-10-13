@@ -94,40 +94,18 @@ export const PLATFORM_SETUP: Record<Platform, PlatformSetup> = {
   },
   youtube: {
     noun: 'channel',
-    intro: 'Connect your YouTube channel to analyze your videos, Shorts and audience response.',
+    intro: 'Connect with the YouTube Data API v3 for public channel and video data, and the YouTube Analytics API for watch time.',
+    // YouTube's credentials (Data API key + exact channel, or Google sign-in for Analytics) are collected by
+    // features/connections/YouTubeConnect.tsx; this generic setup is not shown for YouTube.
     setup: {
       icon: 'cloud-outline',
       title: 'Google Cloud',
-      body: 'Channel access uses Google OAuth. The project must have the YouTube Data API v3 enabled (and the YouTube Analytics API for private analytics).',
-      steps: [
-        'Open the Google Cloud Console and select your project.',
-        'Enable the YouTube Data API v3 in the API library.',
-        'For your own channel, authorize with OAuth (youtube.readonly scope) and copy the OAuth access token.',
-        'Or, for public data only, create an API key and enter your channel handle.',
-      ],
-      links: [
-        { label: 'Open Google Cloud Console', url: 'https://console.cloud.google.com/apis/credentials' },
-        { label: 'YouTube Data API library', url: 'https://console.cloud.google.com/apis/library/youtube.googleapis.com' },
-      ],
+      body: 'Enable the YouTube Data API v3 and the YouTube Analytics API in your Google Cloud project.',
+      steps: [],
+      links: [{ label: 'Open Google Cloud Console', url: 'https://console.cloud.google.com/apis/credentials' }],
     },
     modes: [
-      {
-        id: 'oauth-token',
-        tab: 'OAuth token',
-        field: 'accessToken',
-        label: 'Google OAuth access token',
-        placeholder: 'ya29…',
-        hint: 'An OAuth 2.0 access token for the Google account that owns the channel. Not an API key or client ID.',
-      },
-      {
-        id: 'api-key',
-        tab: 'API key (public)',
-        field: 'apiKey',
-        label: 'YouTube Data API key',
-        placeholder: 'AIza…',
-        hint: 'Reads public channel data only: private analytics are not available with an API key.',
-        extra: { key: 'channelQuery', label: 'Channel handle or link', placeholder: '@YourChannel', hint: 'Required with an API key, e.g. @YourChannel.' },
-      },
+      { id: 'api-key', tab: 'API key', field: 'apiKey', label: 'YouTube Data API key', placeholder: 'AIza…', hint: 'Public data for the channel you name.', extra: { key: 'channelQuery', label: 'Channel ID or @handle', placeholder: '@YourChannel', hint: 'Must match exactly.' } },
     ],
   },
   linkedin: {

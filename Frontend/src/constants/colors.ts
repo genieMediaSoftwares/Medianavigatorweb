@@ -15,6 +15,9 @@ export const palette = {
   magenta: { DEFAULT: '#D6338A', light: '#FDEEF6', border: '#F7C8E0' },
   cyan: { DEFAULT: '#0E8FA6', light: '#E6F7FA', border: '#B5E6EF' },
 
+  // Planner heatmap, weakest (0) to strongest (4). Steps 0–2 carry navy text, 3–4 white text (both AA contrast).
+  heat: { 0: '#EAF1FD', 1: '#C9DAF7', 2: '#93B7F0', 3: '#2563EB', 4: '#164BA8' },
+
   // App canvas: a very light cool neutral behind content.
   canvas: '#F5F7FC',
 

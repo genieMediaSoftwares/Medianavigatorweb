@@ -3,7 +3,6 @@ import { ok } from '../lib/response.js';
 import { analyticsService } from '../services/analytics.service.js';
 import { aiAnalysisService } from '../services/ai/aiAnalysis.service.js';
 import { contentAnalysisService } from '../services/ai/contentAnalysis.service.js';
-import { userService } from '../services/user.service.js';
 import { oauthEnabled } from '../services/oauth.service.js';
 import { PLATFORMS, getAdapter } from '../integrations/registry.js';
 import { storageEnabled } from '../lib/storage.js';
@@ -23,7 +22,7 @@ export const intelligenceController = {
   overview: asyncHandler(async (req, res) => ok(res, await analyticsService.overview(uid(req)))),
   timing: asyncHandler(async (req, res) => ok(res, await analyticsService.timing(uid(req)))),
   signals: asyncHandler(async (req, res) => ok(res, { title: 'What should you know right now?', insights: await analyticsService.signals(uid(req)) })),
-  performers: asyncHandler(async (req, res) => ok(res, await analyticsService.performers(uid(req), (req.query as any).sortBy))),
+  performers: asyncHandler(async (req, res) => ok(res, await analyticsService.performers(uid(req), (req.query as any).sortBy, (req.query as any).platform))),
   patterns: asyncHandler(async (req, res) => ok(res, await analyticsService.patterns(uid(req)))),
   archive: asyncHandler(async (req, res) => ok(res, await analyticsService.archive(uid(req)))),
   summary: asyncHandler(async (req, res) => ok(res, await analyticsService.summary(uid(req), req.query as any))),
@@ -44,12 +43,4 @@ export const intelligenceController = {
   diagnose: asyncHandler(async (req, res) => ok(res, await aiAnalysisService.diagnosePost(uid(req), req.body.mediaId, req.body.forcedStatus))),
   analyzeVideo: asyncHandler(async (req, res) => ok(res, await aiAnalysisService.analyzeVideo(uid(req), req.body.mediaId))),
   compare: asyncHandler(async (req, res) => ok(res, await aiAnalysisService.compare(uid(req), req.body.mediaIdA, req.body.mediaIdB))),
-
-  workspace: asyncHandler(async (req, res) => {
-    const { user, profile } = await userService.me(uid(req));
-    ok(res, {
-      id: user.id, name: profile?.organization || profile?.fullName || 'My Workspace', slug: user.id,
-      businessType: profile?.accountType || 'Creator', plan: 'Growth' as const, demoMode: false,
-    });
-  }),
 };

@@ -339,37 +339,41 @@ export class AnalyticsEngine {
   // Section 4 & 5: Top and Bottom Performer Analysis
   // -------------------------------------------------------------
 
-  getTopPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views'): PerformerAnalysis[] {
-    const activeMedia = this.getMedia();
+  /**
+   * Posts of one platform (or every connected one) that have a MEASURED value for the ranking metric, plus the
+   * typical (median) value to compare with. Unmeasured values are left out rather than ranked as zero, and each
+   * platform is compared only with itself: YouTube views are never mixed into an Instagram average.
+   */
+  private rankingPool(sortBy: 'views' | 'engagement' | 'likes' | 'comments', platform?: string) {
+    const key = sortBy === 'engagement' ? 'engagementRate' : sortBy;
+    const valueOf = (m: NormalizedMedia) => (key === 'engagementRate' ? m.engagementRate : m[key]);
+    const measured = this.getMedia(platform).filter((m) => {
+      const missing = [...((m as { unavailableMetrics?: string[] }).unavailableMetrics ?? []), ...(m.missingMetrics ?? [])];
+      return !missing.includes(key);
+    });
+    const values = measured.map(valueOf).sort((a, b) => a - b);
+    const mid = Math.floor(values.length / 2);
+    const typical = values.length === 0 ? 0 : values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+    const comparison = (m: NormalizedMedia) => {
+      if (typical <= 0) return `${sortBy === 'engagement' ? 'engagement' : sortBy} vs your median not available`;
+      const diff = ((valueOf(m) - typical) / typical) * 100;
+      const shown = key === 'engagementRate' ? `${typical.toFixed(1)}%` : Math.round(typical).toLocaleString('en-US');
+      return `${diff >= 0 ? '+' : '-'}${Math.abs(diff).toFixed(0)}% ${sortBy} vs your median (${shown})`;
+    };
+    const order = (a: NormalizedMedia, b: NormalizedMedia) => valueOf(b) - valueOf(a) || b.views - a.views || (b.likes + b.comments) - (a.likes + a.comments);
+    return { measured, comparison, order };
+  }
+
+  getTopPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views', platform?: string): PerformerAnalysis[] {
+    const { measured: activeMedia, comparison, order } = this.rankingPool(sortBy, platform);
     if (activeMedia.length === 0) return [];
 
-    const totalViews = activeMedia.reduce((a, b) => a + (b.views || 0), 0);
-    const avgViews = Math.round(totalViews / activeMedia.length);
-    const avgEngagement = activeMedia.reduce((a, b) => a + b.engagementRate, 0) / activeMedia.length;
-
-    const sorted = [...activeMedia];
-    if (sortBy === 'views') {
-      sorted.sort((a, b) => (b.views - a.views) || ((b.likes + b.comments) - (a.likes + a.comments)) || (b.engagementRate - a.engagementRate));
-    } else if (sortBy === 'likes') {
-      sorted.sort((a, b) => (b.likes - a.likes) || (b.views - a.views));
-    } else if (sortBy === 'comments') {
-      sorted.sort((a, b) => (b.comments - a.comments) || (b.views - a.views));
-    } else {
-      sorted.sort((a, b) => (b.engagementRate - a.engagementRate) || (b.views - a.views));
-    }
-
+    const sorted = [...activeMedia].sort(order);
     const topCount = Math.max(1, Math.min(50, Math.ceil(activeMedia.length * 0.4)));
     const topItems = sorted.slice(0, topCount);
 
     return topItems.map((item) => {
-      let baselineComparison = '';
-      if (sortBy === 'views' && avgViews > 0) {
-        const diff = ((item.views - avgViews) / avgViews) * 100;
-        baselineComparison = `${diff >= 0 ? '+' : ''}${diff.toFixed(0)}% vs avg views (${avgViews.toLocaleString()})`;
-      } else {
-        const diff = avgEngagement > 0 ? ((item.engagementRate - avgEngagement) / avgEngagement) * 100 : 0;
-        baselineComparison = `${diff >= 0 ? '+' : ''}${diff.toFixed(0)}% vs avg engagement (${avgEngagement.toFixed(1)}%)`;
-      }
+      const baselineComparison = comparison(item);
 
       const possibleFactors = [
         item.contentType === 'reel' || item.contentType === 'video'
@@ -408,37 +412,16 @@ export class AnalyticsEngine {
     });
   }
 
-  getBottomPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views'): PerformerAnalysis[] {
-    const activeMedia = this.getMedia();
+  getBottomPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views', platform?: string): PerformerAnalysis[] {
+    const { measured: activeMedia, comparison, order } = this.rankingPool(sortBy, platform);
     if (activeMedia.length < 2) return [];
 
-    const totalViews = activeMedia.reduce((a, b) => a + (b.views || 0), 0);
-    const avgViews = Math.round(totalViews / activeMedia.length);
-    const avgEngagement = activeMedia.reduce((a, b) => a + b.engagementRate, 0) / activeMedia.length;
-
-    const sorted = [...activeMedia];
-    if (sortBy === 'views') {
-      sorted.sort((a, b) => (a.views - b.views) || ((a.likes + a.comments) - (b.likes + b.comments)) || (a.engagementRate - b.engagementRate));
-    } else if (sortBy === 'likes') {
-      sorted.sort((a, b) => (a.likes - b.likes) || (a.views - b.views));
-    } else if (sortBy === 'comments') {
-      sorted.sort((a, b) => (a.comments - b.comments) || (a.views - b.views));
-    } else {
-      sorted.sort((a, b) => (a.engagementRate - b.engagementRate) || (a.views - b.views));
-    }
-
+    const sorted = [...activeMedia].sort((a, b) => order(b, a));
     const bottomCount = Math.max(1, Math.min(50, Math.floor(activeMedia.length * 0.4)));
     const bottomItems = sorted.slice(0, bottomCount);
 
     return bottomItems.map((item) => {
-      let baselineComparison = '';
-      if (sortBy === 'views' && avgViews > 0) {
-        const diff = ((item.views - avgViews) / avgViews) * 100;
-        baselineComparison = `${diff.toFixed(0)}% below avg views (${avgViews.toLocaleString()})`;
-      } else {
-        const diff = avgEngagement > 0 ? ((item.engagementRate - avgEngagement) / avgEngagement) * 100 : 0;
-        baselineComparison = `${diff.toFixed(0)}% below avg engagement (${avgEngagement.toFixed(1)}%)`;
-      }
+      const baselineComparison = comparison(item);
 
       const possibleFactors = [
         'Possible: the cover or opening seconds did not stand out in the feed (not measurable from the data available)',

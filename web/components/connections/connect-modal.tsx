@@ -17,13 +17,15 @@ import { api } from '@/lib/api/endpoints';
 import { useSync } from '@/lib/hooks/useSync';
 import { platformName } from '@/lib/platforms';
 import { qk } from '@/lib/queryKeys';
+import { YouTubeConnect } from './youtube-connect';
 import type { Connection, ConnectInput, Platform } from '@/types/api';
 
 /** Optional extras the token form can take, per platform. */
 const EXTRA: Record<Platform, { key: keyof ConnectInput; label: string; hint: string } | null> = {
   instagram: { key: 'accountId', label: 'Instagram account ID', hint: 'Only if your token has more than one account.' },
   facebook: { key: 'pageId', label: 'Facebook Page ID', hint: 'Choose which Page to read when your token has several.' },
-  youtube: { key: 'channelQuery', label: 'Channel handle or link', hint: 'For example @YourChannel. Leave empty to use the channel your token belongs to.' },
+  // YouTube has its own two-section form (youtube-connect.tsx).
+  youtube: null,
   linkedin: { key: 'organizationId', label: 'Company Page ID', hint: 'The number of the Company Page you manage.' },
 };
 
@@ -52,7 +54,7 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
 
   const submit = handleSubmit(async (v) => {
     setError(null);
-    const body: ConnectInput = platform === 'youtube' && !v.secret.startsWith('ya29') ? { apiKey: v.secret } : { accessToken: v.secret };
+    const body: ConnectInput = { accessToken: v.secret };
     if (extra && v.extra) body[extra.key] = v.extra;
     try {
       await api.connect(platform, body);
@@ -74,6 +76,18 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
 
         {error && <Notice tone="bad">{error}</Notice>}
 
+        {platform === 'youtube' ? (
+          <YouTubeConnect
+            connection={connection}
+            onError={setError}
+            onConnected={async () => {
+              await qc.invalidateQueries({ queryKey: qk.connections });
+              toast.success('YouTube is connected. We’re importing your videos now.');
+              onOpenChange(false); onConnected?.();
+              void sync.start('youtube').catch(() => undefined);
+            }}
+          />
+        ) : (<>
         {oauth && <Button size="lg" className="w-full" loading={busy} onClick={() => void startOAuth()}>Continue with {name}</Button>}
         {!oauth && <Notice>One-click sign-in with {name} isn&apos;t set up on this server yet. You can still connect with an access token below.</Notice>}
 
@@ -84,11 +98,12 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
         )}
         {advanced && (
           <form onSubmit={submit} noValidate className="space-y-4 rounded-xl border border-line p-4">
-            <Field label={platform === 'youtube' ? 'Access token or API key' : 'Access token'} error={errors.secret?.message} hint="Paste it here once. We never show it again.">{(p) => <Input type="password" autoComplete="off" spellCheck={false} {...p} {...register('secret')} />}</Field>
+            <Field label="Access token" error={errors.secret?.message} hint="Paste it here once. We never show it again.">{(p) => <Input type="password" autoComplete="off" spellCheck={false} {...p} {...register('secret')} />}</Field>
             {extra && <Field label={extra.label} optional hint={extra.hint} error={errors.extra?.message}>{(p) => <Input autoComplete="off" {...p} {...register('extra')} />}</Field>}
             <Button type="submit" variant={oauth ? 'secondary' : 'primary'} size="lg" className="w-full" loading={isSubmitting}>Connect with token</Button>
           </form>
         )}
+        </>)}
       </div>
     </Modal>
   );

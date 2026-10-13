@@ -26,10 +26,11 @@ export function ConnectionHeader({ title, onBack, onSettings }: { title: string;
         onPress={onSettings}
         accessibilityRole="button"
         accessibilityLabel="Connected accounts"
-        className="h-12 w-12 items-center justify-center rounded-full bg-primary-bright active:bg-primary"
-        style={{ boxShadow: '0px 6px 14px rgba(59, 108, 246, 0.35)' }}
+        hitSlop={4}
+        className="h-12 w-12 items-center justify-center rounded-full bg-sky active:bg-sky-border"
       >
-        <Ionicons name="settings-sharp" size={24} color={colors.white} />
+        {/* Same pale-blue circle and navy gear as the Dashboard's settings button. */}
+        <Ionicons name="settings-sharp" size={22} color={colors.navy} />
       </Pressable>
     </View>
   );
@@ -157,8 +158,8 @@ export function connectErrorMessage(error: unknown, platformName: string): strin
     case 'SERVICE_UNAVAILABLE':
       return `${platformName} connections aren’t configured on the server yet.`;
     case 'BAD_REQUEST':
-      // The server explains what the provider rejected (invalid/expired token, missing permissions).
-      return `${platformName} rejected this token: ${error.message}`;
+      // The server explains in plain words what the provider rejected (invalid key or token, API not enabled, channel not found…).
+      return error.message;
     default:
       return error.message;
   }

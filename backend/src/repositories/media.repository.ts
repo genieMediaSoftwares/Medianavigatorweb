@@ -28,6 +28,14 @@ export const mediaRepository = {
       .select('normalized legacyId platform contentType publishedAt engagementRate views likes comments unavailableMetrics syncedAt')
       .lean<ContentItemDoc[]>(),
 
+  /** Posts of the given accounts published since `from`, with the fields the planner needs. */
+  listForPlanner: (userId: Types.ObjectId, accountIds: Types.ObjectId[], from: Date) =>
+    ContentItem.find({ userId, connectedAccountId: { $in: accountIds }, publishedAt: { $gte: from } })
+      .sort({ publishedAt: -1 })
+      .limit(config.database.analyticsMaxItems)
+      .select('connectedAccountId platform contentType publishedAt engagementRate views reach unavailableMetrics')
+      .lean<Pick<ContentItemDoc, 'connectedAccountId' | 'platform' | 'contentType' | 'publishedAt' | 'engagementRate' | 'views' | 'reach' | 'unavailableMetrics'>[]>(),
+
   findByLegacyId: (userId: Types.ObjectId, legacyId: string) =>
     ContentItem.findOne({ userId, legacyId }).lean<ContentItemDoc>(),
 
@@ -44,6 +52,8 @@ export const mediaRepository = {
   },
 
   countForAccount: (connectedAccountId: Types.ObjectId) => ContentItem.countDocuments({ connectedAccountId }),
+  /** Removes all synced media for one connection (used when the connected channel changes, so old content never mixes in). */
+  deleteForAccount: (connectedAccountId: Types.ObjectId) => ContentItem.deleteMany({ connectedAccountId }),
   latestPublishedAt: async (connectedAccountId: Types.ObjectId) =>
     (await ContentItem.findOne({ connectedAccountId }).sort({ publishedAt: -1 }).select('publishedAt').lean<{ publishedAt: Date }>())?.publishedAt ?? null,
   existingIds: async (connectedAccountId: Types.ObjectId): Promise<Set<string>> =>

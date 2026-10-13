@@ -46,6 +46,14 @@ export interface Profile {
   timezone: string | null;
   avatarFileId: string | null;
   onboardingCompleted: boolean;
+  /** Which notification categories are delivered. Missing on older servers: treat as all on. */
+  notificationPrefs?: NotificationPrefs;
+}
+
+export interface NotificationPrefs {
+  syncUpdates: boolean;
+  connectionProblems: boolean;
+  performanceAlerts: boolean;
 }
 
 /** GET /auth/me, GET /users/me */
@@ -69,6 +77,7 @@ export interface ProfileUpdate {
   accountType?: string;
   timezone?: string;
   onboardingCompleted?: boolean;
+  notificationPrefs?: Partial<NotificationPrefs>;
 }
 
 export interface SessionInfo {
@@ -113,6 +122,8 @@ export interface Connection {
   lastSyncedAt: string;
   status: ConnectionStatus;
   statusMessage?: string;
+  /** How the live account was connected; 'api_key' means public data only (e.g. no YouTube watch time). */
+  authMethod?: 'oauth' | 'token' | 'api_key' | null;
   primaryStrength: string;
   dataPointsCount: number;
   missingPermissions?: string[];
@@ -142,11 +153,12 @@ export interface SyncRun {
 /** Credentials for POST /connections/:platform/connect. Only the fields the platform needs are sent. */
 export interface ConnectInput {
   accessToken?: string;
+  /** YouTube Data API v3 key (public data). Sent with `channelQuery`. */
   apiKey?: string;
+  /** Exact YouTube channel ID (UC…) or @handle, required with `apiKey`. */
+  channelQuery?: string;
   accountId?: string;
   pageId?: string;
-  channelId?: string;
-  channelQuery?: string;
   organizationId?: string;
   username?: string;
 }
@@ -419,7 +431,8 @@ export interface PlannedItem {
   title: string;
   isRecommended?: boolean;
   recommendationReason?: string;
-  status: 'scheduled' | 'draft' | 'published';
+  /** Plans are reminders: Media Navigator never publishes to a platform. */
+  status: 'planned' | 'draft' | 'published';
 }
 
 export interface NewPlannedItem {
@@ -438,6 +451,85 @@ export interface PlannerInsights {
   recommendedFormats: ContentTypePerformance[];
   topTopics: TopicPerformance[];
   basedOn: { posts: number; platforms: Platform[]; method: string };
+}
+
+/** One platform's connected account, or every connected account combined. */
+export type AccountScope = Platform | 'all';
+export type PlannerScope = AccountScope;
+export type PlannerMetricKey = 'engagementRate' | 'reach' | 'views';
+export type EvidenceLevel = 'strong' | 'moderate' | 'limited' | 'insufficient';
+export type TimeWindowKey = 'morning' | 'afternoon' | 'evening' | 'night';
+export type PlannerRange = 30 | 60 | 90;
+
+export interface PlannerSlot {
+  day: Weekday;
+  window: TimeWindowKey;
+  posts: number;
+  /** 0–100, where 50 is the account's typical post. null when no posts. */
+  score: number | null;
+  mean: number | null;
+  median: number | null;
+  liftPct: number | null;
+  shareAboveTypical: number | null;
+  pValue: number | null;
+  evidence: EvidenceLevel;
+  /** Relative heat level among populated slots. */
+  level: 0 | 1 | 2 | 3 | 4 | null;
+}
+
+export interface BestTimeRecommendation {
+  day: Weekday;
+  window: TimeWindowKey;
+  windowLabel: string;
+  timeRange: string;
+  narrowRange: string | null;
+  narrowStartTime: string | null;
+  posts: number;
+  score: number;
+  mean: number | null;
+  median: number | null;
+  liftPct: number | null;
+  shareAboveTypical: number;
+  pValue: number;
+  evidence: Exclude<EvidenceLevel, 'insufficient'>;
+  preliminary: boolean;
+}
+
+/** GET /planner/best-times */
+export interface BestTimes {
+  platform: PlannerScope;
+  days: PlannerRange;
+  range: { from: string; to: string };
+  timezone: string;
+  timezoneSource: 'profile' | 'default';
+  accounts: { platform: Platform; name: string; connected: boolean; status: ConnectionStatus; handle: string | null; lastSyncedAt: string | null; syncState: string }[];
+  scope: { platform: Platform; handle: string }[];
+  state: 'ready' | 'not_connected';
+  metric: PlannerMetricKey;
+  metrics: { key: PlannerMetricKey; label: string; unit: '%' | 'count'; description: string; measuredPosts?: number }[];
+  contentTypes: { type: string; count: number }[];
+  contentType: string;
+  /** Posts published per week in the selected range (all formats in the current filter). */
+  postsPerWeek?: number;
+  windows: { key: TimeWindowKey; label: string; range: string }[];
+  notes: string[];
+  method: { summary: string; thresholds: { minTotalPosts: number; minSlotPosts: number }; maturityHours: Record<Platform, number> };
+  analysis: null | {
+    eligiblePosts: number;
+    aggregate: boolean;
+    excluded: { unmeasured: number; tooRecent: number };
+    baseline: { mean: number | null; median: number | null };
+    slots: PlannerSlot[];
+    /** Local hour 0–23, all days combined; score smoothed over neighbouring hours (50 = typical). */
+    hours: { hour: number; posts: number; score: number | null }[];
+    bestHours: null | { range: string; startTime: string; startHour: number; posts: number; score: number };
+    formats: { type: string; posts: number; median: number | null; liftPct: number | null }[];
+    pattern: { mostUsed: null | { day: Weekday; window: TimeWindowKey; posts: number; score: number }; slotsUsed: number; untestedSlots: number };
+    adjustment: { period: boolean; format: boolean; peerWindowDays: number };
+    recommendation: BestTimeRecommendation | null;
+    evidence: EvidenceLevel;
+    noRecommendationReason: 'not_enough_posts' | 'no_repeated_slot' | 'no_slot_above_typical' | null;
+  };
 }
 
 // ---- Notifications ------------------------------------------------------------

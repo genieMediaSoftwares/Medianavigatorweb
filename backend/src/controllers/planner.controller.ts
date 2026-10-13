@@ -9,5 +9,6 @@ export const plannerController = {
   create: asyncHandler(async (req, res) => ok(res, await plannerService.add(uid(req), req.body), 201)),
   remove: asyncHandler(async (req, res) => ok(res, await plannerService.remove(uid(req), req.params.id))),
   insights: asyncHandler(async (req, res) => ok(res, await plannerService.insights(uid(req)))),
+  bestTimes: asyncHandler(async (req, res) => ok(res, await plannerService.bestTimes(uid(req), req.query as any))),
   planRecommendation: asyncHandler(async (req, res) => ok(res, await plannerService.planRecommendation(uid(req), req.params.id, req.body), 201)),
 };

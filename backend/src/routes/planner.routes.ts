@@ -8,5 +8,6 @@ export const plannerRouter = Router();
 plannerRouter.use(authenticate);
 plannerRouter.get('/', c.list);
 plannerRouter.get('/insights', c.insights);
+plannerRouter.get('/best-times', validate({ query: v.bestTimes }), c.bestTimes);
 plannerRouter.post('/', validate({ body: v.create }), c.create);
 plannerRouter.delete('/:id', validate({ params: v.idParams }), c.remove);

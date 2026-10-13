@@ -16,7 +16,8 @@ export const youtubeAdapter: ProviderAdapter = {
     incrementalInsights: false,
     notes: [
       'Shorts vs long videos is inferred by us (the Data API has no Shorts flag), so contentTypeBasis is "inferred".',
-      'Watch time and retention need OAuth with the YouTube Analytics scope; an API key alone only provides public counts.',
+      'Channel and public video numbers come from the YouTube Data API v3 (API key with an exact channel, or Google sign-in).',
+      'Per-video watch time comes from the YouTube Analytics API, which Google only allows after the channel owner signs in (yt-analytics.readonly). API keys can’t access it.',
     ],
   },
 
@@ -24,7 +25,7 @@ export const youtubeAdapter: ProviderAdapter = {
     const v = await client.validate(creds);
     if (v.isValid) return { isValid: true };
     const error = v.error || 'YouTube authorization failed.';
-    return { isValid: false, error, kind: /expired|invalid_token|401/i.test(error) ? 'expired' : /permission|forbidden|quota/i.test(error) ? 'permission' : 'invalid' };
+    return { isValid: false, error, kind: /expired/i.test(error) ? 'expired' : /permission|enabled|restrict|quota/i.test(error) ? 'permission' : 'invalid' };
   },
 
   async resolveAccount(creds): Promise<ResolvedAccount> {
