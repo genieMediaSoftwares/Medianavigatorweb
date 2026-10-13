@@ -504,7 +504,24 @@ export interface VideoObservation {
   performanceHypothesis: string;
   recommendation: string;
 }
+/** Structured Reel report: one module per analyst question. */
+export interface VideoReport {
+  summary: string;
+  hook: { firstSeconds: string; attentionGrabber: string; curiosityTrigger: string; strength: 'high' | 'medium' | 'low'; assessment: string };
+  visual: { scenes: Array<{ startSeconds: number; endSeconds: number; description: string; framing: string; whyItMayMatter: string; editToTest: string }>; transitionsAndEditing: string; textOverlays: Array<{ timestamp: string; text: string }> };
+  audio: { speech: 'none' | 'voiceover' | 'on_camera' | 'mixed'; transcript: string; music: string; tone: string; soundOffReadable: string };
+  storytelling: { problem: string; emotion: string; narrative: string; payoff: string };
+  marketing: { cta: string; productPlacement: string; audienceIntent: string };
+  contentStrategy: { topic: string; niche: string; format: string; contentPillar: string };
+  performanceCorrelations: Array<{ observation: string; relatedMetric: string; caveat: string }>;
+  improvements: Array<{ change: string; rationale: string; metricToWatch: string }>;
+  whatWorked: string[];
+  whatToImprove: string[];
+  alternativeHook: string;
+  captionAssessment: string;
+}
 export interface VideoAnalysisResult {
+  report?: VideoReport | null;
   observations?: VideoObservation[];
   mediaId?: string;
   classification?: string;

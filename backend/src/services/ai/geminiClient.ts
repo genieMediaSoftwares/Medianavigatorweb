@@ -30,31 +30,33 @@ function parseJson(raw: string): unknown {
 }
 
 /** One model call, JSON out, validated against `schema`. Throws AiUnavailableError / AiFailedError; never returns made-up data. */
-export async function generateJson<T>(opts: { system: string; prompt: string; schema: ZodType<T>; video?: VideoInput }): Promise<{ data: T; model: string; latencyMs: number }> {
+export async function generateJson<T>(opts: { system: string; prompt: string; schema: ZodType<T, ZodTypeDef, unknown>; video?: VideoInput }): Promise<{ data: T; model: string; latencyMs: number }> {
   const ai = getClient();
   const model = config.ai.model!;
   const started = Date.now();
   let text: string | undefined;
   let uploadedName: string | undefined;
-  const timeout = opts.video ? 120_000 : config.ai.timeoutMs;
+  const timeout = opts.video ? 240_000 : config.ai.timeoutMs;
   try {
-    const parts: Part[] = [{ text: opts.prompt.slice(0, config.ai.maxInputChars) }];
+    // The structured video prompt carries the JSON shape at its end, so it must never be clipped by the short-prompt limit.
+    const parts: Part[] = [{ text: opts.prompt.slice(0, opts.video ? Math.max(config.ai.maxInputChars, 20_000) : config.ai.maxInputChars) }];
+    const sampling = opts.video?.fps ? { videoMetadata: { fps: opts.video.fps } } : {};
     if (opts.video && 'youtubeUrl' in opts.video) {
-      parts.unshift({ fileData: { fileUri: opts.video.youtubeUrl, mimeType: 'video/mp4' } });
+      parts.unshift({ fileData: { fileUri: opts.video.youtubeUrl, mimeType: 'video/mp4' }, ...sampling });
     } else if (opts.video && 'blob' in opts.video) {
-      let file = await ai.files.upload({ file: opts.video.blob, config: { mimeType: opts.video.blob.type, httpOptions: { timeout: 30_000 } } });
+      let file = await ai.files.upload({ file: opts.video.blob, config: { mimeType: opts.video.blob.type, httpOptions: { timeout: 120_000 } } });
       uploadedName = file.name;
-      const deadline = Date.now() + 60_000;
+      const deadline = Date.now() + 180_000;
       while (file.state === 'PROCESSING' && Date.now() < deadline) {
         await new Promise((resolve) => setTimeout(resolve, 1500));
         file = await ai.files.get({ name: uploadedName!, config: { httpOptions: { timeout: 10_000 } } });
       }
       if (file.state !== 'ACTIVE' || !file.uri) throw new AiFailedError('Video processing did not complete. Please retry.', 'provider_error');
-      parts.unshift({ fileData: { fileUri: file.uri, mimeType: file.mimeType || opts.video.blob.type } });
+      parts.unshift({ fileData: { fileUri: file.uri, mimeType: file.mimeType || opts.video.blob.type }, ...sampling });
     }
     const res = await ai.models.generateContent({
       model, contents: [{ role: 'user', parts }],
-      config: { systemInstruction: opts.system, responseMimeType: 'application/json', httpOptions: { timeout } },
+      config: { systemInstruction: opts.system, responseMimeType: 'application/json', temperature: opts.video ? 0.2 : undefined, httpOptions: { timeout } },
     });
     text = res.text;
   } catch (err) {
