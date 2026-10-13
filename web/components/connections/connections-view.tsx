@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Clock, FileStack, Lock, Plus, RefreshCw, Settings2, Users } from 'lucide-react';
+import { AlertTriangle, Clock, FileStack, Lock, Plus, RefreshCw, Users } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +31,7 @@ const WHAT: Record<Platform, string> = {
 
 function Stat({ icon: Icon, label, children }: { icon: typeof Users; label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-app p-3">
+    <div className="rounded-xl border border-line bg-brand-50/40 p-3">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-muted"><Icon className="h-3.5 w-3.5" aria-hidden="true" />{label}</div>
       <div className="mt-1 font-display text-lg font-bold text-ink tabular">{children}</div>
     </div>
@@ -88,7 +88,7 @@ function PlatformCard({ platform, connection, onConnect, onDisconnect }: { platf
             {view.needsAction
               ? <Button size="sm" onClick={onConnect}>Reconnect</Button>
               : <Button size="sm" variant="secondary" disabled={syncing} onClick={() => void sync.start(platform)}><RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />Sync now</Button>}
-            <Button size="sm" variant="ghost" onClick={onDisconnect}><Settings2 className="h-4 w-4" aria-hidden="true" />Disconnect</Button>
+            <Button size="sm" variant="ghost" className="ml-auto !text-bad hover:!bg-bad-bg" onClick={onDisconnect}>Disconnect</Button>
           </div>
         </>
       ) : (
@@ -111,7 +111,7 @@ export function ConnectionsView() {
   const by = (p: Platform) => data?.find((c) => c.platform === p);
   const liveCount = (data ?? []).filter((c) => c.connected).length;
 
-  if (isLoading) return <div className="grid gap-6 lg:grid-cols-2">{PLATFORMS.map((p) => <Skeleton key={p} className="h-64 rounded-2xl" />)}</div>;
+  if (isLoading) return <div className="grid gap-6 lg:grid-cols-2">{PLATFORMS.map((p) => <Skeleton key={p} className="h-64 rounded-xl" />)}</div>;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
 
   return (
@@ -124,7 +124,7 @@ export function ConnectionsView() {
       <div className="grid gap-6 lg:grid-cols-2">
         {PLATFORMS.map((p) => <PlatformCard key={p} platform={p} connection={by(p)} onConnect={() => setConnecting(p)} onDisconnect={() => setDisconnecting(p)} />)}
       </div>
-      <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-surface p-5 text-sm text-muted">
+      <div className="mt-8 flex gap-3 rounded-xl border border-line bg-surface p-5 text-sm text-muted">
         <Lock className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />
         <p><strong className="text-ink">How access works.</strong> Media Navigator only reads, so it can&apos;t post, edit or delete anything on your accounts. Your access is encrypted and deleted when you disconnect. Your past results stay unless you delete your account in Settings.</p>
       </div>

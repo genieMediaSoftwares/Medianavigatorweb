@@ -325,6 +325,31 @@ export interface PerformersResponse {
 }
 export type PerformerSort = 'views' | 'engagement' | 'likes' | 'comments';
 
+export interface ArchiveFormatStats {
+  format: string;
+  count: number;
+  percentageOfLibrary: number;
+  totalViews: number;
+  avgViews: number;
+  avgLikes: number;
+  avgComments: number;
+  avgEngagement: number;
+  recommendationNote?: string;
+  isTopFormat?: boolean;
+}
+export interface ArchiveResponse {
+  hasData?: boolean;
+  totalAnalyzed: number;
+  totalReels: number;
+  totalPostsAndCarousels: number;
+  totalVerifiedViews: number;
+  totalInteractions: number;
+  avgEngagementRate: number;
+  formats: ArchiveFormatStats[];
+  topWinningFormat: string;
+  message?: string;
+}
+
 export interface PatternRow {
   format: string;
   count: number;
@@ -426,6 +451,7 @@ export interface DiagnosePostResult {
   baselineComparison: string;
   topSuccessDrivers: string[];
   bottomImprovementPoints: string[];
+  sixBulletAnalysis?: string[];
   metricBreakdown: { viewsAnalysis: string; engagementHealth: string; commentVelocity: string; shareabilityAnalysis: string };
   suggestedHookAlternative: string;
   recommendedFormatAndTiming: string;
@@ -435,6 +461,7 @@ export interface DiagnosePostResult {
   calculated: CalculatedPost;
   ai: AiMeta;
   limitations: string[];
+  videoEvidence?: { status: string; observations: VideoObservation[] };
 }
 export interface AskResult {
   answer: string;
@@ -464,10 +491,55 @@ export interface ComparePost {
   engagementRatePct: number;
   durationSeconds: number | null;
 }
-/** Video analysis is qualitative only and lists what cannot be seen. Fields beyond `ai` are optional text. */
+export interface VideoTimelinePoint {
+  secondRange: string;
+  stage: string;
+  retentionEstimate: string;
+  actionableInsight: string;
+}
+
+/** Detailed forensic video analysis result */
+export interface VideoObservation {
+  startSeconds: number;
+  endSeconds: number;
+  observation: string;
+  performanceHypothesis: string;
+  recommendation: string;
+}
+/** Structured Reel report: one module per analyst question. */
+export interface VideoReport {
+  summary: string;
+  hook: { firstSeconds: string; attentionGrabber: string; curiosityTrigger: string; strength: 'high' | 'medium' | 'low'; assessment: string };
+  visual: { scenes: Array<{ startSeconds: number; endSeconds: number; description: string; framing: string; whyItMayMatter: string; editToTest: string }>; transitionsAndEditing: string; textOverlays: Array<{ timestamp: string; text: string }> };
+  audio: { speech: 'none' | 'voiceover' | 'on_camera' | 'mixed'; transcript: string; music: string; tone: string; soundOffReadable: string };
+  storytelling: { problem: string; emotion: string; narrative: string; payoff: string };
+  marketing: { cta: string; productPlacement: string; audienceIntent: string };
+  contentStrategy: { topic: string; niche: string; format: string; contentPillar: string };
+  performanceCorrelations: Array<{ observation: string; relatedMetric: string; caveat: string }>;
+  improvements: Array<{ change: string; rationale: string; metricToWatch: string }>;
+  whatWorked: string[];
+  whatToImprove: string[];
+  alternativeHook: string;
+  captionAssessment: string;
+}
 export interface VideoAnalysisResult {
-  ai?: AiMeta;
+  report?: VideoReport | null;
+  observations?: VideoObservation[];
+  mediaId?: string;
+  classification?: string;
+  hookScore?: number;
+  hookQuality?: 'Exceptional' | 'Above Average' | 'Needs Improvement';
+  hookAssessment?: string;
+  captionAssessment?: string | null;
+  audioPacingFeedback?: string;
+  soundOffOptimizationTip?: string;
+  viralReplicationConcept?: string;
+  testedAlternativeHook?: string;
+  recommendations?: string[];
+  timelineCurve?: VideoTimelinePoint[];
   unavailable?: string[];
+  limitations?: string[];
+  ai?: AiMeta;
   [key: string]: unknown;
 }
 

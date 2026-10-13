@@ -141,7 +141,7 @@ export class MetaAuth {
       // Instagram Login tokens (IGAA…) fail on graph.facebook.com with a parse error, so prefer graph.instagram.com's reason for them.
       const raw = (cleanToken.startsWith('IG') ? igError || meData?.error?.message : meData?.error?.message || igError) as string | undefined;
       const errMsg = raw && /api access blocked/i.test(raw)
-        ? 'Meta blocked API access for the app this token was created with. In developers.facebook.com, open the app and resolve any restriction or alert on its dashboard (and make sure your account is an admin, developer or tester of it), then generate a new token.'
+        ? 'Meta has blocked API access for this token. In Graph API Explorer, check the selected Meta app and its access restrictions, then generate a new token with the required Instagram and Page permissions. Test GET /me?fields=id,name in Explorer before reconnecting. This restriction cannot be removed by Media Navigator.'
         : raw || 'Instagram authorization failed. Please check your Access Token or API Key and try again.';
       return {
         isValid: false,

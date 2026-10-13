@@ -30,6 +30,7 @@ export function toContentItem(
     caption: n.caption ?? '',
     thumbnailUrl: n.thumbnailUrl || undefined,
     mediaUrl: n.mediaUrl,
+    ...(n.videoUrl ? { videoUrl: n.videoUrl } : {}),
     publishedAt,
     durationSeconds: n.durationSeconds ?? null,
     views: n.views ?? 0,
@@ -53,6 +54,31 @@ export function toContentItem(
 }
 
 /** Restores the legacy client contract from a stored item. */
-export function toNormalized(doc: Pick<ContentItemDoc, 'normalized' | 'legacyId' | 'unavailableMetrics' | 'contentTypeBasis'>): NormalizedMedia & { unavailableMetrics: string[]; contentTypeBasis: string } {
-  return { ...doc.normalized, id: doc.legacyId, unavailableMetrics: doc.unavailableMetrics, contentTypeBasis: doc.contentTypeBasis };
+export function toNormalized(doc: any): NormalizedMedia & { unavailableMetrics: string[]; contentTypeBasis: string } {
+  const norm = doc?.normalized ?? {};
+  const pub = doc?.publishedAt ? (doc.publishedAt instanceof Date ? doc.publishedAt.toISOString() : String(doc.publishedAt)) : (norm.publishedAt ?? new Date().toISOString());
+  const unavail = Array.isArray(doc?.unavailableMetrics) ? doc.unavailableMetrics : Array.isArray(norm.unavailableMetrics) ? norm.unavailableMetrics : [];
+  return {
+    ...norm,
+    id: doc?.legacyId || norm.id || String(doc?._id ?? ''),
+    platform: doc?.platform ?? norm.platform ?? 'instagram',
+    platformContentId: doc?.providerMediaId ?? norm.platformContentId ?? '',
+    contentType: doc?.contentType ?? norm.contentType ?? 'post',
+    contentTypeBasis: doc?.contentTypeBasis ?? norm.contentTypeBasis ?? 'provider',
+    title: doc?.title !== undefined && doc?.title !== null ? doc.title : (norm.title ?? ''),
+    caption: doc?.caption !== undefined && doc?.caption !== null ? doc.caption : (norm.caption ?? ''),
+    thumbnailUrl: doc?.thumbnailUrl !== undefined && doc?.thumbnailUrl !== null ? doc.thumbnailUrl : (norm.thumbnailUrl ?? ''),
+    mediaUrl: doc?.mediaUrl !== undefined ? doc.mediaUrl : norm.mediaUrl,
+    publishedAt: pub,
+    views: typeof doc?.views === 'number' ? doc.views : (typeof norm.views === 'number' ? norm.views : 0),
+    reach: typeof doc?.reach === 'number' ? doc.reach : (typeof norm.reach === 'number' ? norm.reach : 0),
+    likes: typeof doc?.likes === 'number' ? doc.likes : (typeof norm.likes === 'number' ? norm.likes : 0),
+    comments: typeof doc?.comments === 'number' ? doc.comments : (typeof norm.comments === 'number' ? norm.comments : 0),
+    shares: typeof doc?.shares === 'number' ? doc.shares : (typeof norm.shares === 'number' ? norm.shares : 0),
+    saves: doc?.saves !== undefined ? doc.saves : (norm.saves ?? null),
+    watchTimeMinutes: doc?.watchTimeMinutes !== undefined ? doc.watchTimeMinutes : (norm.watchTimeMinutes ?? null),
+    durationSeconds: doc?.durationSeconds !== undefined ? doc.durationSeconds : (norm.durationSeconds ?? null),
+    engagementRate: typeof doc?.engagementRate === 'number' ? doc.engagementRate : (typeof norm.engagementRate === 'number' ? norm.engagementRate : 0),
+    unavailableMetrics: unavail,
+  };
 }

@@ -1,64 +1,71 @@
 @import 'tailwindcss';
 
-/* Design tokens sampled from the Media Navigator logo. Everything in the UI reads from these. */
+/* Light blue and white surfaces, with deeper blue for readable actions and text. */
 :root {
-  --ink: #021036;
-  --text: #021036;
-  --text-muted: #4a5470;
-  --text-subtle: #667089;
-  --brand-50: #eef5ff;
-  --brand-100: #dceaff;
-  --brand-200: #b9d5ff;
-  --brand-400: #18b8f8;
-  --brand-500: #0a84f5;
-  --brand-600: #0b5fe6;
-  --brand-700: #0a4cc2;
-  --brand-800: #0a2c8f;
+  --ink: #17354d;
+  --text: #28465c;
+  --text-muted: #506b80;
+  --text-subtle: #5c7589;
+  --brand-50: #eff8ff;
+  --brand-100: #dff1ff;
+  --brand-200: #bddff7;
+  --brand-300: #91c9ee;
+  --brand-400: #62b2e6;
+  --brand-500: #3294cf;
+  --brand-600: #1575ad;
+  --brand-700: #105e8e;
+  --brand-800: #164c70;
   --surface: #ffffff;
-  --surface-raised: #ffffff;
-  --app-bg: #f6f9fe;
-  --line: #e3eaf5;
-  --line-strong: #cdd8ea;
-  --good: #12a150;
-  --good-bg: #e7f7ee;
-  --warn: #b67a00;
-  --warn-bg: #fff4d6;
-  --bad: #d92d45;
-  --bad-bg: #fde8eb;
-  --shadow: 0 1px 2px rgba(2, 16, 54, 0.06), 0 8px 24px rgba(2, 16, 54, 0.05);
-  --shadow-pop: 0 4px 12px rgba(2, 16, 54, 0.08), 0 24px 48px rgba(2, 16, 54, 0.12);
-  --gradient: linear-gradient(135deg, #18b8f8 0%, #0b5fe6 55%, #0a2c8f 100%);
+  --surface-raised: #f5faff;
+  --app-bg: #f1f8fd;
+  --line: #dcebf5;
+  --line-strong: #b9d4e6;
+  --good: #047857;
+  --good-bg: #ecfdf5;
+  --warn: #a16207;
+  --warn-bg: #fffbeb;
+  --bad: #be123c;
+  --bad-bg: #fff1f2;
+  --shadow: 0 1px 2px rgb(23 53 77 / 0.05), 0 1px 3px rgb(23 53 77 / 0.04);
+  --shadow-pop: 0 16px 40px -12px rgb(42 101 142 / 0.18), 0 4px 12px -4px rgb(42 101 142 / 0.06);
+  --gradient: #1575ad;
+  --panel-gradient: #eff8ff;
   color-scheme: light;
 }
 
 :root[data-theme='dark'] {
-  --ink: #f2f6ff;
-  --text: #e8eefc;
-  --text-muted: #a6b3d1;
-  --text-subtle: #8795b8;
-  --brand-50: #0b1c45;
-  --brand-100: #0f2a63;
-  --brand-200: #17408f;
-  --brand-400: #35c4fa;
-  --brand-500: #3a97ff;
-  --brand-600: #4d8dff;
-  --brand-700: #7aa9ff;
-  --brand-800: #a9c6ff;
-  --surface: #081538;
-  --surface-raised: #0c1c47;
-  --app-bg: #04102e;
-  --line: #18285a;
-  --line-strong: #25397a;
-  --good: #3ddc84;
-  --good-bg: #0c2b1c;
-  --warn: #f2b84b;
-  --warn-bg: #33270a;
-  --bad: #ff6b81;
-  --bad-bg: #3a1220;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
-  --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.4), 0 24px 48px rgba(0, 0, 0, 0.45);
+  --ink: #ffffff;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --text-subtle: #64748b;
+  --brand-50: #0a1429;
+  --brand-100: #102147;
+  --brand-200: #15326d;
+  --brand-300: #19469e;
+  --brand-400: #1D5FD1;
+  --brand-500: #327de8;
+  --brand-600: #1D5FD1;
+  --brand-700: #5f9bf7;
+  --brand-800: #94bcfb;
+  --surface: #0c1427;
+  --surface-raised: #131f3b;
+  --app-bg: #070c18;
+  --line: #1c2b4d;
+  --line-strong: #2c3f6e;
+  --good: #10b981;
+  --good-bg: #064e3b;
+  --warn: #f59e0b;
+  --warn-bg: #78350f;
+  --bad: #f43f5e;
+  --bad-bg: #881337;
+  --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.55);
+  --shadow-pop: 0 20px 45px -8px rgba(29, 95, 209, 0.3);
+  --gradient: #1D5FD1;
+  --panel-gradient: #102147;
   color-scheme: dark;
 }
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
 
 @theme inline {
   --color-ink: var(--ink);
@@ -68,6 +75,7 @@
   --color-brand-50: var(--brand-50);
   --color-brand-100: var(--brand-100);
   --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
   --color-brand-400: var(--brand-400);
   --color-brand-500: var(--brand-500);
   --color-brand-600: var(--brand-600);
@@ -86,7 +94,7 @@
   --color-bad-bg: var(--bad-bg);
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
-  --radius-card: 16px;
+  --radius-card: 12px;
   --shadow-card: var(--shadow);
   --shadow-pop: var(--shadow-pop);
 }
@@ -107,7 +115,7 @@
   .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-card); box-shadow: var(--shadow); }
   .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-subtle); }
   .skeleton { background: linear-gradient(90deg, var(--brand-50) 25%, var(--brand-100) 37%, var(--brand-50) 63%); background-size: 400% 100%; animation: shimmer 1.4s ease infinite; border-radius: 12px; }
-  .grad-text { background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .grad-text { color: var(--brand-600); }
   .custom-scroll { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
 }
 

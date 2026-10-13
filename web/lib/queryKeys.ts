@@ -10,6 +10,7 @@ export const qk = {
   timing: ['timing'] as const,
   signals: ['signals'] as const,
   performers: (sort: string) => ['performers', sort] as const,
+  archive: ['archive'] as const,
   patterns: ['patterns'] as const,
   recommendations: ['recommendations'] as const,
   trends: ['trends'] as const,

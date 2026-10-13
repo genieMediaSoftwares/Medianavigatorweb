@@ -22,7 +22,7 @@ export function PlatformIcon({ platform, className }: { platform: Platform; clas
 
 export function PlatformTile({ platform, size = 'md', className }: { platform: Platform; size?: 'sm' | 'md' | 'lg'; className?: string }) {
   return (
-    <span className={cn('inline-flex shrink-0 items-center justify-center rounded-xl bg-app border border-line', size === 'sm' && 'h-8 w-8', size === 'md' && 'h-10 w-10', size === 'lg' && 'h-14 w-14 rounded-2xl', className)}>
+    <span className={cn('inline-flex shrink-0 items-center justify-center rounded-xl bg-app border border-line', size === 'sm' && 'h-8 w-8', size === 'md' && 'h-10 w-10', size === 'lg' && 'h-14 w-14 rounded-xl', className)}>
       <PlatformIcon platform={platform} className={size === 'lg' ? 'h-8 w-8' : size === 'sm' ? 'h-4 w-4' : 'h-5 w-5'} />
     </span>
   );

@@ -105,7 +105,7 @@ function Week({ items, onRemove }: { items: PlannedItem[]; onRemove: (i: Planned
         {WEEKDAYS.map((d) => {
           const day = items.filter((i) => i.day === d).sort(byTime);
           return (
-            <div key={d} className="min-w-0 rounded-2xl border border-line bg-surface p-3">
+            <div key={d} className="min-w-0 rounded-xl border border-line bg-surface p-3">
               <h3 className="mb-2 text-sm">{d.slice(0, 3)}</h3>
               {day.length === 0 ? <p className="text-xs text-subtle">Nothing planned</p> : (
                 <ul className="space-y-2" role="list">

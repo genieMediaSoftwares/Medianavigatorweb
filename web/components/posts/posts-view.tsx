@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutGrid, Search } from 'lucide-react';
+import { LayoutGrid, Search, Sparkles } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Button, LinkButton } from '@/components/ui/button';
@@ -21,9 +21,11 @@ import type { ContentType, MediaItem, Performer, PerformerSort, Platform } from 
 import { PostCard, PostThumb } from './post-card';
 import { PostDetailDrawer } from './post-detail-drawer';
 import { plainComparison } from './plain-language';
+import { WhyPerformerModal } from '@/components/insights/why-performer-modal';
+import { DeepVideoAnalysisModal } from '@/components/insights/deep-video-analysis-modal';
 
 type Tab = 'all' | 'working' | 'attention';
-const TABS = [{ id: 'all', label: 'All' }, { id: 'working', label: "What's working" }, { id: 'attention', label: 'Needs attention' }];
+const TABS = [{ id: 'all', label: 'All' }, { id: 'working', label: "What's working" }, { id: 'attention', label: 'Needs work' }];
 type AllSort = 'newest' | 'views' | 'engagement';
 const ALL_SORTS: Array<{ value: AllSort; label: string }> = [{ value: 'newest', label: 'Newest' }, { value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }];
 const RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }, { value: 'likes', label: 'Most likes' }, { value: 'comments', label: 'Most comments' }];
@@ -40,7 +42,7 @@ const asType = (t: string): ContentType => KNOWN_TYPES.find((k) => k === t) ?? '
 const sentence = (s: string) => { const t = s.trim(); return /[.!?)]$/.test(t) ? t : `${t}.`; };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-function RankedCard({ p, kind, rank, onOpen }: { p: Performer; kind: 'working' | 'attention'; rank: number; onOpen: () => void }) {
+function RankedCard({ p, kind, rank, onOpen, onOpenWhy }: { p: Performer; kind: 'working' | 'attention'; rank: number; onOpen: () => void; onOpenWhy: (p: Performer, type: 'top' | 'bottom') => void }) {
   const why = `${cap(sentence(plainComparison(p.baselineComparison)))} It got ${whole(p.views)} views and ${percent(p.engagementRate)} engagement.`;
   return (
     <article className="card flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
@@ -65,13 +67,24 @@ function RankedCard({ p, kind, rank, onOpen }: { p: Performer; kind: 'working' |
             <ul className="list-disc space-y-1 pl-5">{p.possibleFactors.map((f) => <li key={f}>{f}</li>)}</ul>
           </details>
         )}
-        <Button variant="secondary" size="sm" onClick={onOpen}>See this post</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="secondary" size="sm" onClick={onOpen}>See this post</Button>
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => onOpenWhy(p, kind === 'working' ? 'top' : 'bottom')}
+            className={kind === 'working' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'}
+          >
+            <Sparkles className="h-3.5 w-3.5 mr-1" />
+            {kind === 'working' ? 'Why it is doing well' : 'Why it needs attention'}
+          </Button>
+        </div>
       </div>
     </article>
   );
 }
 
-function RankedList({ kind, channel, query, format, onOpen }: { kind: 'working' | 'attention'; channel: Platform | 'all'; query: string; format: string; onOpen: (id: string) => void }) {
+function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind: 'working' | 'attention'; channel: Platform | 'all'; query: string; format: string; onOpen: (id: string) => void; onOpenWhy: (p: Performer, type: 'top' | 'bottom') => void }) {
   const [sort, setSort] = useState<PerformerSort>('views');
   const [shown, setShown] = useState(RANK_PAGE);
   const summary = useSummary(channel, 365);
@@ -86,7 +99,7 @@ function RankedList({ kind, channel, query, format, onOpen }: { kind: 'working' 
       && (!q || `${p.title} ${p.caption ?? ''}`.toLowerCase().includes(q)));
   }, [perf.data, kind, channel, insufficient, format, query]);
 
-  if (perf.isLoading || summary.isLoading) return <div className="space-y-4" role="status" aria-label="Loading"><Skeleton className="h-48 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>;
+  if (perf.isLoading || summary.isLoading) return <div className="space-y-4" role="status" aria-label="Loading"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div>;
   if (perf.isError) return <ErrorState error={perf.error} onRetry={() => void perf.refetch()} />;
 
   const allSrc = perf.data ? (kind === 'working' ? perf.data.top : perf.data.bottom) : [];
@@ -115,7 +128,7 @@ function RankedList({ kind, channel, query, format, onOpen }: { kind: 'working' 
         <EmptyState icon={<Search className="h-7 w-7" aria-hidden="true" />} title={filtering ? 'No posts match your search' : 'Nothing to show here yet'} description={filtering ? 'Try a different word, or clear the format filter.' : 'Check back after your next update.'} />
       ) : (
         <>
-          <div className="space-y-4">{list.slice(0, shown).map((p, i) => <RankedCard key={p.id} p={p} kind={kind} rank={i + 1} onOpen={() => onOpen(p.mediaId)} />)}</div>
+          <div className="space-y-4">{list.slice(0, shown).map((p, i) => <RankedCard key={p.id} p={p} kind={kind} rank={i + 1} onOpen={() => onOpen(p.mediaId)} onOpenWhy={onOpenWhy} />)}</div>
           {list.length > shown && <div className="flex justify-center"><Button variant="secondary" onClick={() => setShown((n) => n + RANK_PAGE)}>Show more</Button></div>}
         </>
       )}
@@ -132,8 +145,17 @@ function AllPosts({ channel, query, format, onOpen }: { channel: Platform | 'all
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const f = all.filter((p) => (format === 'all' || p.contentType === format) && (!q || `${p.title} ${p.caption}`.toLowerCase().includes(q)));
-    return [...f].sort((a, b) => sort === 'views' ? b.views - a.views : sort === 'engagement' ? b.engagementRate - a.engagementRate : +new Date(b.publishedAt) - +new Date(a.publishedAt));
+    const f = all.filter((p) => {
+      const matchesFormat = format === 'all' || p.contentType === format;
+      const text = `${p.title ?? ''} ${p.caption ?? ''}`.toLowerCase();
+      const matchesQuery = !q || text.includes(q);
+      return matchesFormat && matchesQuery;
+    });
+    return [...f].sort((a, b) => {
+      if (sort === 'views') return (b.views ?? 0) - (a.views ?? 0);
+      if (sort === 'engagement') return (b.engagementRate ?? 0) - (a.engagementRate ?? 0);
+      return +new Date(b.publishedAt) - +new Date(a.publishedAt);
+    });
   }, [all, query, format, sort]);
 
   if (feed.isLoading) return <PostGridSkeleton />;
@@ -163,7 +185,7 @@ function AllPosts({ channel, query, format, onOpen }: { channel: Platform | 'all
           action={feed.hasNextPage ? <Button variant="secondary" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>Show more posts</Button> : undefined} />
       ) : (
         <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
-          {items.map((p) => <PostCard key={p.id} item={p} tag={tagFor(p, summary.data)} onOpen={() => onOpen(p.id)} />)}
+          {items.map((p, idx) => <PostCard key={p.id || `post-${idx}`} item={p} tag={tagFor(p, summary.data)} onOpen={() => onOpen(p.id)} />)}
         </div>
       )}
       {feed.hasNextPage && items.length > 0 && <div className="flex justify-center"><Button variant="secondary" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>Show more</Button></div>}
@@ -186,6 +208,15 @@ export function PostsView() {
   const feedForFormats = usePostsFeed(channel);
   const formats = useMemo<string[]>(() => [...new Set<string>((feedForFormats.data?.pages.flatMap((p) => p.items) ?? []).map((p) => p.contentType))].sort(), [feedForFormats.data]);
   const [open, setOpen] = useState<string | null>(null);
+  const [whyModal, setWhyModal] = useState<{ open: boolean; item: Performer | null; type: 'top' | 'bottom' }>({
+    open: false,
+    item: null,
+    type: 'top',
+  });
+  const [videoModal, setVideoModal] = useState<{ open: boolean; item: Performer | null }>({
+    open: false,
+    item: null,
+  });
 
   const connected = (connections.data ?? []).filter((c) => c.connected);
   const setTab = (id: string) => { const sp = new URLSearchParams(params.toString()); if (id === 'all') sp.delete('tab'); else sp.set('tab', id); const qs = sp.toString(); router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false }); };
@@ -219,16 +250,29 @@ export function PostsView() {
         </div>
         {tab === 'all'
           ? <AllPosts channel={channel} query={query} format={format} onOpen={setOpen} />
-          : <RankedList kind={tab} channel={channel} query={query} format={format} onOpen={setOpen} />}
+          : <RankedList kind={tab} channel={channel} query={query} format={format} onOpen={setOpen} onOpenWhy={(item, type) => setWhyModal({ open: true, item, type })} />}
       </div>
     );
   }
 
   return (
     <>
-      <PageHeader title="Posts" subtitle="Every post we've imported, with a plain note on how it is doing compared with your usual." />
+      <PageHeader title="Posts" subtitle="Browse every imported post, or switch to see what is working and what needs work." />
       {body}
       <PostDetailDrawer postId={open} onClose={() => setOpen(null)} />
+      <WhyPerformerModal
+        open={whyModal.open}
+        onOpenChange={(o) => setWhyModal((prev) => ({ ...prev, open: o }))}
+        item={whyModal.item}
+        type={whyModal.type}
+        onOpenFullDetail={(id) => setOpen(id)}
+        onOpenVideoAnalysis={(item) => setVideoModal({ open: true, item })}
+      />
+      <DeepVideoAnalysisModal
+        open={videoModal.open}
+        onOpenChange={(o) => setVideoModal((prev) => ({ ...prev, open: o }))}
+        item={videoModal.item}
+      />
     </>
   );
 }

@@ -98,6 +98,18 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
         )}
         {advanced && (
           <form onSubmit={submit} noValidate className="space-y-4 rounded-xl border border-line p-4">
+            {platform === 'instagram' && (
+              <details className="rounded-xl border border-line bg-app p-3 text-sm text-muted">
+                <summary className="cursor-pointer font-semibold text-ink">Using a token from Graph API Explorer?</summary>
+                <ol className="mt-3 list-decimal space-y-2 pl-5">
+                  <li>Select the Meta app that you use for this connection and check its access restrictions.</li>
+                  <li>Use a professional Instagram account linked to a Facebook Page you manage.</li>
+                  <li>Generate a token with <code>instagram_basic</code>, <code>pages_show_list</code>, <code>pages_read_engagement</code>, and <code>instagram_manage_insights</code> for analytics.</li>
+                  <li>Test <code>GET /me?fields=id,name</code> in Explorer. If Meta reports API access blocked there too, resolve the restriction in Meta before trying again here.</li>
+                </ol>
+                <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" className="mt-3 inline-block font-semibold text-brand-700 underline">Open Graph API Explorer</a>
+              </details>
+            )}
             <Field label="Access token" error={errors.secret?.message} hint="Paste it here once. We never show it again.">{(p) => <Input type="password" autoComplete="off" spellCheck={false} {...p} {...register('secret')} />}</Field>
             {extra && <Field label={extra.label} optional hint={extra.hint} error={errors.extra?.message}>{(p) => <Input autoComplete="off" {...p} {...register('extra')} />}</Field>}
             <Button type="submit" variant={oauth ? 'secondary' : 'primary'} size="lg" className="w-full" loading={isSubmitting}>Connect with token</Button>

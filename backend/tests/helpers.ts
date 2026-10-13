@@ -8,9 +8,10 @@ import { userRepository } from '../src/repositories/user.repository.js';
 let mongod: MongoMemoryServer | undefined;
 
 export async function startTestDb() {
-  // If downloading mongod is blocked, point MONGOMS_SYSTEM_BINARY at a local mongod binary.
-  mongod = await MongoMemoryServer.create();
-  await connectDatabase(mongod.getUri('mediatest'));
+  // Set TEST_MONGODB_URI to use an existing MongoDB server (for example when downloading mongod is blocked).
+  // Otherwise an in-memory mongod is started; MONGOMS_SYSTEM_BINARY can point it at a local binary.
+  if (process.env.TEST_MONGODB_URI) await connectDatabase(process.env.TEST_MONGODB_URI);
+  else { mongod = await MongoMemoryServer.create(); await connectDatabase(mongod.getUri('mediatest')); }
   await ensureIndexes();
 }
 

@@ -16,6 +16,14 @@ import { qk } from '@/lib/queryKeys';
 import { cn } from '@/lib/utils';
 import type { NotificationItem } from '@/types/api';
 
+/** Where a notification of this kind is best acted on. */
+const ACTION: Record<string, { href: string; label: string }> = {
+  connection_expired: { href: '/connections', label: 'Reconnect' },
+  sync_permission_required: { href: '/connections', label: 'Review permissions' },
+  sync_failed: { href: '/connections', label: 'Open Connections' },
+  sync_completed: { href: '/posts', label: 'View posts' },
+};
+
 const SEVERITY: Record<string, { tone: Tone; label: string }> = {
   high: { tone: 'bad', label: 'Needs attention' },
   medium: { tone: 'warn', label: 'Worth a look' },
@@ -25,6 +33,7 @@ const SEVERITY: Record<string, { tone: Tone; label: string }> = {
 function Row({ n, onRead }: { n: NotificationItem; onRead: (id: string) => void }) {
   const sev = SEVERITY[n.severity] ?? { tone: 'neutral' as Tone, label: 'For your information' };
   const text = n.description ?? n.body;
+  const action = n.type ? ACTION[n.type] : undefined;
   return (
     <li className={cn('flex gap-4 px-6 py-5', !n.read && 'bg-brand-50/60')}>
       <span className={cn('mt-2 h-2.5 w-2.5 shrink-0 rounded-full', n.read ? 'bg-transparent' : 'bg-brand-600')} role={n.read ? undefined : 'img'} aria-label={n.read ? undefined : 'Unread'} />
@@ -41,7 +50,10 @@ function Row({ n, onRead }: { n: NotificationItem; onRead: (id: string) => void 
             <p className="mt-2 whitespace-pre-line rounded-xl bg-app p-4 text-sm text-muted">{n.investigationNotes}</p>
           </details>
         )}
-        {!n.read && <Button size="sm" variant="ghost" className="-ml-3 mt-2" onClick={() => onRead(n.id)}>Mark as read</Button>}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          {action && <LinkButton size="sm" variant="secondary" href={action.href} onClick={() => { if (!n.read) onRead(n.id); }}>{action.label}</LinkButton>}
+          {!n.read && <Button size="sm" variant="ghost" onClick={() => onRead(n.id)}>Mark as read</Button>}
+        </div>
       </div>
     </li>
   );

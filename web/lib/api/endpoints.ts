@@ -1,5 +1,5 @@
 import type {
-  AdminAuditEntry, AdminConnection, AdminSystem, AnalyzeItemResult, AskResult, CompareResult, Connection, ConnectInput, ConnectResult, DiagnosePostResult,
+  AdminAuditEntry, AdminConnection, AdminSystem, AnalyzeItemResult, ArchiveResponse, AskResult, CompareResult, Connection, ConnectInput, ConnectResult, DiagnosePostResult,
   FileItem, HistoryPoint, IntelligenceStatus, MediaItem, MeResponse, NotificationItem, Overview, PageMeta, PatternRow, PerformerSort, PerformersResponse, Platform,
   PlannedItem, PlannerInsights, Profile, RecommendationsResponse, SessionInfo, SignalsResponse, Summary, SyncResult, SyncRun, Timing, TrendsResponse, User,
   VideoAnalysisResult, Weekday,
@@ -50,6 +50,7 @@ export const api = {
   timing: () => apiGet<Timing>('/intelligence/timing'),
   signals: () => apiGet<SignalsResponse>('/intelligence/signals'),
   performers: (sortBy: PerformerSort) => apiGet<PerformersResponse>('/intelligence/performers', { sortBy }),
+  archive: () => apiGet<ArchiveResponse>('/intelligence/archive'),
   patterns: () => apiGet<PatternRow[]>('/intelligence/patterns'),
   recommendations: () => apiGet<RecommendationsResponse>('/intelligence/recommendations'),
   trends: () => apiGet<TrendsResponse>('/intelligence/trends'),

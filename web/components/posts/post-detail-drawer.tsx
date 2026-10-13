@@ -11,14 +11,14 @@ import { HelpPopover } from '@/components/ui/help';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState, Notice } from '@/components/ui/states';
 import { PlatformIcon } from '@/components/ui/platform-logo';
-import { ApiError } from '@/lib/api/client';
 import { api } from '@/lib/api/endpoints';
 import { compact, dateShort, percent, whole } from '@/lib/format';
 import { usePostsFeed, useMediaItem } from '@/lib/hooks/usePosts';
 import { useSummary } from '@/lib/hooks/useQueries';
 import { TAG_LABEL, TAG_TONE, isUnavailable, tagFor } from '@/lib/performance';
 import { platformName, typeLabel } from '@/lib/platforms';
-import type { AiMeta, CompareResult, DiagnosePostResult, MediaItem, PostClass, VideoAnalysisResult } from '@/types/api';
+import type { AiMeta, CompareResult, DiagnosePostResult, MediaItem, PostClass } from '@/types/api';
+import { DeepVideoAnalysisModal } from '@/components/insights/deep-video-analysis-modal';
 import { PostThumb } from './post-card';
 import { metricWords, plainClass, plainComparison, plainDifference } from './plain-language';
 
@@ -37,7 +37,7 @@ function Block({ step, title, hint, children }: { step: string; title: string; h
 
 function MetricBox({ label, value, platform, na }: { label: string; value: string; platform: string; na?: boolean }) {
   return (
-    <div className="rounded-xl bg-app px-3 py-2.5">
+    <div className="rounded-xl border border-line bg-brand-50/40 px-3 py-2.5">
       <dt className="text-[13px] text-muted">{label}</dt>
       <dd className="mt-0.5 font-display text-lg font-bold text-ink tabular">
         {na ? <span className="text-sm font-semibold text-subtle">Not available from {platform}</span> : value}
@@ -79,31 +79,69 @@ function AiBanner({ ai }: { ai: AiMeta }) {
 }
 
 function DiagnoseView({ d }: { d: DiagnosePostResult }) {
-  const ranAi = d.ai.status === 'ran' || d.ai.status === 'cached';
-  const actions = [...d.actionableChecklist].slice(0, 3);
+  const isTop = d.status === 'working';
+  const bullets = d.sixBulletAnalysis && d.sixBulletAnalysis.length >= 6
+    ? d.sixBulletAnalysis.slice(0, 6)
+    : [
+        ...(d.topSuccessDrivers ?? []),
+        ...(d.bottomImprovementPoints ?? []),
+        ...(d.actionableChecklist ?? []),
+        d.suggestedHookAlternative ? `Opening to try: "${d.suggestedHookAlternative}"` : '',
+      ].filter(Boolean).slice(0, 6);
+
   return (
     <div className="space-y-4">
       <AiBanner ai={d.ai} />
-      {ranAi && (
-        <div>
-          <p className="font-semibold text-ink">{d.headline}</p>
-          <p className="mt-1 text-[15px] text-muted">{d.executiveSummary}</p>
-          {d.topSuccessDrivers.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-[15px] text-muted">{d.topSuccessDrivers.map((s) => <li key={s}>{s}</li>)}</ul>}
-          {d.bottomImprovementPoints.length > 0 && <ul className="mt-3 list-disc space-y-1 pl-5 text-[15px] text-muted">{d.bottomImprovementPoints.map((s) => <li key={s}>{s}</li>)}</ul>}
+      
+      {bullets.length > 0 && (
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-bold text-ink flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4 text-brand-600" />
+              What stood out
+            </h4>
+          </div>
+          <div className="space-y-2">
+            {bullets.map((b, i) => {
+              const colonIndex = b.indexOf(':');
+              const hasPrefix = colonIndex > -1 && colonIndex < 35;
+              const title = hasPrefix ? b.slice(0, colonIndex).trim() : `Point ${i + 1}`;
+              const text = hasPrefix ? b.slice(colonIndex + 1).trim() : b.trim();
+              return (
+                <div key={i} className="flex items-start gap-2.5 rounded-xl border border-line bg-surface p-3 text-sm shadow-2xs">
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded text-xs font-bold ${
+                    isTop ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+                  }`}>
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-muted block">{title}</span>
+                    <p className="mt-0.5 text-[14px] text-ink">{text}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
-      {!ranAi && d.metricBreakdown.viewsAnalysis && <p className="text-[15px] text-muted">{d.metricBreakdown.viewsAnalysis}</p>}
-      {actions.length > 0 && (
-        <div>
-          <p className="mb-1.5 text-sm font-semibold text-ink">Things you could try</p>
-          <ul className="list-disc space-y-1.5 pl-5 text-[15px] text-muted">{actions.map((a) => <li key={a}>{a}</li>)}</ul>
+
+      {d.suggestedHookAlternative && (
+        <div className="rounded-xl border border-brand-200 bg-brand-50/60 p-3.5 text-sm dark:bg-brand-950/20 dark:border-brand-900/40">
+          <span className="text-xs font-bold text-brand-800 dark:text-brand-300 uppercase tracking-wider block mb-1">
+            A different opening to try
+          </span>
+          <p className="font-semibold text-brand-900 dark:text-brand-200">
+            &ldquo;{d.suggestedHookAlternative}&rdquo;
+          </p>
         </div>
       )}
-      {d.recommendedFormatAndTiming && <p className="text-[15px] text-muted">{d.recommendedFormatAndTiming}</p>}
-      {d.limitations.length > 0 && (
-        <div>
-          <p className="mb-1.5 text-sm font-semibold text-ink">What we can&apos;t tell</p>
-          <ul className="list-disc space-y-1 pl-5 text-sm text-muted">{d.limitations.map((l) => <li key={l}>{l}</li>)}</ul>
+
+      {d.limitations && d.limitations.length > 0 && (
+        <div className="pt-2 border-t border-line text-xs text-subtle">
+          <p className="font-semibold text-muted mb-1">Good to know</p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            {d.limitations.map((l) => <li key={l}>{l}</li>)}
+          </ul>
         </div>
       )}
     </div>
@@ -128,7 +166,7 @@ function CompareView({ result, mine }: { result: CompareResult; mine: string }) 
     <div className="space-y-3">
       <div className="grid grid-cols-[1fr_1fr] gap-3 text-sm">
         {[a, b].map((p, i) => (
-          <div key={p.id} className="rounded-xl bg-app p-3">
+          <div key={p.id} className="rounded-xl border border-line bg-brand-50/40 p-3">
             <p className="text-[13px] font-semibold text-muted">{i === 0 ? 'This post' : 'Other post'}</p>
             <p className="line-clamp-2 font-semibold text-ink">{p.title || 'Untitled post'}</p>
             <p className="text-[13px] text-subtle">{platformName(p.platform)} · {typeLabel(p.contentType)} · {dateShort(p.publishedAt)}</p>
@@ -153,33 +191,6 @@ function CompareView({ result, mine }: { result: CompareResult; mine: string }) 
         </tbody>
       </table>
       {result.note && <Notice tone="info">{result.note}</Notice>}
-    </div>
-  );
-}
-
-const VIDEO_UNSEEN = ['How long people kept watching (retention)', 'Who watched (your audience)', 'What the audio sounds like'];
-const humanise = (k: string) => k.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
-
-function VideoView({ result, error }: { result?: VideoAnalysisResult; error?: unknown }) {
-  const unavailable = result?.unavailable && result.unavailable.length > 0 ? result.unavailable : VIDEO_UNSEEN;
-  const notes = result ? Object.entries(result).filter(([k, v]) => k !== 'ai' && k !== 'unavailable' && (typeof v === 'string' || (Array.isArray(v) && v.every((x) => typeof x === 'string'))) && (v as string | string[]).length > 0) : [];
-  const hard = error instanceof ApiError && !(error.code === 'BAD_REQUEST' || error.status === 422 || error.status === 400);
-  if (hard) return <ErrorState error={error} title="We couldn't take a deeper look" />;
-  return (
-    <div className="space-y-4">
-      {error instanceof Error && <Notice tone="info">{error.message}</Notice>}
-      {result?.ai && <AiBanner ai={result.ai} />}
-      {notes.map(([k, v]) => (
-        <div key={k}>
-          <p className="text-sm font-semibold text-ink">{humanise(k)}</p>
-          {Array.isArray(v) ? <ul className="mt-1 list-disc space-y-1 pl-5 text-[15px] text-muted">{v.map((x) => <li key={String(x)}>{String(x)}</li>)}</ul> : <p className="mt-1 text-[15px] text-muted">{String(v)}</p>}
-        </div>
-      ))}
-      <div>
-        <p className="mb-1.5 text-sm font-semibold text-ink">What we can&apos;t see</p>
-        <ul className="list-disc space-y-1 pl-5 text-[15px] text-muted">{unavailable.map((u) => <li key={u}>{u}</li>)}</ul>
-        <p className="mt-2 text-sm text-subtle">We don&apos;t give a score for anything we can&apos;t see.</p>
-      </div>
     </div>
   );
 }
@@ -211,7 +222,7 @@ function PostDetailBody({ item }: { item: MediaItem }) {
   const [panel, setPanel] = useState<'compare' | null>(null);
   const diagnose = useMutation({ mutationFn: () => api.diagnosePost(item.id) });
   const compare = useMutation({ mutationFn: (other: string) => api.compare(item.id, other) });
-  const video = useMutation({ mutationFn: () => api.analyzeVideo(item.id) });
+  const [videoOpen, setVideoOpen] = useState(false);
   const isVideo = ['reel', 'short', 'video'].includes(item.contentType);
   const name = platformName(item.platform);
 
@@ -288,7 +299,7 @@ function PostDetailBody({ item }: { item: MediaItem }) {
 
       <div className="flex flex-wrap gap-3">
         <Button variant="secondary" onClick={() => setPanel(panel === 'compare' ? null : 'compare')} aria-expanded={panel === 'compare'}><GitCompareArrows className="h-4 w-4" aria-hidden="true" />Compare with another post</Button>
-        {isVideo && <Button variant="secondary" loading={video.isPending} onClick={() => video.mutate()}><Video className="h-4 w-4" aria-hidden="true" />Deep look</Button>}
+        {isVideo && <Button variant="secondary" onClick={() => setVideoOpen(true)}><Video className="h-4 w-4" aria-hidden="true" />Analyze the video</Button>}
       </div>
 
       {panel === 'compare' && (
@@ -300,19 +311,14 @@ function PostDetailBody({ item }: { item: MediaItem }) {
         </section>
       )}
 
-      {isVideo && (video.data || video.isError) && (
-        <section className="card p-5" aria-label="Deep look">
-          <h3 className="mb-3 text-base">Deep look</h3>
-          <VideoView result={video.data} error={video.error} />
-        </section>
-      )}
+      {isVideo && <DeepVideoAnalysisModal open={videoOpen} onOpenChange={setVideoOpen} item={{ mediaId: item.id, title: item.title, caption: item.caption }} />}
     </div>
   );
 }
 
 function DrawerContent({ postId }: { postId: string }) {
   const q = useMediaItem(postId);
-  if (q.isLoading) return <div role="status" aria-label="Loading post" className="space-y-4"><Skeleton className="h-28" /><Skeleton className="h-40 rounded-2xl" /><Skeleton className="h-40 rounded-2xl" /></div>;
+  if (q.isLoading) return <div role="status" aria-label="Loading post" className="space-y-4"><Skeleton className="h-28" /><Skeleton className="h-40 rounded-xl" /><Skeleton className="h-40 rounded-xl" /></div>;
   if (q.isError) return <ErrorState error={q.error} onRetry={() => void q.refetch()} title="We couldn't load this post" />;
   if (!q.data) return null;
   return <PostDetailBody key={q.data.id} item={q.data} />;

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { startTestDb, stopTestDb, clearDb, api, registerUser } from './helpers.js';
 import { fake, makeMedia } from './fakes.js';
+import { PROMPT_VERSION } from '../src/services/ai/prompts.js';
 
 vi.mock('../src/integrations/registry.js', async () => {
   const { fakeAdapter } = await import('./fakes.js');
@@ -20,6 +21,9 @@ vi.mock('../src/services/ai/geminiClient.js', async () => {
   };
 });
 
+const videoInput = vi.hoisted(() => ({ load: vi.fn() }));
+vi.mock('../src/services/ai/videoInput.js', () => ({ loadVideoInput: videoInput.load }));
+
 import { syncService } from '../src/services/sync.service.js';
 import { AiFailedError } from '../src/services/ai/geminiClient.js';
 import { AiCache } from '../src/models/AiCache.js';
@@ -32,9 +36,10 @@ let user: Awaited<ReturnType<typeof registerUser>>;
 let postId: string;
 beforeEach(async () => {
   await clearDb(); fake.reset(); gem.available = true; gem.calls = [];
+  videoInput.load.mockReset().mockResolvedValue({ blob: new Blob(['test-video'], { type: 'video/mp4' }) });
   gem.impl = async ({ schema, prompt }: any) => {
     const data = prompt.includes('"answer"') ? { answer: 'AI says: reels do best.', observedSignal: 'Reels lead.', suggestedAction: 'Post a reel.' }
-      : prompt.includes('hookAssessment') ? { hookAssessment: 'Hook is a question.', captionAssessment: 'Caption is short.', recommendations: ['Try a stronger first line'], alternativeHook: 'What if…' }
+      : prompt.includes('MODULES') ? { interpretation: 'May have resonated because of the observed scene.', whatWorked: ['Visible opening'], whatToImprove: ['Long caption'], sixBulletAnalysis: ['Opening: visible scene', 'Middle: scene change', 'Ending: CTA', 'Views: measured', 'Reason: possible', 'Test: shorter opening'], observations: [{ startSeconds: 0, endSeconds: 3, observation: 'Person waves', performanceHypothesis: 'May capture interest', recommendation: 'Test opening with wave' }, { startSeconds: 3, endSeconds: 10, observation: 'Closing title appears', performanceHypothesis: 'May clarify context', recommendation: 'Test a shorter title' }], summary: 'May have resonated because of the observed scene: a person waves, then a title card closes the reel.', hook: { firstSeconds: 'Person waves at camera.', attentionGrabber: 'Direct eye contact', curiosityTrigger: 'Question on screen', strength: 'High', assessment: 'Hook is a question.' }, visual: { scenes: [{ startSeconds: 0, endSeconds: 3, description: 'Person waves', framing: 'close-up', whyItMayMatter: 'May capture interest', editToTest: 'Test opening with wave' }, { startSeconds: 3, endSeconds: 10, description: 'Closing title appears', framing: 'full screen text', whyItMayMatter: 'May clarify context', editToTest: 'Test a shorter title' }], transitionsAndEditing: 'One hard cut.', textOverlays: [{ timestamp: '00:03', text: 'Closing title' }] }, audio: { speech: 'on_camera', transcript: '[00:00] Hi there', music: 'None', tone: 'Speech accompanies the opening.', soundOffReadable: 'Add captions to the observed speech.' }, storytelling: { problem: 'p', emotion: 'e', narrative: 'n', payoff: 'Title card' }, marketing: { cta: 'Follow', productPlacement: 'None', audienceIntent: 'Educate' }, contentStrategy: { topic: 't', niche: 'n', format: 'talking head', contentPillar: 'education' }, performanceCorrelations: [], improvements: [{ change: 'Try a stronger first line', rationale: 'r', metricToWatch: 'views' }], captionAssessment: 'Caption is short.', alternativeHook: 'What if…' }
       : { interpretation: 'May have resonated because of timing.', whatWorked: ['Strong opening'], whatToImprove: ['Longer caption'], recommendations: ['Test a carousel'], alternativeHook: 'Here is why…' };
     return { data: schema.parse(data), model: 'test-model', latencyMs: 5 };
   };
@@ -50,7 +55,7 @@ describe('AI analysis', () => {
     const res = await api().post('/api/v1/intelligence/diagnose-post').set(user.auth).send({ mediaId: postId });
     expect(res.status).toBe(200);
     const d = res.body.data;
-    expect(d.ai).toMatchObject({ status: 'ran', model: 'test-model', promptVersion: 'p1' });
+    expect(d.ai).toMatchObject({ status: 'ran', model: 'test-model', promptVersion: PROMPT_VERSION });
     expect(d.measured).toHaveProperty('views');
     expect(d.calculated).toHaveProperty('classification');
     expect(d.executiveSummary).toContain('resonated');
@@ -65,7 +70,7 @@ describe('AI analysis', () => {
     expect(second.body.data.ai.status).toBe('cached');
     expect(gem.calls.length).toBe(callsAfterFirst);
     expect(await AiCache.countDocuments()).toBe(1);
-    expect((await AiCache.findOne().lean())).toMatchObject({ promptVersion: 'p1', model: 'test-model' });
+    expect((await AiCache.findOne().lean())).toMatchObject({ promptVersion: PROMPT_VERSION, model: 'test-model' });
   });
 
   it('invalidates the cache when the underlying numbers change', async () => {
@@ -122,7 +127,13 @@ describe('AI analysis', () => {
     const res = await api().post('/api/v1/intelligence/analyze-video').set(user.auth).send({ mediaId: reel.id });
     expect(res.status).toBe(200);
     const d = res.body.data;
-    expect(d.unavailable).toEqual(expect.arrayContaining(['audience retention curve', 'audio content']));
+    expect(d.unavailable).toContain('audience retention curve');
+    expect(d.unavailable).not.toContain('audio content');
+    expect(d.observations).toHaveLength(2);
+    expect(d.report).toMatchObject({ hook: { strength: 'high' }, audio: { speech: 'on_camera' }, marketing: { cta: 'Follow' }, contentStrategy: { format: 'talking head' } });
+    expect(d.report.improvements[0].change).toBe('Try a stronger first line');
+    expect(gem.calls.at(-1).prompt).toMatch(/hook[\s\S]*visual[\s\S]*audio[\s\S]*storytelling[\s\S]*marketing[\s\S]*contentStrategy[\s\S]*improvements/);
+    expect(gem.calls.at(-1).video.blob.type).toBe('video/mp4');
     expect(d).not.toHaveProperty('timelineCurve');
     expect(d).not.toHaveProperty('hookScore');
     expect(JSON.stringify(d)).not.toMatch(/retentionEstimate|\d+%\s*->/);
@@ -144,9 +155,35 @@ describe('AI analysis', () => {
     expect(res.body.data.comparison.views).toHaveProperty('differencePct');
   });
 
+  it('serves the archive path used by the frontend', async () => {
+    const res = await api().get('/api/v1/intelligence/archive').set(user.auth);
+    expect(res.status).toBe(200);
+    expect(res.body.data.totalAnalyzed).toBe(15);
+  });
+
+  it('does not invent video findings when the source cannot be loaded', async () => {
+    videoInput.load.mockRejectedValue(new AiFailedError('Video access expired', 'provider_error'));
+    const feed = (await api().get('/api/v1/media?limit=24').set(user.auth)).body.data;
+    const video = feed.find((m: any) => m.contentType === 'reel');
+    const res = await api().post('/api/v1/intelligence/diagnose-post').set(user.auth).send({ mediaId: video.id });
+    expect(res.body.data.ai.status).toBe('failed');
+    expect(res.body.data.videoEvidence.observations).toEqual([]);
+    expect(res.body.data.ai.reason).toBe('Video access expired');
+    expect(JSON.stringify(res.body.data)).not.toMatch(/halted viewer|triggered discovery|caused viewers/);
+    expect(gem.calls).toHaveLength(0);
+  });
+
   it('reports AI availability without exposing the key', async () => {
     const res = await api().get('/api/v1/intelligence/status').set(user.auth);
     expect(res.body.data.ai).toMatchObject({ available: true, model: 'test-model' });
     expect(JSON.stringify(res.body)).not.toContain('test-key');
+  });
+});
+
+describe('video input validation', () => {
+  it('recognises MP4 containers by their ftyp box', async () => {
+    const { looksLikeMp4 } = await vi.importActual<typeof import('../src/services/ai/videoInput.js')>('../src/services/ai/videoInput.js');
+    expect(looksLikeMp4(Buffer.from([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0]))).toBe(true);
+    expect(looksLikeMp4(Buffer.from('<html><body>expired</body></html>'))).toBe(false);
   });
 });

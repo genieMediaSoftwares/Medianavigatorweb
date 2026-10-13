@@ -12,6 +12,8 @@ export interface NormalizedMedia {
   caption: string;
   thumbnailUrl: string;
   mediaUrl?: string;
+  /** Direct video file URL from the provider at sync time (signed, expires); used to fetch the real video for analysis. */
+  videoUrl?: string;
   publishedAt: string;
   durationSeconds?: number;
   // Primary meaningful signal
@@ -251,6 +253,7 @@ export interface PostAIDiagnosis {
   };
   topSuccessDrivers?: string[];
   bottomImprovementPoints?: string[];
+  sixBulletAnalysis?: string[];
   videoAnalysis?: VideoAnalysisResult;
   metricBreakdown: {
     viewsAnalysis: string;

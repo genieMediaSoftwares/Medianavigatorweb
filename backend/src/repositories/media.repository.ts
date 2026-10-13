@@ -1,7 +1,7 @@
 import type { Types, AnyBulkWriteOperation } from 'mongoose';
 import { ContentItem, type ContentItemDoc } from '../models/ContentItem.js';
 import { config } from '../config/env.js';
-import { toObjectId } from '../lib/ids.js';
+import { toObjectId, isObjectId } from '../lib/ids.js';
 
 export interface UpsertResult { created: number; updated: number }
 
@@ -40,16 +40,38 @@ export const mediaRepository = {
     ContentItem.findOne({ userId, legacyId }).lean<ContentItemDoc>(),
 
   async page(userId: Types.ObjectId, accountIds: Types.ObjectId[], params: { limit: number; cursor?: { t: number; id: string }; platform?: string }) {
-    const filter: Record<string, unknown> = { userId, connectedAccountId: { $in: accountIds } };
+    const filter: Record<string, unknown> = {
+      $or: [
+        { userId },
+        { userId: String(userId) },
+      ],
+    };
+    if (accountIds && accountIds.length > 0) {
+      const allAccs = [...accountIds, ...accountIds.map((a) => String(a))];
+      (filter as any).connectedAccountId = { $in: allAccs };
+    }
     if (params.platform) filter.platform = params.platform;
     if (params.cursor) {
-      filter.$or = [
-        { publishedAt: { $lt: new Date(params.cursor.t) } },
-        { publishedAt: new Date(params.cursor.t), _id: { $lt: toObjectId(params.cursor.id) } },
+      const cDate = new Date(params.cursor.t);
+      const cId = isObjectId(params.cursor.id) ? toObjectId(params.cursor.id) : params.cursor.id;
+      filter.$and = [
+        {
+          $or: [
+            { publishedAt: { $lt: cDate } },
+            { publishedAt: cDate, _id: { $lt: cId } },
+          ],
+        },
       ];
     }
     return ContentItem.find(filter).sort({ publishedAt: -1, _id: -1 }).limit(params.limit + 1).lean<ContentItemDoc[]>();
   },
+
+  countForFeed: (userId: Types.ObjectId, accountIds: Types.ObjectId[], platform?: string) =>
+    ContentItem.countDocuments({
+      $or: [{ userId }, { userId: String(userId) }],
+      connectedAccountId: { $in: [...accountIds, ...accountIds.map((a) => String(a))] },
+      ...(platform ? { platform } : {}),
+    } as any),
 
   countForAccount: (connectedAccountId: Types.ObjectId) => ContentItem.countDocuments({ connectedAccountId }),
   /** Removes all synced media for one connection (used when the connected channel changes, so old content never mixes in). */

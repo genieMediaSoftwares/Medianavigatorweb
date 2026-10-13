@@ -8,7 +8,10 @@ const json = (status: number, body: unknown) => new Response(JSON.stringify(body
 // Browsers send Sec-Fetch-Site on every fetch; `site` lets a test pretend to be another website.
 const call = (m: typeof GET, method: string, path: string, opts: { cookie?: string; body?: unknown; site?: string } = {}) =>
   m(new NextRequest(`http://web.test/api/v1/${path}`, { method, headers: { ...(opts.cookie ? { cookie: opts.cookie } : {}), 'content-type': 'application/json', 'sec-fetch-site': opts.site ?? 'same-origin' }, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) }), { params: Promise.resolve({ path: path.split('/') }) });
-const cookies = (r: Response) => r.headers.getSetCookie();
+const cookies = (r: Response) =>
+  typeof r.headers.getSetCookie === 'function' && r.headers.getSetCookie().length > 0
+    ? r.headers.getSetCookie()
+    : r.headers.get('set-cookie')?.split(/,\s*(?=[a-zA-Z0-9_]+=)/) ?? [];
 const tokens = { accessToken: 'AT1', refreshToken: 'RT1', expiresIn: 900, refreshExpiresIn: 2592000 };
 
 describe('backend-for-frontend proxy', () => {

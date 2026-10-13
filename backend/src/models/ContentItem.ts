@@ -16,6 +16,7 @@ export interface ContentItemDoc {
   caption: string;
   thumbnailUrl?: string;
   mediaUrl?: string;
+  videoUrl?: string;
   publishedAt: Date;
   durationSeconds?: number | null;
   views: number;
@@ -48,6 +49,7 @@ const schema = new Schema<ContentItemDoc>(
     caption: { type: String, default: '' },
     thumbnailUrl: { type: String },
     mediaUrl: { type: String },
+    videoUrl: { type: String },
     publishedAt: { type: Date, required: true },
     durationSeconds: { type: Number, default: null },
     views: { type: Number, default: 0 },

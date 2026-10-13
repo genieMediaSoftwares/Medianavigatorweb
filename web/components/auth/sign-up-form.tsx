@@ -28,7 +28,7 @@ export function SignUpForm() {
       qc.clear();
       router.replace('/onboarding');
     } catch (e) {
-      if (e instanceof ApiError && e.status === 409) setError('email', { message: 'An account with this email already exists. Try signing in.' });
+      if (e instanceof ApiError && e.status === 409 && e.fieldMessage('email')) setError('email', { message: e.fieldMessage('email') });
       else if (e instanceof ApiError && e.status === 422) {
         let placed = false;
         for (const field of ['fullName', 'email', 'password', 'organization'] as const) { const m = e.fieldMessage(field); if (m) { setError(field, { message: m }); placed = true; } }

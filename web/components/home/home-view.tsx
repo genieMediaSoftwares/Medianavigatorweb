@@ -57,7 +57,7 @@ export function HomeView() {
     const hasTiming = signals.some((x) => x.actionTarget === 'timing');
     const next = s.dataPeriod.current.count === 0 || !hasTiming
       ? { href: '/plan', label: 'Plan your next post', why: s.dataPeriod.current.count === 0 ? "You haven't posted lately, so a plan can help you get going." : 'Pick a day and a channel for your next post.' }
-      : { href: '/best-times', label: 'See your best times to post', why: 'We found a time when your posts do best.' };
+      : { href: '/insights?tab=best_times', label: 'See your best times to post', why: 'We found a time when your posts do best.' };
     body = (
       <div className="space-y-8">
         <Card>
@@ -81,10 +81,10 @@ export function HomeView() {
             empty="Nothing stands out as needing attention. That is a good sign." />
         </div>
 
-        <Card className="flex flex-wrap items-center justify-between gap-4 bg-brand-50 border-brand-100">
+        <Card className="flex flex-wrap items-center justify-between gap-4 border-line bg-brand-50 p-6">
           <div className="min-w-0">
-            <p className="eyebrow">Next best action</p>
-            <p className="mt-1 text-[15px] text-ink">{next.why}</p>
+            <p className="eyebrow text-brand-600 dark:text-brand-300">Next best action</p>
+            <p className="mt-1 text-[15px] font-semibold text-ink">{next.why}</p>
           </div>
           <LinkButton href={next.href} size="lg">{next.label}<ArrowRight className="h-5 w-5" aria-hidden="true" /></LinkButton>
         </Card>

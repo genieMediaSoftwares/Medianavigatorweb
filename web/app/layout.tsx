@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: { default: 'Media Navigator', template: '%s · Media Navigator' },
   description: 'Connect your Instagram, Facebook, YouTube and LinkedIn accounts and see, in plain language, what is working, what to fix and when to post.',
 };
-export const viewport: Viewport = { themeColor: '#0b5fe6', width: 'device-width', initialScale: 1 };
+export const viewport: Viewport = { themeColor: '#eff8ff', width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

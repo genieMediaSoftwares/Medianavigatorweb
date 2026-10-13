@@ -4,7 +4,7 @@ import { Moon, Sun } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 
 /** Runs before first paint (see root layout) so there is no flash of the wrong theme. */
-export const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('mn-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
+export const THEME_INIT_SCRIPT = `(function(){try{var t=localStorage.getItem('mn-theme');if(!t||t==='dark'){t='light';try{localStorage.setItem('mn-theme','light')}catch(_){}}document.documentElement.setAttribute('data-theme',t)}catch(e){document.documentElement.setAttribute('data-theme','light')}})();`;
 
 const subscribe = (cb: () => void) => { const o = new MutationObserver(cb); o.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); return () => o.disconnect(); };
 const snapshot = () => document.documentElement.getAttribute('data-theme') ?? 'light';

@@ -49,12 +49,12 @@ export const publicUser = (u: Pick<UserDoc, '_id' | 'email' | 'role' | 'status' 
 export const authService = {
   async register(input: { email: string; password: string; fullName: string; organization?: string; accountType?: string }, client: ClientInfo) {
     const email = input.email.toLowerCase();
-    if (await userRepository.findByEmail(email)) throw conflict('An account with this email already exists');
+    if (await userRepository.findByEmail(email)) throw conflict('An account with this email already exists', [{ path: 'email', message: 'An account with this email already exists. Try signing in.' }]);
     let user: UserDoc;
     try {
       user = await userRepository.create({ email, passwordHash: await hash(input.password), role: 'user' });
     } catch (err: any) {
-      if (err?.code === 11000) throw conflict('An account with this email already exists');
+      if (err?.code === 11000 && err?.keyPattern?.email === 1) throw conflict('An account with this email already exists', [{ path: 'email', message: 'An account with this email already exists. Try signing in.' }]);
       throw err;
     }
     const profile = await profileRepository.upsert(user._id, { fullName: input.fullName, organization: input.organization, accountType: input.accountType });

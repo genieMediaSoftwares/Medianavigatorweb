@@ -8,7 +8,9 @@ import { toNormalized } from '../../integrations/mapper.js';
 import { loadAnalyticsContext, dataVersionOf } from '../analytics.service.js';
 import { baselineFor, classify, groupBy, pctChange, median, type PerformanceClass, MIN_HISTORY_FOR_CLASSIFICATION } from '../analytics.stats.js';
 import { AiFailedError, AiUnavailableError, aiAvailable, aiModel, generateJson } from './geminiClient.js';
-import { askPrompt, itemPrompt, videoPrompt, PROMPT_VERSION, SYSTEM } from './prompts.js';
+import { askPrompt, itemPrompt, videoPrompt, PROMPT_VERSION, SYSTEM, VIDEO_SYSTEM } from './prompts.js';
+import { videoReportSchema, withLegacyFields } from './videoReport.js';
+import { loadVideoInput, type VideoInput } from './videoInput.js';
 import { cacheKey, getCached, putCached } from './aiCache.service.js';
 
 export interface AiMeta {
@@ -22,24 +24,29 @@ export interface AiMeta {
 
 const strList = z.array(z.string().max(500)).max(8);
 const askSchema = z.object({ answer: z.string().max(3000), observedSignal: z.string().max(600), suggestedAction: z.string().max(600) });
-const itemSchema = z.object({ interpretation: z.string().max(1500), whatWorked: strList, whatToImprove: strList, recommendations: strList, alternativeHook: z.string().max(400) });
-const videoSchema = z.object({ hookAssessment: z.string().max(1000), captionAssessment: z.string().max(1000), recommendations: strList, alternativeHook: z.string().max(400) });
-
+const itemSchema = z.object({
+  interpretation: z.string().max(1500),
+  whatWorked: strList,
+  whatToImprove: strList,
+  recommendations: strList,
+  alternativeHook: z.string().max(400),
+  sixBulletAnalysis: z.array(z.string().max(500)).max(8).optional(),
+});
 const meta = (status: AiMeta['status'], extra: Partial<AiMeta> = {}): AiMeta => ({ status, model: null, promptVersion: PROMPT_VERSION, generatedAt: null, ...extra });
 
 /** Runs (or reuses) one AI step. Never throws for AI problems: the caller still gets deterministic content plus an honest status. */
-async function aiStep<T>(args: { userId: Types.ObjectId; type: string; subject: string; dataVersion: string; system: string; prompt: string; schema: z.ZodType<T> }): Promise<{ data: T | null; ai: AiMeta }> {
+async function aiStep<T>(args: { userId: Types.ObjectId; type: string; subject: string; dataVersion: string; system: string; prompt: string; schema: z.ZodType<T, z.ZodTypeDef, unknown>; video?: () => Promise<VideoInput> }): Promise<{ data: T | null; ai: AiMeta }> {
   if (!aiAvailable()) return { data: null, ai: meta('unavailable', { reason: 'Gemini is not configured on this server' }) };
   const key = cacheKey({ userId: args.userId, type: args.type, subject: args.subject, dataVersion: args.dataVersion });
   const hit = await getCached<T>(args.userId, key);
   if (hit) return { data: hit.payload, ai: meta('cached', { model: hit.model, generatedAt: hit.generatedAt.toISOString() }) };
   try {
-    const out = await generateJson({ system: args.system, prompt: args.prompt, schema: args.schema });
+    const out = await generateJson({ system: args.system, prompt: args.prompt, schema: args.schema, video: args.video ? await args.video() : undefined });
     await putCached({ userId: args.userId, key, type: args.type, payload: out.data, model: out.model, dataVersion: args.dataVersion });
     return { data: out.data, ai: meta('ran', { model: out.model, generatedAt: new Date().toISOString() }) };
   } catch (err) {
     if (err instanceof AiUnavailableError) return { data: null, ai: meta('unavailable', { reason: err.message }) };
-    if (err instanceof AiFailedError) return { data: null, ai: meta('failed', { reason: err.reason }) };
+    if (err instanceof AiFailedError) return { data: null, ai: meta('failed', { reason: args.video ? err.message : err.reason }) };
     throw err;
   }
 }
@@ -65,6 +72,8 @@ function itemFacts(item: NormalizedMedia & { unavailableMetrics?: string[] }, si
       },
       calculated: {
         classification: cls,
+        viewRank: [...same].sort((a, b) => b.views - a.views).findIndex((m) => m.id === item.id) + 1,
+        rankingMetric: 'views',
         comparedAgainst: `${baseline.sampleSize} ${item.platform} posts by the same account`,
         accountMedianEngagementPct: baseline.medianEngagementRate,
         accountP25EngagementPct: baseline.p25EngagementRate,
@@ -76,6 +85,9 @@ function itemFacts(item: NormalizedMedia & { unavailableMetrics?: string[] }, si
     },
   };
 }
+
+/** Frames per second sampled from the video: Gemini's default (1 fps) misses quick cuts and short text overlays in reels. */
+const fpsFor = (duration?: number | null) => (!duration ? 2 : duration <= 30 ? 3 : duration <= 90 ? 2 : undefined);
 
 const statusFor = (c: PerformanceClass): PostAIDiagnosis['status'] => (c === 'TOP' ? 'working' : c === 'LOW' ? 'underperforming' : 'average');
 
@@ -138,13 +150,15 @@ export const aiAnalysisService = {
     const f = itemFacts(item, siblings);
     const c = f.facts.calculated;
     const status = statusFor(c.classification);
-    const step = await aiStep({ userId: ctx.uid, type: 'diagnose', subject: mediaId, dataVersion: dataVersionOf([item, ...siblings.filter((m) => m.platform === item.platform)]), system: SYSTEM, prompt: itemPrompt(f.facts), schema: itemSchema });
+    const isVideo = ['reel', 'short', 'video'].includes(item.contentType);
+    const video = isVideo ? await aiAnalysisService.analyzeVideo(userId, mediaId) : null;
+    const step = video ? { data: video.analysis, ai: video.ai } : await aiStep({ userId: ctx.uid, type: 'diagnose', subject: mediaId, dataVersion: dataVersionOf([item, ...siblings.filter((m) => m.platform === item.platform)]), system: SYSTEM, prompt: itemPrompt(f.facts), schema: itemSchema });
     const ai = step.data;
     const sameType = siblings.filter((m) => m.platform === item.platform && m.contentType === item.contentType);
     const typeMedian = sameType.length >= 3 ? median(sameType.map((m) => m.engagementRate)) : null;
     const hasQuestion = (item.caption || '').includes('?');
 
-    const diagnosis: PostAIDiagnosis & { measured: unknown; calculated: unknown; ai: AiMeta; limitations: string[] } = {
+    const diagnosis: PostAIDiagnosis & { measured: unknown; calculated: unknown; ai: AiMeta; limitations: string[]; videoEvidence?: { status: string; observations: unknown[] } } = {
       mediaId,
       status,
       statusBadge: c.classification === 'TOP' ? 'Top performer vs your own history' : c.classification === 'LOW' ? 'Below your typical performance' : c.classification === 'TYPICAL' ? 'Near your typical performance' : 'Not enough history to classify',
@@ -153,6 +167,15 @@ export const aiAnalysisService = {
       baselineComparison: c.engagementVsMedianPct === null ? 'No baseline yet (fewer than 5 comparable posts)' : `${c.engagementVsMedianPct >= 0 ? '+' : ''}${c.engagementVsMedianPct}% engagement vs your median (${c.accountMedianEngagementPct}%, n=${f.baseline.sampleSize})`,
       topSuccessDrivers: ai?.whatWorked ?? [],
       bottomImprovementPoints: ai?.whatToImprove ?? [],
+      sixBulletAnalysis: ai?.sixBulletAnalysis ?? [
+        `Measured performance: ${item.views.toLocaleString()} views and ${item.engagementRate}% engagement.`,
+        `View ranking: #${c.viewRank} among ${f.baseline.sampleSize} posts from this platform.`,
+        `Engagement classification: ${c.classification}; this is separate from the view ranking.`,
+        'Content evidence: No completed content analysis is available for this request.',
+        'Causation: View counts do not prove retention or algorithmic promotion.',
+        'Next step: Retry analysis when video access and Gemini are available.',
+      ],
+      ...(video ? { videoEvidence: { status: video.analysis ? 'analyzed' : 'unavailable', observations: video.observations } } : {}),
       metricBreakdown: {
         viewsAnalysis: `${item.views.toLocaleString()} views${c.viewsVsMedianPct === null ? '' : ` (${c.viewsVsMedianPct >= 0 ? '+' : ''}${c.viewsVsMedianPct}% vs your median of ${c.accountMedianViews.toLocaleString()})`}.`,
         engagementHealth: `${item.engagementRate}% engagement from ${item.likes.toLocaleString()} likes, ${item.comments.toLocaleString()} comments${typeMedian !== null ? `; your median for ${item.contentType} posts is ${typeMedian.toFixed(2)}%` : ''}.`,
@@ -167,9 +190,10 @@ export const aiAnalysisService = {
       actionableChecklist: ai?.recommendations ?? [
         ...(!hasQuestion && siblings.some((m) => (m.caption || '').includes('?')) ? ['Test a question in the caption; compare against your posts that already use one.'] : []),
       ],
-      source: ai ? 'AI interpretation of measured data' : 'Measured facts only (AI unavailable)',
+      source: ai ? (video ? 'Gemini AI analysis of video content and measured performance' : 'AI interpretation of measured data') : 'Measured facts only (AI unavailable)',
       measured: f.facts.measured, calculated: f.facts.calculated, ai: step.ai,
       limitations: [
+        ...(video?.limitations ?? []),
         'Retention, watch time and audience data are only shown when the platform provides them.',
         ...(f.facts.measured.unavailableMetrics.length ? [`Not available for this post: ${f.facts.measured.unavailableMetrics.join(', ')}.`] : []),
       ],
@@ -186,18 +210,30 @@ export const aiAnalysisService = {
     const item = await loadItem(ctx.uid, mediaId);
     if (!['reel', 'short', 'video'].includes(item.contentType)) throw badRequest('Video analysis is only available for reels, shorts and videos');
     const f = itemFacts(item, ctx.engine.getMedia());
-    const unavailable = ['audience retention curve', 'audio content', 'on-screen frames/overlay text', ...(item.watchTimeMinutes ? [] : ['watch time'])];
-    const step = await aiStep({ userId: ctx.uid, type: 'video', subject: mediaId, dataVersion: dataVersionOf([item]), system: SYSTEM, prompt: videoPrompt({ ...f.facts, unavailable }), schema: videoSchema });
+    const c = f.facts.calculated;
+    const step = await aiStep({ userId: ctx.uid, type: 'video-content', subject: mediaId,
+      dataVersion: dataVersionOf([item, ...ctx.engine.getMedia().filter((m) => m.platform === item.platform)]) + ':' + aiModel() + ':' + PROMPT_VERSION,
+      system: VIDEO_SYSTEM, prompt: videoPrompt(f.facts, item.durationSeconds), schema: videoReportSchema,
+      video: async () => ({ ...(await loadVideoInput(ctx.uid, mediaId)), fps: fpsFor(item.durationSeconds) }),
+    });
+    const report = step.data;
+    const analysis = report ? withLegacyFields(report) : null;
     return {
-      mediaId, classification: f.facts.calculated.classification,
-      measured: { durationSeconds: item.durationSeconds ?? null, views: item.views, engagementRatePct: item.engagementRate, watchTimeMinutes: item.watchTimeMinutes ?? null },
-      calculated: f.facts.calculated,
-      hookAssessment: step.data?.hookAssessment ?? null,
-      captionAssessment: step.data?.captionAssessment ?? null,
-      recommendations: step.data?.recommendations ?? [],
-      testedAlternativeHook: step.data?.alternativeHook ?? null,
-      unavailable,
-      limitations: ['This analysis is based on title, caption and numeric metrics only. The platform APIs used here do not provide retention curves, audio or frames.'],
+      mediaId, classification: c.classification, analysis,
+      measured: f.facts.measured, calculated: c,
+      report,
+      hookAssessment: analysis?.hookAssessment,
+      captionAssessment: analysis?.captionAssessment,
+      audioPacingFeedback: analysis?.audioPacingFeedback,
+      soundOffOptimizationTip: analysis?.soundOffOptimizationTip,
+      testedAlternativeHook: analysis?.alternativeHook,
+      recommendations: analysis?.recommendations ?? [],
+      observations: analysis?.observations ?? [],
+      unavailable: ['audience retention curve', ...(analysis ? [] : ['audio content', 'on-screen frames/overlay text'])],
+      limitations: [
+        ...(analysis ? ['The complete video was supplied to Gemini; its video processing samples frames and audio, rather than inspecting every frame.'] : [step.ai.reason ?? 'Video analysis could not be completed.']),
+        'Content observations support possible explanations, not proven causes of views or engagement. Retention and algorithm decisions are not measured here.',
+      ],
       ai: step.ai,
     };
   },
