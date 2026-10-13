@@ -5,6 +5,7 @@ import { mediaRepository } from '../../repositories/media.repository.js';
 import { connectionRepository } from '../../repositories/connection.repository.js';
 import type { ProviderCredentials } from '../../integrations/types.js';
 import { AiFailedError } from './geminiClient.js';
+import { badRequest } from '../../lib/errors.js';
 
 /** `fps` is how many frames per second Gemini samples; omitted = provider default. */
 export type VideoInput = ({ blob: Blob } | { youtubeUrl: string }) & { fps?: number };
@@ -78,13 +79,34 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): P
   if (!token) throw failure('Reconnect Instagram to grant access to the video.');
   // Refresh signed CDN URLs on demand: persisted permalinks are HTML pages, not videos.
   let source: string | undefined;
+  const problems: string[] = [];
   for (const host of ['graph.facebook.com', 'graph.instagram.com']) {
     const url = new URL(`https://${host}/${config.providers.metaApiVersion}/${encodeURIComponent(doc.providerMediaId)}`);
-    url.searchParams.set('fields', 'media_url,media_type');
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, redirect: 'error', signal: AbortSignal.timeout(10_000) });
-    const body = await response.json() as { media_url?: string; media_type?: string };
-    if (response.ok && body.media_type === 'VIDEO' && body.media_url) { source = body.media_url; break; }
+    url.searchParams.set('fields', 'media_url,media_type,media_product_type');
+    try {
+      // Some token types are only accepted as a query parameter, so retry that way before giving up on a host.
+      let response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, redirect: 'error', signal: AbortSignal.timeout(10_000) });
+      if (response.status === 400 || response.status === 401) {
+        const withQuery = new URL(url); withQuery.searchParams.set('access_token', token);
+        response = await fetch(withQuery, { redirect: 'error', signal: AbortSignal.timeout(10_000) });
+      }
+      const body = await response.json().catch(() => ({})) as { media_url?: string; media_type?: string; media_product_type?: string; error?: { code?: number; message?: string } };
+      if (!response.ok) { problems.push(describeGraphError(body.error)); continue; }
+      const isVideo = body.media_type === 'VIDEO' || body.media_product_type === 'REELS';
+      if (isVideo && body.media_url) { source = body.media_url; break; }
+      problems.push(isVideo ? 'Instagram returned no video URL for this post (it can be withheld for Reels with licensed music, or when the account is connected without media access).' : 'This post is not a video.');
+    } catch { problems.push('Instagram could not be reached.'); }
   }
-  if (!source) throw failure('Instagram did not grant access to the actual video file. Reconnect with media permissions and sync again; no video analysis was performed.');
+  // Last resort: the direct file URL saved at sync time, which is still valid for a while after syncing.
+  const synced = (doc as { mediaUrl?: string }).mediaUrl;
+  if (!source && synced) { try { if (isVideoCdn(new URL(synced))) source = synced; } catch { /* not a URL */ } }
+  if (!source) throw failure(`${[...new Set(problems)].join(' ') || 'Instagram did not grant access to the video file.'} Reconnect Instagram (Instagram Business/Creator account with media permissions) and sync again.`);
   return { blob: await downloadVideo(source) };
+}
+
+function describeGraphError(error?: { code?: number; message?: string }): string {
+  if (error?.code === 190) return 'The Instagram login has expired.';
+  if (error?.code === 10 || error?.code === 200 || (error?.code ?? 0) >= 200 && (error?.code ?? 0) < 300) return 'The Instagram connection lacks permission to read this media.';
+  if (error?.code === 100) return 'Instagram could not find this media (it may have been deleted or belongs to another account).';
+  return `Instagram refused the request${error?.code ? ` (code ${error.code})` : ''}.`;
 }
