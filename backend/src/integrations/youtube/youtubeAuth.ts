@@ -82,7 +82,7 @@ export class YouTubeAuth {
         const isNumericOrUC = channelId && /^UC[a-zA-Z0-9_-]{22}$/.test(channelId);
         const testUrl = isNumericOrUC
           ? `https://www.googleapis.com/youtube/${config.providers.youtubeApiVersion}/channels?part=snippet&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`
-          : `https://www.googleapis.com/youtube/${config.providers.youtubeApiVersion}/videos?part=snippet&id=Ks-_Mh1QhMc&key=${encodeURIComponent(apiKey)}`;
+          : `https://www.googleapis.com/youtube/${config.providers.youtubeApiVersion}/videos?part=snippet&id=dQw4w9WgXcQ&key=${encodeURIComponent(apiKey)}`;
 
         const testRes = await httpFetch(testUrl);
         const testData = await testRes.json();
@@ -93,7 +93,7 @@ export class YouTubeAuth {
             hasAnalyticsPermission: false,
             missingPermissions: [],
             authType: 'api_key',
-            error: testData.error?.message || 'Invalid YouTube Data API key. Please check your key in Google Cloud Console.',
+            error: `${testData.error?.message || 'Invalid YouTube Data API key.'}${testData.error?.errors?.[0]?.reason ? ` (${testData.error.errors[0].reason})` : ''} Enable YouTube Data API v3 in Google Cloud and allow this server to use the key.`,
           };
         }
 

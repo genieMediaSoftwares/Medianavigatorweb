@@ -13,6 +13,7 @@ adminRouter.get('/users', validate({ query: v.users }), c.users);
 adminRouter.get('/users/:id', validate({ params: v.idParams }), c.user);
 adminRouter.patch('/users/:id/role', validate({ params: v.idParams, body: v.role }), c.setRole);
 adminRouter.patch('/users/:id/status', validate({ params: v.idParams, body: v.status }), c.setStatus);
+adminRouter.patch('/users/:id/credits', validate({ params: v.idParams, body: v.credits }), c.adjustCredits);
 adminRouter.get('/connections', validate({ query: v.connections }), c.connections);
 adminRouter.post('/connections/:id/sync', validate({ params: v.idParams }), c.triggerSync);
 adminRouter.get('/sync-runs', validate({ query: v.syncRuns }), c.syncRuns);

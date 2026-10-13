@@ -75,33 +75,45 @@ export class FacebookClient extends MetaClient {
    */
   async fetchPosts(accessToken: string, pageId: string, pageAccessToken?: string): Promise<NormalizedMedia[]> {
     const effectiveToken = pageAccessToken || accessToken;
-    const fields = 'id,message,created_time,full_picture,permalink_url,shares,reactions.summary(total_count),comments.summary(total_count)';
-    
-    // Fetch all pages using paging.next
-    let allPosts: any[] = [];
-    let currentUrl: string | null = `https://graph.facebook.com/${config.providers.metaApiVersion}/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
-    let pageCount = 0;
+    const fullFields = 'id,message,created_time,full_picture,permalink_url,shares,reactions.summary(total_count),comments.summary(total_count),status_type,attachments{media,media_type,type,target,subattachments{media,media_type,type}}';
+    const basicFields = 'id,message,created_time,full_picture,permalink_url,status_type,attachments{media,media_type,type,target,subattachments{media,media_type,type}}';
+    const fieldSets = [fullFields, basicFields];
+    const endpoints = [`${pageId}/posts`, `${pageId}/published_posts`, `${pageId}/feed`];
 
-    while (currentUrl && pageCount < config.providers.maxPages) {
-      pageCount++;
-      try {
-        const res: Response = await httpFetch(currentUrl, {
-          headers: { 'Authorization': `Bearer ${effectiveToken}`, 'Accept': 'application/json' },
-        });
-        if (!res.ok) break;
-        const json: any = await res.json();
-        if (json.data && Array.isArray(json.data)) {
-          allPosts.push(...json.data);
+    let allPosts: any[] = [];
+    fieldLoop: for (const fields of fieldSets) {
+      for (const endpoint of endpoints) {
+        if (allPosts.length > 0) break fieldLoop;
+        let currentUrl: string | null = `https://graph.facebook.com/${config.providers.metaApiVersion}/${endpoint}?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
+        let pageCount = 0;
+        while (currentUrl && pageCount < config.providers.maxPages) {
+          pageCount++;
+          try {
+            const res: Response = await httpFetch(currentUrl, {
+              headers: { 'Authorization': `Bearer ${effectiveToken}`, 'Accept': 'application/json' },
+            });
+            if (!res.ok) break;
+            const json: any = await res.json();
+            if (json?.error) break;
+            if (json.data && Array.isArray(json.data)) {
+              allPosts.push(...json.data);
+            }
+            if (json.paging && typeof json.paging.next === 'string' && json.paging.next.length > 0) {
+              currentUrl = json.paging.next;
+            } else {
+              currentUrl = null;
+            }
+          } catch {
+            break;
+          }
         }
-        if (json.paging && typeof json.paging.next === 'string' && json.paging.next.length > 0) {
-          currentUrl = json.paging.next;
-        } else {
-          currentUrl = null;
-        }
-      } catch {
-        break;
       }
     }
+
+    // Deduplicate posts returned by multiple endpoints or field variants.
+    const unique = new Map<string, any>();
+    for (const p of allPosts) { if (p?.id && !unique.has(p.id)) unique.set(p.id, p); }
+    allPosts = [...unique.values()];
 
     if (allPosts.length === 0) {
       return [];
@@ -143,18 +155,23 @@ export class FacebookClient extends MetaClient {
       else if (engagementRate < 0.5 && totalInteractions === 0) tier = 'Declining';
 
       const text = post.message || 'Facebook Update';
-      const title = text.slice(0, 60).replace(/\n/g, ' ') + (text.length > 60 ? '...' : '');
+      const title = text.slice(0, 60).replace(/\\n/g, ' ') + (text.length > 60 ? '...' : '');
+
+      const attachment = Array.isArray(post.attachments?.data) ? post.attachments.data[0] : null;
+      const isVideo = post.status_type === 'added_video' || attachment?.media_type === 'video' || attachment?.type === 'video_autoplay';
+      const thumbnailUrl = post.full_picture || attachment?.media?.image?.src || attachment?.media?.picture || '';
+      const mediaUrl = post.permalink_url || attachment?.target?.url || '';
 
       normalizedList.push({
         id: `fb_${post.id}`,
         workspaceId: 'ws_live',
         platform: 'facebook',
         platformContentId: post.id,
-        contentType: 'post',
+        contentType: isVideo ? 'video' : 'post',
         title,
         caption: post.message || '',
-        thumbnailUrl: post.full_picture || '',
-        mediaUrl: post.permalink_url,
+        thumbnailUrl,
+        mediaUrl,
         publishedAt: post.created_time,
         primarySignal: {
           label: 'Interactions',

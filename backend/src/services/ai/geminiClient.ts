@@ -64,15 +64,15 @@ export async function generateJson<T>(opts: { system: string; prompt: string; sc
     const status = (err as { status?: number }).status;
     // Do not log provider payloads: they can include signed media URLs.
     logger.warn('gemini request failed', { operation: 'ai', provider: 'gemini', status });
-    throw new AiFailedError(status === 429 ? 'Gemini quota or rate limit reached. Retry later or check the API project quota.' : 'Gemini could not process this request. Check the configured model and API project access.', 'provider_error');
+    throw new AiFailedError(status === 429 ? 'Analysis service rate limit reached. Retry later.' : 'The analysis service could not process this request.', 'provider_error');
   } finally {
     if (uploadedName) await ai.files.delete({ name: uploadedName, config: { httpOptions: { timeout: 10_000 } } }).catch(() => logger.warn('temporary Gemini file cleanup failed'));
   }
-  if (!text) throw new AiFailedError('Gemini returned an empty response', 'invalid_response');
+  if (!text) throw new AiFailedError('The analysis service returned an empty result.', 'invalid_response');
   let parsed: unknown;
-  try { parsed = parseJson(text); } catch { throw new AiFailedError('Gemini returned malformed JSON', 'invalid_response'); }
+  try { parsed = parseJson(text); } catch { throw new AiFailedError('The analysis service returned an invalid result.', 'invalid_response'); }
   const checked = opts.schema.safeParse(parsed);
-  if (!checked.success) throw new AiFailedError('Gemini response did not match the expected structure', 'invalid_response');
+  if (!checked.success) throw new AiFailedError('The analysis service returned an unusable result.', 'invalid_response');
   const latencyMs = Date.now() - started;
   logger.info('gemini call', { operation: 'ai', provider: 'gemini', model, latencyMs });
   return { data: checked.data, model, latencyMs };
@@ -88,7 +88,7 @@ export async function uploadVideo(bytes: Uint8Array, mimeType: string, timeoutMs
     await new Promise((r) => setTimeout(r, 2000));
     file = await ai.files.get({ name: file.name! });
   }
-  if (file.state !== FileState.ACTIVE || !file.uri || !file.name) throw new AiFailedError('Gemini could not process the video', 'provider_error');
+  if (file.state !== FileState.ACTIVE || !file.uri || !file.name) throw new AiFailedError('The analysis service could not process the video.', 'provider_error');
   return { name: file.name, uri: file.uri, mimeType: file.mimeType ?? mimeType };
 }
 
@@ -110,21 +110,21 @@ export async function generateMultimodalJson<T>(opts: { system: string; parts: P
   try {
     const res = await Promise.race([
       ai.models.generateContent({ model, contents: [{ role: 'user', parts: opts.parts }], config: { systemInstruction: opts.system, responseMimeType: 'application/json', temperature: 0.2 } }),
-      new Promise<never>((_, rej) => setTimeout(() => rej(new AiFailedError('Gemini request timed out', 'timeout')), opts.timeoutMs)),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new AiFailedError('The analysis request timed out.', 'timeout')), opts.timeoutMs)),
     ]);
     text = res.text;
   } catch (err) {
     if (err instanceof AiFailedError) throw err;
     logger.warn('gemini multimodal request failed', { operation: 'ai', provider: 'gemini', error: err });
-    throw new AiFailedError('Gemini request failed', 'provider_error');
+    throw new AiFailedError('The analysis request failed.', 'provider_error');
   }
-  if (!text) throw new AiFailedError('Gemini returned an empty response', 'invalid_response');
+  if (!text) throw new AiFailedError('The analysis service returned an empty result.', 'invalid_response');
   let parsed: unknown;
-  try { parsed = parseJson(text); } catch { throw new AiFailedError('Gemini returned malformed JSON', 'invalid_response'); }
+  try { parsed = parseJson(text); } catch { throw new AiFailedError('The analysis service returned an invalid result.', 'invalid_response'); }
   const checked = opts.schema.safeParse(parsed);
   if (!checked.success) {
     logger.warn('gemini response failed validation', { operation: 'ai', provider: 'gemini', issues: checked.error.issues.slice(0, 5).map((i) => `${i.path.join('.')}: ${i.message}`) });
-    throw new AiFailedError('Gemini response did not match the expected structure', 'invalid_response');
+    throw new AiFailedError('The analysis service returned an unusable result.', 'invalid_response');
   }
   const latencyMs = Date.now() - started;
   logger.info('gemini multimodal call', { operation: 'ai', provider: 'gemini', model, latencyMs });

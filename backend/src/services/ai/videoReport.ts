@@ -19,6 +19,7 @@ const scene = z.object({
 
 export const videoReportSchema = z.object({
   summary: text(1200),
+  interpretation: text(1500).default(''),
   hook: z.object({
     firstSeconds: text(600),
     attentionGrabber: text(500),
@@ -57,7 +58,7 @@ export function withLegacyFields(r: VideoReport) {
   const bullet = (label: string, ...parts: string[]) => `${label}: ${parts.filter(Boolean).join(' ')}`.slice(0, 700);
   return {
     ...r,
-    interpretation: r.summary,
+    interpretation: r.interpretation || r.summary,
     hookAssessment: r.hook.assessment,
     audioPacingFeedback: [r.audio.tone, r.audio.music].filter(Boolean).join(' '),
     soundOffOptimizationTip: r.audio.soundOffReadable,

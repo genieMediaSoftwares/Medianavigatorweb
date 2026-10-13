@@ -87,6 +87,7 @@ export const admin = {
   idParams: z.object({ id: objectId }).strict(),
   role: z.object({ role: z.enum(['user', 'admin']) }).strict(),
   status: z.object({ status: z.enum(['active', 'disabled']) }).strict(),
+  credits: z.object({ amount: z.number().int().min(-1000).max(1000) }).strict(),
   connections: pageQuery.extend({ status: z.string().max(40).optional(), platform: platform.optional() }).strict(),
   syncRuns: pageQuery.extend({ status: z.enum(['queued', 'running', 'succeeded', 'partial', 'failed', 'cancelled']).optional(), platform: platform.optional() }).strict(),
   audit: pageQuery.extend({ action: z.string().max(80).optional() }).strict(),

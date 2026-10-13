@@ -1,6 +1,7 @@
 import { YouTubeClient } from '../youtube/youtubeClient.js';
 import { httpFetch } from '../../lib/http.js';
 import { config } from '../../config/env.js';
+import { badRequest } from '../../lib/errors.js';
 import type { ProviderAdapter, ProviderCredentials, ResolvedAccount } from '../types.js';
 
 const client = new YouTubeClient();
@@ -28,7 +29,9 @@ export const youtubeAdapter: ProviderAdapter = {
   },
 
   async resolveAccount(creds): Promise<ResolvedAccount> {
-    const ch = await client.getChannel(creds);
+    let ch;
+    try { ch = await client.getChannel(creds); }
+    catch (err) { throw badRequest(err instanceof Error ? err.message : 'YouTube connection failed.'); }
     return {
       providerAccountId: ch.id,
       handle: ch.customUrl || ch.title,

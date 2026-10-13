@@ -28,9 +28,10 @@ export function SignInForm() {
   const submit = handleSubmit(async (values) => {
     setFormError(null);
     try {
-      await api.login(values);
+      const auth = await api.login(values);
       qc.clear();
-      router.replace(safeNext(params.get('next')));
+      // Admins land directly on the admin dashboard.
+      router.replace(auth.user.role === 'admin' ? '/admin' : safeNext(params.get('next')));
     } catch (e) {
       setFormError(e instanceof ApiError && e.status === 429
         ? 'Too many attempts. Please wait a few minutes and try again.'

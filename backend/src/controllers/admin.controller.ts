@@ -16,6 +16,7 @@ export const adminController = {
   user: asyncHandler(async (req, res) => ok(res, await adminService.userDetail(req.params.id))),
   setRole: asyncHandler(async (req, res) => ok(res, await adminService.setRole(actor(req), req.params.id, req.body.role))),
   setStatus: asyncHandler(async (req, res) => ok(res, await adminService.setStatus(actor(req), req.params.id, req.body.status))),
+  adjustCredits: asyncHandler(async (req, res) => ok(res, await adminService.adjustCredits(actor(req), req.params.id, req.body.amount))),
   connections: asyncHandler(async (req, res) => send(res, await adminService.connections(paged(req)))),
   syncRuns: asyncHandler(async (req, res) => send(res, await adminService.syncRuns(paged(req)))),
   triggerSync: asyncHandler(async (req, res) => ok(res, await adminService.triggerSync(actor(req), req.params.id), 202)),

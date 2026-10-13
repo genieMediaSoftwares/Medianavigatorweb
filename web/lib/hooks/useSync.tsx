@@ -47,15 +47,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     try {
       const started: SyncRun[] = target === 'all' ? (await api.syncAll()).syncRuns : [(await api.sync(target)).syncRun];
       if (started.length === 0) { toast.error('Connect an account first, then sync.'); return; }
-      const finished = await Promise.all(started.map(follow));
-      await qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
-      for (const run of finished) {
-        if (!run) continue;
-        const name = platformName(run.platform);
-        if (run.status === 'succeeded') toast.success(`${name} is up to date.`);
-        else if (run.status === 'partial') toast.error(`${name} finished, but some posts could not be read.`);
-        else toast.error(run.errorSummary ? `${name}: ${run.errorSummary}` : `${name} could not be updated.`);
-      }
+      // Follow each run in the background so the button returns immediately; invalidate and notify when done.
+      void Promise.all(started.map(follow)).then((finished) => {
+        void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'me' });
+        for (const run of finished) {
+          if (!run) continue;
+          const name = platformName(run.platform);
+          if (run.status === 'succeeded') toast.success(`${name} is up to date.`);
+          else if (run.status === 'partial') toast.error(`${name} finished, but some posts could not be read.`);
+          else toast.error(run.errorSummary ? `${name}: ${run.errorSummary}` : `${name} could not be updated.`);
+        }
+      });
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : 'We could not start the update.');
     }

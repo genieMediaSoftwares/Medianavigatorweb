@@ -98,15 +98,48 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): P
       problems.push(isVideo ? 'Instagram returned no video URL for this post (it can be withheld for Reels with licensed music, or when the account is connected without media access).' : 'This post is not a video.');
     } catch { problems.push('Instagram could not be reached.'); }
   }
-  // Last resort: the direct file URL saved at sync time, which is still valid for a while after syncing.
+  // Last resort 1: the direct file URL saved at sync time, which is still valid for a while after syncing.
   const synced = (doc as { videoUrl?: string }).videoUrl;
   if (!source && synced) { try { if (isVideoCdn(new URL(synced))) source = synced; } catch { /* not a URL */ } }
+// Last resort 2: read the reel's public page and extract the direct video URL embedded in it.
+  // This keeps analysis working when the graph token is expired or the API withheld the URL,
+  // provided the post is public.
+  if (!source && typeof doc.mediaUrl === 'string' && /instagram\.com/i.test(doc.mediaUrl)) {
+    try {
+      const response = await fetch(doc.mediaUrl, {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(10_000),
+        headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', accept: 'text/html' },
+      });
+      if (response.ok) {
+        const html = await response.text();
+        const unescape = (s: string) => s.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+        const patterns = [
+          /property=["']og:video["'][^>]*content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["'][^>]*property=["']og:video(?::secure_url)?["']/i,
+          /"video_url"\s*:\s*"([^"]+)"/i,
+          /"video_versions"\s*:\s*\[[^\]]*"url"\s*:\s*"([^"]+)"/i,
+        ];
+        for (const pattern of patterns) {
+          const match = html.match(pattern);
+          if (match?.[1]) {
+            const candidate = unescape(match[1]);
+            try {
+              const url = new URL(candidate);
+              if (isVideoCdn(url)) { source = candidate; break; }
+            } catch { /* not a URL */ }
+          }
+        }
+      }
+    } catch { /* public page not reachable */ }
+  }
+
   if (!source && loginExpired) {
     // The token is dead: record it so the Connections page asks for a reconnect instead of failing again later.
     await connectionRepository.setStatus(account._id, 'connection_expired', 'Instagram login expired; reconnect required').catch(() => undefined);
     throw failure('Your Instagram login has expired. Reconnect Instagram from Connections, then run the analysis again.');
   }
-  if (!source) throw failure(`${[...new Set(problems)].join(' ') || 'Instagram did not grant access to the video file.'} Reconnect Instagram (Instagram Business/Creator account with media permissions) and sync again.`);
+  if (!source) throw failure(`${[...new Set(problems)].join(' ') || 'Instagram did not grant access to the video file.'} Reconnect Instagram (Instagram Business/Creator account with media permissions), make sure the reel is public, and sync again.`);
   return { blob: await downloadVideo(source) };
 }
 

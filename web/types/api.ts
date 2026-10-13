@@ -29,6 +29,9 @@ export interface User {
   status: 'active' | 'disabled';
   createdAt: string;
   lastLoginAt: string | null;
+  credits: number;
+  freeTopChecksRemaining: number;
+  freeBottomChecksRemaining: number;
 }
 export interface Profile {
   fullName: string;
@@ -85,7 +88,7 @@ export interface Connection {
   primaryStrength: string;
   dataPointsCount: number;
   missingPermissions: string[];
-  accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number };
+  accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; followingCount?: number; mediaCount?: number };
   sync?: { state: string; lastSyncedAt: string | null; nextSyncAt: string | null; lastError: string | null };
   capabilities?: ProviderCapabilities;
   oauthAvailable?: boolean;
