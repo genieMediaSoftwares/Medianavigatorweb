@@ -10,6 +10,7 @@ import { SyncProvider } from '@/lib/hooks/useSync';
 import { PageSkeleton } from '@/components/ui/skeleton';
 import { ErrorState } from '@/components/ui/states';
 import { BottomNav } from './bottom-nav';
+import { ConnectionAlert } from './connection-alert';
 import { Sidebar } from './sidebar';
 import { TopBar } from './top-bar';
 
@@ -47,7 +48,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar isAdmin={isAdmin} collapsed={collapsed} onToggle={toggle} />
         <TopBar collapsed={collapsed} />
         <main id="main" className={`min-h-screen pb-24 pt-[72px] transition-[padding] duration-200 lg:pb-12 ${collapsed ? 'lg:pl-[72px]' : 'lg:pl-[264px]'}`}>
-          <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6">{children}</div>
+          <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6"><ConnectionAlert />{children}</div>
         </main>
         <BottomNav isAdmin={isAdmin} />
       </SyncProvider>

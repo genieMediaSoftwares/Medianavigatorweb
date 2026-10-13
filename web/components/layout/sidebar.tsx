@@ -11,9 +11,18 @@ import { AccountCard } from './account';
 export function NavList({ isAdmin, collapsed, onNavigate }: { isAdmin: boolean; collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const items: NavItem[] = isAdmin ? [...NAV, ADMIN_NAV] : NAV;
+  const groups = items.reduce<Array<{ name: string; items: NavItem[] }>>((acc, item) => {
+    const name = item.group ?? '';
+    const last = acc[acc.length - 1];
+    if (last && last.name === name) last.items.push(item); else acc.push({ name, items: [item] });
+    return acc;
+  }, []);
   return (
-    <nav aria-label="Main" className="flex flex-col gap-1.5">
-      {items.map((item) => {
+    <nav aria-label="Main" className="flex flex-col gap-5">
+      {groups.map((g) => (
+        <div key={g.name} className="flex flex-col gap-1">
+          {g.name && (collapsed ? <hr className="mx-3 border-line first:hidden" aria-hidden="true" /> : <p className="eyebrow px-3.5 pb-1">{g.name}</p>)}
+          {g.items.map((item) => {
         const active = isActive(item, pathname);
         const Icon = item.icon;
         return (
@@ -26,6 +35,8 @@ export function NavList({ isAdmin, collapsed, onNavigate }: { isAdmin: boolean; 
           </Link>
         );
       })}
+        </div>
+      ))}
     </nav>
   );
 }

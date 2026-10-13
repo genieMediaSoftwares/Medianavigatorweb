@@ -57,7 +57,7 @@ export function HomeView() {
     const hasTiming = signals.some((x) => x.actionTarget === 'timing');
     const next = s.dataPeriod.current.count === 0 || !hasTiming
       ? { href: '/plan', label: 'Plan your next post', why: s.dataPeriod.current.count === 0 ? "You haven't posted lately, so a plan can help you get going." : 'Pick a day and a channel for your next post.' }
-      : { href: '/best-times', label: 'See your best times to post', why: 'We found a time when your posts do best.' };
+      : { href: '/insights?tab=best_times', label: 'See your best times to post', why: 'We found a time when your posts do best.' };
     body = (
       <div className="space-y-8">
         <Card>

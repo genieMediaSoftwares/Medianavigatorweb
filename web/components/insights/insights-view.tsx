@@ -1,11 +1,12 @@
 'use client';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Bot, ChevronDown, Database, Flame, Layers, Send, Sparkles } from 'lucide-react';
+import { Bot, ChevronDown, Clock, Database, Flame, Layers, Send, Sparkles } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { BestTimesView } from './best-times-view';
 import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,7 +15,7 @@ import { compact, percent, whole } from '@/lib/format';
 import { qk } from '@/lib/queryKeys';
 import type { AiInsight, ArchiveResponse, AskResult } from '@/types/api';
 
-type TabId = 'full_archive' | 'executive_insights' | 'format_patterns';
+type TabId = 'full_archive' | 'executive_insights' | 'format_patterns' | 'best_times';
 
 const TAB_MAP: Record<string, TabId> = {
   full_archive: 'full_archive',
@@ -24,6 +25,8 @@ const TAB_MAP: Record<string, TabId> = {
   signals: 'executive_insights',
   format_patterns: 'format_patterns',
   patterns: 'format_patterns',
+  best_times: 'best_times',
+  timing: 'best_times',
 };
 
 export function InsightsView() {
@@ -54,11 +57,12 @@ export function InsightsView() {
     { id: 'full_archive' as TabId, label: 'Overview', count: archiveCount, icon: Database },
     { id: 'executive_insights' as TabId, label: 'Key takeaways', count: executiveCount, icon: Sparkles },
     { id: 'format_patterns' as TabId, label: 'Formats', count: patternsCount, icon: Layers },
+    { id: 'best_times' as TabId, label: 'Best times', count: 0, icon: Clock },
   ];
 
   return (
     <div className="space-y-6 animate-fade">
-      <PageHeader title="Insights" subtitle="What is working, what needs attention, and what to try next, based on your own posts." />
+      <PageHeader title="Insights" subtitle="What is working, what to try next, and when to post, based on your own posts." />
 
       <div className="no-print overflow-x-auto custom-scroll pb-1" role="tablist" aria-label="Insights sections">
         <div className="inline-flex items-center gap-1.5 rounded-2xl border border-line bg-surface/80 p-1.5 min-w-max">
@@ -105,6 +109,7 @@ export function InsightsView() {
             onRetry={() => signals.refetch()}
           />
         )}
+        {activeTab === 'best_times' && <BestTimesView embedded />}
         {activeTab === 'format_patterns' && (
           <FormatPatternsView
             patterns={patterns.data ?? []}
