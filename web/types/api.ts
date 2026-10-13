@@ -459,6 +459,7 @@ export interface DiagnosePostResult {
   calculated: CalculatedPost;
   ai: AiMeta;
   limitations: string[];
+  videoEvidence?: { status: string; observations: VideoObservation[] };
 }
 export interface AskResult {
   answer: string;
@@ -496,7 +497,15 @@ export interface VideoTimelinePoint {
 }
 
 /** Detailed forensic video analysis result */
+export interface VideoObservation {
+  startSeconds: number;
+  endSeconds: number;
+  observation: string;
+  performanceHypothesis: string;
+  recommendation: string;
+}
 export interface VideoAnalysisResult {
+  observations?: VideoObservation[];
   mediaId?: string;
   classification?: string;
   hookScore?: number;

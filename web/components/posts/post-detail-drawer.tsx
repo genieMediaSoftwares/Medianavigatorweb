@@ -97,7 +97,7 @@ function DiagnoseView({ d }: { d: DiagnosePostResult }) {
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-ink flex items-center gap-1.5">
-              <Sparkles className="h-4 w-4 text-[#1D63ED]" />
+              <Sparkles className="h-4 w-4 text-brand-600" />
               6 Key Takeaways (Whole Post & Video Diagnosis)
             </h4>
             <span className="text-[11px] font-bold text-muted bg-surface border border-line px-2 py-0.5 rounded-full">

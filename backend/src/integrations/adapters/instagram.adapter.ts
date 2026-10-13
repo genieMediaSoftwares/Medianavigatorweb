@@ -24,7 +24,7 @@ export const instagramAdapter: ProviderAdapter = {
     const v = await MetaAuth.validateToken(token(creds));
     if (v.isValid) return { isValid: true };
     const error = v.error || 'Instagram authentication failed.';
-    return { isValid: false, error, kind: /expired/i.test(error) ? 'expired' : /permission/i.test(error) ? 'permission' : 'invalid' };
+    return { isValid: false, error, kind: /expired/i.test(error) ? 'expired' : /permission|blocked|restriction/i.test(error) ? 'permission' : 'invalid' };
   },
 
   async resolveAccount(creds): Promise<ResolvedAccount> {

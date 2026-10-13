@@ -1,5 +1,6 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, type Part } from '@google/genai';
 import type { ZodType } from 'zod';
+import type { VideoInput } from './videoInput.js';
 import { config } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 
@@ -29,21 +30,41 @@ function parseJson(raw: string): unknown {
 }
 
 /** One model call, JSON out, validated against `schema`. Throws AiUnavailableError / AiFailedError; never returns made-up data. */
-export async function generateJson<T>(opts: { system: string; prompt: string; schema: ZodType<T> }): Promise<{ data: T; model: string; latencyMs: number }> {
+export async function generateJson<T>(opts: { system: string; prompt: string; schema: ZodType<T>; video?: VideoInput }): Promise<{ data: T; model: string; latencyMs: number }> {
   const ai = getClient();
   const model = config.ai.model!;
   const started = Date.now();
   let text: string | undefined;
+  let uploadedName: string | undefined;
+  const timeout = opts.video ? 120_000 : config.ai.timeoutMs;
   try {
-    const res = await Promise.race([
-      ai.models.generateContent({ model, contents: opts.prompt.slice(0, config.ai.maxInputChars), config: { systemInstruction: opts.system, responseMimeType: 'application/json' } }),
-      new Promise<never>((_, rej) => setTimeout(() => rej(new AiFailedError('Gemini request timed out', 'timeout')), config.ai.timeoutMs)),
-    ]);
+    const parts: Part[] = [{ text: opts.prompt.slice(0, config.ai.maxInputChars) }];
+    if (opts.video && 'youtubeUrl' in opts.video) {
+      parts.unshift({ fileData: { fileUri: opts.video.youtubeUrl, mimeType: 'video/mp4' } });
+    } else if (opts.video && 'blob' in opts.video) {
+      let file = await ai.files.upload({ file: opts.video.blob, config: { mimeType: opts.video.blob.type, httpOptions: { timeout: 30_000 } } });
+      uploadedName = file.name;
+      const deadline = Date.now() + 60_000;
+      while (file.state === 'PROCESSING' && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        file = await ai.files.get({ name: uploadedName!, config: { httpOptions: { timeout: 10_000 } } });
+      }
+      if (file.state !== 'ACTIVE' || !file.uri) throw new AiFailedError('Video processing did not complete. Please retry.', 'provider_error');
+      parts.unshift({ fileData: { fileUri: file.uri, mimeType: file.mimeType || opts.video.blob.type } });
+    }
+    const res = await ai.models.generateContent({
+      model, contents: [{ role: 'user', parts }],
+      config: { systemInstruction: opts.system, responseMimeType: 'application/json', httpOptions: { timeout } },
+    });
     text = res.text;
   } catch (err) {
     if (err instanceof AiFailedError) throw err;
-    logger.warn('gemini request failed', { operation: 'ai', provider: 'gemini', error: err });
-    throw new AiFailedError('Gemini request failed', 'provider_error');
+    const status = (err as { status?: number }).status;
+    // Do not log provider payloads: they can include signed media URLs.
+    logger.warn('gemini request failed', { operation: 'ai', provider: 'gemini', status });
+    throw new AiFailedError(status === 429 ? 'Gemini quota or rate limit reached. Retry later or check the API project quota.' : 'Gemini could not process this request. Check the configured model and API project access.', 'provider_error');
+  } finally {
+    if (uploadedName) await ai.files.delete({ name: uploadedName, config: { httpOptions: { timeout: 10_000 } } }).catch(() => logger.warn('temporary Gemini file cleanup failed'));
   }
   if (!text) throw new AiFailedError('Gemini returned an empty response', 'invalid_response');
   let parsed: unknown;

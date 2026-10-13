@@ -19,8 +19,8 @@ export function NavList({ isAdmin, collapsed, onNavigate }: { isAdmin: boolean; 
         return (
           <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={active ? 'page' : undefined} title={collapsed ? item.label : undefined}
             className={cn('relative flex h-11 items-center gap-3 rounded-xl px-3.5 text-[15px] font-semibold transition-all duration-150', collapsed && 'justify-center px-0',
-              active ? 'bg-brand-600 text-white shadow-xs' : 'text-muted hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-slate-900')}>
-            <Icon className={cn('h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110', active ? 'text-white' : 'text-slate-500 dark:text-slate-400')} aria-hidden="true" />
+              active ? 'bg-brand-100 text-brand-800 ring-1 ring-inset ring-brand-200' : 'text-muted hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-slate-900')}>
+            <Icon className={cn('h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110', active ? 'text-brand-700' : 'text-slate-500 dark:text-slate-400')} aria-hidden="true" />
             {!collapsed && <span>{item.label}</span>}
             {collapsed && <span className="sr-only">{item.label}</span>}
           </Link>

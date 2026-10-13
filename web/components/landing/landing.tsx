@@ -88,11 +88,11 @@ export function Landing() {
 
       <section id="privacy" className="scroll-mt-20 py-6">
         <div className="mx-auto max-w-[1200px] px-5">
-          <div className="grid gap-10 overflow-hidden rounded-[28px] p-8 text-white md:grid-cols-[1fr_1fr] md:p-14 shadow-[0_12px_36px_rgba(29,95,209,0.3)]" style={{ background: 'linear-gradient(135deg, #1D5FD1 0%, #174cb0 100%)' }}>
-            <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-white/70">Privacy</p><h2 className="mt-3 text-[34px] text-white sm:text-[40px]">Read-only, encrypted, and yours to delete.</h2><p className="mt-4 text-white/85">We built Media Navigator to look, not touch. Here is exactly what that means.</p></div>
+          <div className="grid gap-10 overflow-hidden rounded-[28px] p-8 text-ink md:grid-cols-[1fr_1fr] md:p-14 border border-brand-200 shadow-card" style={{ background: 'var(--panel-gradient)' }}>
+            <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-brand-700">Privacy</p><h2 className="mt-3 text-[34px] text-ink sm:text-[40px]">Read-only, encrypted, and yours to delete.</h2><p className="mt-4 text-muted">We built Media Navigator to look, not touch. Here is exactly what that means.</p></div>
             <ul className="space-y-5">
               {[{ icon: Eye, t: 'Read-only', d: 'It can’t post, edit or delete anything on your accounts.' }, { icon: Lock, t: 'Encrypted access', d: 'Your access is encrypted on our server and never shown in your browser.' }, { icon: Trash2, t: 'Deletable', d: 'Disconnect any time, or delete your whole account from Settings.' }].map(({ icon: Icon, t, d }) => (
-                <li key={t} className="flex gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/15"><Icon className="h-5 w-5" aria-hidden="true" /></span><div><p className="font-semibold">{t}</p><p className="text-sm text-white/80">{d}</p></div></li>
+                <li key={t} className="flex gap-4"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface text-brand-600"><Icon className="h-5 w-5" aria-hidden="true" /></span><div><p className="font-semibold">{t}</p><p className="text-sm text-muted">{d}</p></div></li>
               ))}
             </ul>
           </div>

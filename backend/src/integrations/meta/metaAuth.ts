@@ -140,7 +140,9 @@ export class MetaAuth {
       return {
         isValid: false,
         scopes: [],
-        error: errMsg,
+        error: /API access blocked/i.test(errMsg)
+          ? 'Meta has blocked API access for this token. In Graph API Explorer, check the selected Meta app and its access restrictions, then generate a new token with the required Instagram and Page permissions. Test GET /me?fields=id,name in Explorer before reconnecting. This restriction cannot be removed by Media Navigator.'
+          : errMsg,
       };
     } catch (err: any) {
       return {

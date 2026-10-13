@@ -101,7 +101,7 @@ export function InsightsView() {
             </span>
           </div>
           <p className="mt-1 text-sm text-muted">
-            Grounded diagnostics distilled across all your connected media archives without pagination limits.
+            Performance analysis across your synced posts. Open Content Library to browse every imported post.
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -334,7 +334,7 @@ function FullArchiveAuditView({
       const res = await api.ask('Run an exhaustive audit across all my posts and reels. What are the key baseline performance insights?');
       setAuditMessage(res.answer);
     } catch {
-      setAuditMessage('Exhaustive archive audit complete. All baseline metrics recalculated across your catalogue.');
+      setAuditMessage('The audit could not be completed. Please try again.');
     } finally {
       setAuditing(false);
     }
@@ -343,36 +343,36 @@ function FullArchiveAuditView({
   return (
     <div className="space-y-6">
       {/* Archive Header Banner */}
-      <Card className="p-6 bg-gradient-to-r from-[#1D5FD1] via-[#1a55bd] to-[#144294] text-white overflow-hidden relative shadow-[0_12px_36px_rgba(29,95,209,0.25)]">
+      <Card className="p-6 bg-gradient-to-r from-brand-50 via-brand-100 to-surface text-ink overflow-hidden relative shadow-card">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2 max-w-3xl">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="bg-white/20 text-white border border-white/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              <span className="bg-surface text-brand-700 border border-brand-200 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
                 FULL HISTORICAL INDEX
               </span>
-              <span className="bg-emerald-500/20 text-emerald-200 border border-emerald-400/30 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
-                Zero Pagination Limit
+              <span className="bg-good-bg text-good border border-good/20 text-[11px] font-bold px-2.5 py-0.5 rounded-full">
+                Synced content
               </span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+            <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-ink">
               Exhaustive Archive Audit: {archive.totalAnalyzed.toLocaleString()} Total Posts & Reels
             </h2>
-            <p className="text-xs sm:text-sm text-white/90 leading-relaxed">
-              Every published reel, video, carousel, and photo has been retrieved directly from platform APIs. All baselines are computed across your entire catalogue.
+            <p className="text-xs sm:text-sm text-muted leading-relaxed">
+              Baselines are computed from synced content available to this analysis. Open Content Library to browse all imported posts.
             </p>
           </div>
           <Button
             onClick={handleAuditAll}
             loading={auditing}
-            className="bg-white hover:bg-brand-50 text-[#1D5FD1] font-bold shrink-0 shadow-sm"
+            className="bg-white hover:bg-brand-50 text-brand-600 font-bold shrink-0 shadow-sm"
           >
-            <Sparkles className="h-4 w-4 mr-2 text-[#1D5FD1]" />
+            <Sparkles className="h-4 w-4 mr-2 text-brand-600" />
             Audit All Posts with AI
           </Button>
         </div>
         {auditMessage && (
-          <div className="mt-4 p-4 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-sm text-white animate-fade">
-            <p className="font-semibold text-brand-200 mb-1">AI Audit Result:</p>
+          <div className="mt-4 p-4 rounded-xl bg-surface border border-line text-sm text-ink animate-fade">
+            <p className="font-semibold text-brand-700 mb-1">AI Audit Result:</p>
             <p>{auditMessage}</p>
           </div>
         )}
@@ -510,7 +510,7 @@ function WhatsWorkingView({
       {/* Control Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
         <div>
-          <h2 className="text-lg font-bold text-ink">What's Working — Top-Performing Media</h2>
+          <h2 className="text-lg font-bold text-ink">What&apos;s Working — Top-Performing Media</h2>
           <p className="text-xs text-muted">Ranked by verified metrics. Mini post previews and inferred repeatable patterns.</p>
         </div>
         <div className="flex items-center gap-1.5 bg-surface border border-line rounded-xl p-1 shrink-0 text-xs font-semibold">
@@ -655,7 +655,7 @@ function PerformerCard({
                 className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 <Sparkles className="h-3.5 w-3.5 mr-1" />
-                Why It's in Top
+                Why It&apos;s in Top
               </Button>
               {['reel', 'short', 'video'].includes(item.contentType) && (
                 <Button
@@ -840,7 +840,7 @@ function UnderperformerCard({
                 className="bg-rose-600 hover:bg-rose-700 text-white"
               >
                 <AlertTriangle className="h-3.5 w-3.5 mr-1" />
-                Why It's in Bottom
+                Why It&apos;s in Bottom
               </Button>
               {['reel', 'short', 'video'].includes(item.contentType) && (
                 <Button

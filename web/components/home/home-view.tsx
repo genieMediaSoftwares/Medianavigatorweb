@@ -83,7 +83,7 @@ export function HomeView() {
 
         <Card className="flex flex-wrap items-center justify-between gap-4 border-line bg-gradient-to-r from-brand-50/70 via-white to-white p-6 shadow-2xs dark:border-slate-800 dark:from-slate-900/90 dark:to-slate-900">
           <div className="min-w-0">
-            <p className="eyebrow text-[#1D5FD1] dark:text-brand-300">Next best action</p>
+            <p className="eyebrow text-brand-600 dark:text-brand-300">Next best action</p>
             <p className="mt-1 text-[15px] font-semibold text-ink">{next.why}</p>
           </div>
           <LinkButton href={next.href} size="lg">{next.label}<ArrowRight className="h-5 w-5" aria-hidden="true" /></LinkButton>

@@ -22,7 +22,7 @@ export const badRequest = (m: string, d?: unknown) => new AppError('BAD_REQUEST'
 export const unauthorized = (m = 'Authentication required') => new AppError('UNAUTHORIZED', m);
 export const forbidden = (m = 'You do not have permission to perform this action') => new AppError('FORBIDDEN', m);
 export const notFound = (m = 'Resource not found') => new AppError('NOT_FOUND', m);
-export const conflict = (m: string) => new AppError('CONFLICT', m);
+export const conflict = (m: string, d?: unknown) => new AppError('CONFLICT', m, d);
 export const unavailable = (m: string) => new AppError('SERVICE_UNAVAILABLE', m);
 export const providerError = (m: string, d?: unknown) => new AppError('PROVIDER_ERROR', m, d);
 

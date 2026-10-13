@@ -13,6 +13,7 @@ intelligenceRouter.get('/timing', c.timing);
 intelligenceRouter.get('/signals', c.signals);
 intelligenceRouter.get('/performers', validate({ query: v.performers }), c.performers);
 intelligenceRouter.get('/patterns', c.patterns);
+intelligenceRouter.get('/archive', c.archive);
 intelligenceRouter.get('/archive-audit', c.archive);
 intelligenceRouter.get('/summary', validate({ query: v.summary }), c.summary);
 intelligenceRouter.get('/history', validate({ query: v.history }), c.history);

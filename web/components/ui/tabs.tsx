@@ -12,9 +12,9 @@ export function TabBar({ tabs, value, onChange, label }: { tabs: TabItem[]; valu
         const active = t.id === value;
         return (
           <button key={t.id} role="tab" aria-selected={active} id={`tab-${t.id}`} onClick={() => onChange(t.id)}
-            className={cn('relative h-11 shrink-0 px-4 text-[15px] font-semibold transition-colors', active ? 'text-[#1D5FD1] dark:text-brand-300' : 'text-muted hover:text-ink')}>
+            className={cn('relative h-11 shrink-0 px-4 text-[15px] font-semibold transition-colors', active ? 'text-brand-600 dark:text-brand-300' : 'text-muted hover:text-ink')}>
             {t.label}{t.count !== undefined && <span className="ml-1.5 text-xs font-bold text-subtle tabular">{t.count}</span>}
-            {active && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#1D5FD1] shadow-[0_0_10px_rgba(29,95,209,0.5)]" />}
+            {active && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-brand-600" />}
           </button>
         );
       })}
@@ -27,7 +27,7 @@ export function Segmented<T extends string | number>({ value, onChange, options,
     <div role="radiogroup" aria-label={label} className="inline-flex rounded-xl border border-line bg-white p-1 shadow-xs dark:border-slate-800 dark:bg-slate-900">
       {options.map((o) => (
         <button key={String(o.value)} role="radio" aria-checked={o.value === value} onClick={() => onChange(o.value)}
-          className={cn('h-9 rounded-lg px-3.5 text-sm font-semibold transition-all duration-150', o.value === value ? 'bg-[#1D5FD1] text-white shadow-xs' : 'text-muted hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-slate-800')}>
+          className={cn('h-9 rounded-lg px-3.5 text-sm font-semibold transition-all duration-150', o.value === value ? 'bg-brand-100 text-brand-800 shadow-xs' : 'text-muted hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-slate-800')}>
           {o.label}
         </button>
       ))}

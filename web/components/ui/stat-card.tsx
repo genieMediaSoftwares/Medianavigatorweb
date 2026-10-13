@@ -11,7 +11,7 @@ export function StatCard({ label, value, meaning, delta, icon }: { label: string
     <div className="rounded-2xl border border-line bg-white p-5 shadow-2xs transition-all duration-200 hover:border-brand-200 hover:shadow-xs dark:border-slate-800 dark:bg-slate-900/95 flex h-full flex-col">
       <div className="flex items-start justify-between gap-3">
         <span className="text-sm font-semibold text-muted">{label}</span>
-        {icon && <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-[#1D5FD1] border border-brand-100 dark:bg-brand-950/60 dark:border-brand-800/50 dark:text-brand-400" aria-hidden="true">{icon}</span>}
+        {icon && <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 border border-brand-100 dark:bg-brand-950/60 dark:border-brand-800/50 dark:text-brand-400" aria-hidden="true">{icon}</span>}
       </div>
       <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-display text-[34px] font-bold leading-none tracking-tight text-ink tabular">{value}</span>

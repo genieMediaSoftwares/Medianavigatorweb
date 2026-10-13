@@ -61,7 +61,7 @@ export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag;
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
-          <h3 className="line-clamp-2 min-h-[2.8em] font-display text-[15px] font-bold leading-snug text-ink group-hover:text-[#1D5FD1] dark:group-hover:text-brand-300 transition-colors">{item.title || item.caption || 'Untitled post'}</h3>
+          <h3 className="line-clamp-2 min-h-[2.8em] font-display text-[15px] font-bold leading-snug text-ink group-hover:text-brand-600 dark:group-hover:text-brand-300 transition-colors">{item.title || item.caption || 'Untitled post'}</h3>
           <p className="mt-1 text-[13px] text-subtle">{dateShort(item.publishedAt)}</p>
         </div>
         <div className="flex items-center justify-between gap-2">
