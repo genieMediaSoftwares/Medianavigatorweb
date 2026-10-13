@@ -98,7 +98,7 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): P
     } catch { problems.push('Instagram could not be reached.'); }
   }
   // Last resort: the direct file URL saved at sync time, which is still valid for a while after syncing.
-  const synced = (doc as { mediaUrl?: string }).mediaUrl;
+  const synced = (doc as { videoUrl?: string }).videoUrl;
   if (!source && synced) { try { if (isVideoCdn(new URL(synced))) source = synced; } catch { /* not a URL */ } }
   if (!source) throw failure(`${[...new Set(problems)].join(' ') || 'Instagram did not grant access to the video file.'} Reconnect Instagram (Instagram Business/Creator account with media permissions) and sync again.`);
   return { blob: await downloadVideo(source) };

@@ -538,6 +538,7 @@ export class InstagramClient extends MetaClient {
             caption: item.caption || '',
             thumbnailUrl: bestImageUrl,
             mediaUrl: item.permalink || item.media_url,
+            ...(item.media_type === 'VIDEO' && item.media_url ? { videoUrl: item.media_url } : {}),
             publishedAt: item.timestamp || '',
             primarySignal: {
               label: 'Verified Views',

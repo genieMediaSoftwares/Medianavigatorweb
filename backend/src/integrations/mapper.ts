@@ -30,6 +30,7 @@ export function toContentItem(
     caption: n.caption ?? '',
     thumbnailUrl: n.thumbnailUrl || undefined,
     mediaUrl: n.mediaUrl,
+    ...(n.videoUrl ? { videoUrl: n.videoUrl } : {}),
     publishedAt,
     durationSeconds: n.durationSeconds ?? null,
     views: n.views ?? 0,
