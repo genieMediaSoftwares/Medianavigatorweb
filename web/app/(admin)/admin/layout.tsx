@@ -5,19 +5,28 @@ import type { ReactNode } from 'react';
 import { Wordmark } from '@/components/brand/logo';
 import { Badge } from '@/components/ui/badge';
 import { LinkButton } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { useMe } from '@/lib/hooks/useQueries';
+import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
+import { api } from '@/lib/api/endpoints';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const me = useMe();
+  const router = useRouter();
+  const qc = useQueryClient();
   const isAdmin = me.data?.user.role === 'admin';
+  const signOut = async () => {
+    try { await api.logout(); } finally { qc.clear(); router.replace('/sign-in'); }
+  };
   return (
     <div className="min-h-dvh bg-app">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex h-[72px] max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">
-          <div className="flex items-center gap-3"><Wordmark href="/home" collapsed className="sm:hidden" /><Wordmark href="/home" className="hidden sm:inline-flex" /><Badge tone="brand">Admin</Badge></div>
-          <LinkButton href="/home" variant="secondary" size="sm">Back to app</LinkButton>
+          <div className="flex items-center gap-3"><Wordmark href="/admin" collapsed className="sm:hidden" /><Wordmark href="/admin" className="hidden sm:inline-flex" /><Badge tone="brand">Admin</Badge></div>
+          {isAdmin && <Button size="sm" variant="secondary" onClick={() => void signOut()}>Sign out</Button>}
         </div>
       </header>
       <main className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6">

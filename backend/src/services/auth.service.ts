@@ -42,8 +42,11 @@ async function issueSession(user: Pick<UserDoc, '_id' | 'role'>, client: ClientI
   };
 }
 
-export const publicUser = (u: Pick<UserDoc, '_id' | 'email' | 'role' | 'status' | 'createdAt' | 'lastLoginAt'>) => ({
+export const publicUser = (u: Pick<UserDoc, '_id' | 'email' | 'role' | 'status' | 'createdAt' | 'lastLoginAt' | 'credits' | 'freeTopChecksRemaining' | 'freeBottomChecksRemaining'>) => ({
   id: String(u._id), email: u.email, role: u.role, status: u.status, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt ?? null,
+  credits: u.credits ?? 50,
+  freeTopChecksRemaining: u.freeTopChecksRemaining ?? 5,
+  freeBottomChecksRemaining: u.freeBottomChecksRemaining ?? 5,
 });
 
 export const authService = {

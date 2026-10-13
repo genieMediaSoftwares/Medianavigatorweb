@@ -5,6 +5,7 @@ import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/field';
 import { useToast } from '@/components/ui/toast';
@@ -24,6 +25,8 @@ export function UsersTab() {
   const [text, setText] = useState('');
   const [search, setSearch] = useState('');
   const [action, setAction] = useState<Action | null>(null);
+  const [creditUser, setCreditUser] = useState<User | null>(null);
+  const [creditAmount, setCreditAmount] = useState('10');
   useEffect(() => { const t = setTimeout(() => setSearch(text.trim()), 350); return () => clearTimeout(t); }, [text]);
   const q = useInfiniteQuery({ queryKey: ['admin', 'users', search], ...infinite((cursor) => api.adminUsers({ cursor, search: search || undefined })) });
 
@@ -51,7 +54,7 @@ export function UsersTab() {
         {(users) => (
           <TableCard>
             <table className="w-full min-w-[760px] border-collapse">
-              <thead><tr><th className={th}>Email</th><th className={th}>Role</th><th className={th}>Status</th><th className={th}>Last sign-in</th><th className={th}>Joined</th><th className={`${th} text-right`}>Actions</th></tr></thead>
+              <thead><tr><th className={th}>Email</th><th className={th}>Role</th><th className={th}>Status</th><th className={th}>Credits</th><th className={th}>Last sign-in</th><th className={th}>Joined</th><th className={`${th} text-right`}>Actions</th></tr></thead>
               <tbody>
                 {users.map((u) => {
                   const self = me.data?.user.id === u.id;
@@ -60,13 +63,14 @@ export function UsersTab() {
                       <td className={`${td} max-w-[260px] truncate font-semibold text-ink`} title={u.email}>{u.email}{self && <span className="ml-2 text-xs font-medium text-subtle">(you)</span>}</td>
                       <td className={td}><Badge tone={u.role === 'admin' ? 'brand' : 'neutral'}>{u.role === 'admin' ? 'Admin' : 'User'}</Badge></td>
                       <td className={td}><Badge tone={u.status === 'active' ? 'good' : 'bad'} dot>{u.status === 'active' ? 'Active' : 'Disabled'}</Badge></td>
+                      <td className={td}>{u.credits ?? 0}</td>
                       <td className={td}>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : 'Never'}</td>
                       <td className={td}>{dateShort(u.createdAt)}</td>
                       <td className={`${td} text-right`}>
                         {self ? <span className="text-subtle">No changes to yourself</span> : (
                           <span className="inline-flex gap-2">
-                            <Button size="sm" variant="secondary" onClick={() => setAction({ user: u, kind: 'role' })}>{u.role === 'admin' ? 'Remove admin' : 'Make admin'}</Button>
                             <Button size="sm" variant="secondary" onClick={() => setAction({ user: u, kind: 'status' })}>{u.status === 'active' ? 'Disable' : 'Enable'}</Button>
+                            <Button size="sm" onClick={() => { setCreditUser(u); setCreditAmount('10'); }}>Credits</Button>
                           </span>
                         )}
                       </td>
@@ -78,6 +82,23 @@ export function UsersTab() {
           </TableCard>
         )}
       </PagedList>
+      {creditUser && (
+        <Modal open={creditUser !== null} onOpenChange={(o) => !o && setCreditUser(null)} title="Adjust Insight Credits" description={`Current balance: ${creditUser.credits ?? 0} credits`}>
+          <div className="space-y-4">
+            <div className="text-sm text-muted">{creditUser.email}</div>
+            <Input type="number" value={creditAmount} onChange={(e) => setCreditAmount(e.target.value)} placeholder="Amount to add or remove" />
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setCreditUser(null)}>Cancel</Button>
+              <Button onClick={async () => {
+                const amount = Math.trunc(Number(creditAmount));
+                if (!Number.isFinite(amount) || amount === 0) { toast.error('Enter a whole number.'); return; }
+                try { await api.adminAdjustCredits(creditUser.id, amount); await qc.invalidateQueries({ queryKey: ['admin'] }); toast.success('Credits updated.'); setCreditUser(null); }
+                catch (e) { toast.error(e instanceof ApiError ? e.message : 'We couldn’t adjust credits.'); }
+              }}>Save</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
       {label && <ConfirmDialog open={action !== null} onOpenChange={(o) => !o && setAction(null)} title={label.title} message={label.msg} confirmLabel={label.btn} danger={action?.kind === 'status' && action.user.status === 'active'} onConfirm={run} />}
     </div>
   );

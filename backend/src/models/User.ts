@@ -12,6 +12,9 @@ export interface UserDoc {
   lastLoginAt?: Date | null;
   passwordChangedAt?: Date | null;
   deletedAt?: Date | null;
+  credits?: number;
+  freeTopChecksRemaining?: number;
+  freeBottomChecksRemaining?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -27,6 +30,9 @@ const schema = new Schema<UserDoc>(
     lastLoginAt: { type: Date, default: null },
     passwordChangedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
+  credits: { type: Number, default: 50, min: 0 },
+  freeTopChecksRemaining: { type: Number, default: 5, min: 0 },
+  freeBottomChecksRemaining: { type: Number, default: 5, min: 0 },
   },
   { timestamps: true },
 );

@@ -75,6 +75,7 @@ export interface PlatformConnection {
     name?: string;
     username?: string;
     followersCount?: number;
+    followingCount?: number;
     mediaCount?: number;
   };
 }

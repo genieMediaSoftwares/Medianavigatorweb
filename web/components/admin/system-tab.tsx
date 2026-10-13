@@ -10,7 +10,7 @@ import { StatCard } from '@/components/ui/stat-card';
 import { ApiUnreachableBanner, isUnreachable } from '@/components/system/api-unreachable';
 import { api } from '@/lib/api/endpoints';
 import { bytes, whole } from '@/lib/format';
-import { platformName } from '@/lib/platforms';
+
 import { statusLabel, statusTone } from './shared';
 
 function uptime(s: number): string {
@@ -19,15 +19,6 @@ function uptime(s: number): string {
   const h = Math.floor(m / 60);
   if (h < 48) return `${h} hour${h === 1 ? '' : 's'}`;
   return `${Math.floor(h / 24)} days`;
-}
-
-function OnOff({ label, on }: { label: string; on: boolean }) {
-  return (
-    <li className="flex items-center justify-between gap-3 py-2.5 text-[15px]">
-      <span className="text-ink">{label}</span>
-      <Badge tone={on ? 'good' : 'neutral'} dot>{on ? 'On' : 'Not set up'}</Badge>
-    </li>
-  );
 }
 
 function Counts({ title, data }: { title: string; data: Record<string, number> }) {
@@ -48,7 +39,6 @@ export function SystemTab() {
   if (q.isError) return isUnreachable(q.error) ? <ApiUnreachableBanner onRetry={() => void q.refetch()} /> : <ErrorState error={q.error} onRetry={() => void q.refetch()} />;
   const s = q.data;
   if (!s) return null;
-  const f = s.features;
   const dbOk = s.database.status === 'ok' || s.database.status === 'up' || s.database.status === 'connected';
   return (
     <div className="space-y-6">
@@ -57,24 +47,6 @@ export function SystemTab() {
         <StatCard label="Active sessions" value={whole(s.counts.activeSessions)} icon={<Wifi className="h-5 w-5" />} />
         <StatCard label="Stored posts" value={whole(s.counts.contentItems)} icon={<FileStack className="h-5 w-5" />} />
         <StatCard label="Files" value={whole(s.storage.files)} meaning={s.storage.configured ? `${bytes(s.storage.bytes)} stored` : 'File storage isn’t set up'} icon={<FileText className="h-5 w-5" />} />
-      </div>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <SectionHeader title="Services" description="What is switched on for this installation." />
-          <ul className="divide-y divide-line">
-            <OnOff label="AI explanations" on={f.ai.configured} />
-            <OnOff label="Email" on={f.email.configured} />
-            <OnOff label="File storage" on={s.storage.configured} />
-            <OnOff label="Sync worker" on={f.syncWorker} />
-            <OnOff label="Sync scheduler" on={f.syncScheduler} />
-          </ul>
-        </Card>
-        <Card>
-          <SectionHeader title="Platform sign-in" description="Platforms where people can connect with one click." />
-          <ul className="divide-y divide-line">
-            {Object.entries(f.oauth).map(([p, on]) => <OnOff key={p} label={platformName(p)} on={on} />)}
-          </ul>
-        </Card>
       </div>
       <Card className="space-y-6">
         <div className="flex flex-wrap items-center gap-x-8 gap-y-3 text-[15px]">

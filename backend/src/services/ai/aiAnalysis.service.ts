@@ -36,7 +36,7 @@ const meta = (status: AiMeta['status'], extra: Partial<AiMeta> = {}): AiMeta => 
 
 /** Runs (or reuses) one AI step. Never throws for AI problems: the caller still gets deterministic content plus an honest status. */
 async function aiStep<T>(args: { userId: Types.ObjectId; type: string; subject: string; dataVersion: string; system: string; prompt: string; schema: z.ZodType<T, z.ZodTypeDef, unknown>; video?: () => Promise<VideoInput> }): Promise<{ data: T | null; ai: AiMeta }> {
-  if (!aiAvailable()) return { data: null, ai: meta('unavailable', { reason: 'Gemini is not configured on this server' }) };
+  if (!aiAvailable()) return { data: null, ai: meta('unavailable', { reason: 'AI analysis is not available on this server' }) };
   const key = cacheKey({ userId: args.userId, type: args.type, subject: args.subject, dataVersion: args.dataVersion });
   const hit = await getCached<T>(args.userId, key);
   if (hit) return { data: hit.payload, ai: meta('cached', { model: hit.model, generatedAt: hit.generatedAt.toISOString() }) };
@@ -173,7 +173,7 @@ export const aiAnalysisService = {
         `Engagement classification: ${c.classification}; this is separate from the view ranking.`,
         'Content evidence: No completed content analysis is available for this request.',
         'Causation: View counts do not prove retention or algorithmic promotion.',
-        'Next step: Retry analysis when video access and Gemini are available.',
+        'Next step: Retry analysis when video access is available.',
       ],
       ...(video ? { videoEvidence: { status: video.analysis ? 'analyzed' : 'unavailable', observations: video.observations } } : {}),
       metricBreakdown: {
@@ -190,7 +190,7 @@ export const aiAnalysisService = {
       actionableChecklist: ai?.recommendations ?? [
         ...(!hasQuestion && siblings.some((m) => (m.caption || '').includes('?')) ? ['Test a question in the caption; compare against your posts that already use one.'] : []),
       ],
-      source: ai ? (video ? 'Gemini AI analysis of video content and measured performance' : 'AI interpretation of measured data') : 'Measured facts only (AI unavailable)',
+      source: ai ? (video ? 'AI analysis of video content and measured performance' : 'AI interpretation of measured data') : 'Measured facts only (AI unavailable)',
       measured: f.facts.measured, calculated: f.facts.calculated, ai: step.ai,
       limitations: [
         ...(video?.limitations ?? []),

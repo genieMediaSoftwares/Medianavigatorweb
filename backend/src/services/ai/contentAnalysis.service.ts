@@ -6,9 +6,11 @@ import { toObjectId } from '../../lib/ids.js';
 import { logger } from '../../lib/logger.js';
 import { toNormalized } from '../../integrations/mapper.js';
 import { ContentAnalysis, type ContentAnalysisDoc, type ContentAnalysisType } from '../../models/ContentAnalysis.js';
+import { User } from '../../models/User.js';
 import { connectionRepository } from '../../repositories/connection.repository.js';
 import { mediaRepository } from '../../repositories/media.repository.js';
 import { loadAnalyticsContext } from '../analytics.service.js';
+import { creditService } from '../credits.service.js';
 import { readCredentials } from '../sync.service.js';
 import { collectMedia, compare, derivedMetrics, evidenceHash, fetchInstagramLive, syncedMetrics, type Comparison, type MediaEvidence, type MetricsSnapshot, type MetricValue } from './contentEvidence.js';
 import { AiFailedError, AiUnavailableError, aiAvailable, deleteUploaded, generateMultimodalJson, uploadVideo } from './geminiClient.js';
@@ -356,7 +358,7 @@ export const contentAnalysisService = {
    * never replaces a valid saved result.
    */
   async analyze(userId: string, mediaId: string, type: ContentAnalysisType, opts: { reanalyze?: boolean; rank?: string | null } = {}): Promise<ContentAnalysisResponse> {
-    if (!aiAvailable()) throw unavailable('AI analysis is not configured on this server (GEMINI_API_KEY / GEMINI_MODEL).');
+    if (!aiAvailable()) throw unavailable('AI analysis is not configured on this server.');
     const uid = toObjectId(userId);
     const doc = await mediaRepository.findByLegacyId(uid, mediaId);
     if (!doc) throw notFound('Media not found');
@@ -366,6 +368,26 @@ export const contentAnalysisService = {
     const saved = await ContentAnalysis.findOne(key).lean<ContentAnalysisDoc>();
     const ageHours = saved?.analyzedAt ? (Date.now() - saved.analyzedAt.getTime()) / 3_600_000 : Infinity;
     const stale = Boolean(saved?.result) && (saved!.evidenceHash !== hash || ageHours > config.ai.contentAnalysis.staleHours);
+
+    const needsGeneration = Boolean(!saved?.result || stale || opts.reanalyze);
+    let charge = 0;
+    let freeTopUsed = false;
+    let freeBottomUsed = false;
+    const postIsVideo = VIDEO_TYPES.has(item.contentType);
+    if (needsGeneration) {
+      if (type === 'why_top') {
+        const free = await creditService.useFreeTopCheck(userId);
+        if (free) freeTopUsed = true;
+        else charge = postIsVideo ? 20 : 5;
+      } else if (type === 'why_bottom') {
+        const free = await creditService.useFreeBottomCheck(userId);
+        if (free) freeBottomUsed = true;
+        else charge = postIsVideo ? 20 : 5;
+      } else {
+        charge = postIsVideo ? 20 : 5;
+      }
+      if (charge) await creditService.spend(userId, charge);
+    }
 
     if (saved?.result && !stale && !opts.reanalyze) return toResponse(saved, true, false);
 
@@ -387,6 +409,9 @@ export const contentAnalysisService = {
         );
         return toResponse(updated as ContentAnalysisDoc, false, false);
       } catch (err) {
+        if (charge) await creditService.grant(userId, charge);
+        if (freeTopUsed) await User.updateOne({ _id: toObjectId(userId) }, { $inc: { freeTopChecksRemaining: 1 } });
+        if (freeBottomUsed) await User.updateOne({ _id: toObjectId(userId) }, { $inc: { freeBottomChecksRemaining: 1 } });
         const message = failureMessage(err);
         await ContentAnalysis.updateOne(key, { $set: { platform: item.platform, contentType: item.contentType, lastError: message, lastErrorAt: new Date() }, $inc: { attempts: 1 } }, { upsert: true });
         if (saved?.result) return toResponse(saved, true, true, message);

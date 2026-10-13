@@ -85,6 +85,7 @@ export const api = {
   adminUsers: (q: { cursor?: string; search?: string }) => page<User>('/admin/users', { limit: 25, cursor: q.cursor, search: q.search }),
   adminSetRole: (id: string, role: 'user' | 'admin') => apiSend<User>('PATCH', `/admin/users/${encodeURIComponent(id)}/role`, { role }),
   adminSetStatus: (id: string, status: 'active' | 'disabled') => apiSend<User>('PATCH', `/admin/users/${encodeURIComponent(id)}/status`, { status }),
+  adminAdjustCredits: (id: string, amount: number) => apiSend<User>('PATCH', `/admin/users/${encodeURIComponent(id)}/credits`, { amount }),
   adminConnections: (q: { cursor?: string }) => page<AdminConnection>('/admin/connections', { limit: 25, cursor: q.cursor }),
   adminSyncConnection: (id: string) => apiSend<{ alreadyQueued: boolean }>('POST', `/admin/connections/${encodeURIComponent(id)}/sync`),
   adminSyncRuns: (q: { cursor?: string }) => page<SyncRun>('/admin/sync-runs', { limit: 25, cursor: q.cursor }),

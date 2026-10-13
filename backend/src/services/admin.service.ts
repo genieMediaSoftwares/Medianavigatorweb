@@ -17,6 +17,7 @@ import { AiCache } from '../models/AiCache.js';
 import { syncService } from './sync.service.js';
 import { syncRunView } from './connection.service.js';
 import { publicUser } from './auth.service.js';
+import { User } from '../models/User.js';
 import { aiAvailable, aiModel } from './ai/geminiClient.js';
 import { storageEnabled } from '../lib/storage.js';
 import { emailEnabled } from './email.service.js';
@@ -70,6 +71,18 @@ export const adminService = {
     const updated = await userRepository.setStatus(id, status);
     if (status === 'disabled') await sessionRepository.revokeAllForUser(id, 'disabled_by_admin');
     await auditRepository.record({ actorId: toObjectId(actor.userId), action: status === 'disabled' ? 'user.disable' : 'user.enable', targetType: 'user', targetId: id, ip: actor.ip, requestId: actor.requestId });
+    return publicUser(updated!);
+  },
+
+  async adjustCredits(actor: Actor, id: string, amount: number) {
+    const target = await userRepository.findById(id);
+    if (!target) throw notFound('User not found');
+    const current = target.credits ?? 50;
+    const next = current + amount;
+    if (next < 0) throw badRequest('Credits cannot go below zero');
+    await User.updateOne({ _id: toObjectId(id) }, { $set: { credits: next, updatedAt: new Date() } });
+    const updated = await userRepository.findById(id);
+    await auditRepository.record({ actorId: toObjectId(actor.userId), action: 'user.credits_adjust', targetType: 'user', targetId: id, ip: actor.ip, requestId: actor.requestId, meta: { from: current, to: next, amount } });
     return publicUser(updated!);
   },
 
