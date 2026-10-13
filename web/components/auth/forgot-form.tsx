@@ -27,8 +27,8 @@ export function ForgotForm() {
 
   if (done) {
     return (
-      <div className="rounded-2xl border border-line bg-brand-50 p-6 text-center">
-        <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-surface text-brand-600"><MailCheck className="h-6 w-6" aria-hidden="true" /></span>
+      <div className="rounded-xl border border-line bg-brand-50 p-6 text-center">
+        <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-surface text-brand-600"><MailCheck className="h-6 w-6" aria-hidden="true" /></span>
         <p className="font-display text-lg font-bold text-ink">Check your inbox</p>
         <p className="mt-1 text-sm text-muted">If there&apos;s an account for that email, we&apos;ve sent a link to choose a new password. It can take a few minutes to arrive.</p>
       </div>

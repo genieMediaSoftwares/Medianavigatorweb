@@ -51,7 +51,7 @@ export function WelcomeState() {
 export function ImportingState({ connections, runs, syncing, onSync }: { connections: Connection[]; runs: Partial<Record<Platform, SyncRun>>; syncing: boolean; onSync: () => void }) {
   return (
     <Card className="mx-auto max-w-2xl text-center sm:p-10">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-600">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
         {syncing ? <Loader2 className="h-7 w-7 animate-spin" aria-hidden="true" /> : <Sparkles className="h-7 w-7" aria-hidden="true" />}
       </div>
       <h2 className="text-2xl">{syncing ? "We're importing your posts" : 'No posts to show yet'}</h2>
@@ -161,7 +161,7 @@ export function FeaturedPost({ title, post, summary, line, tagOverride, onOpen, 
       ) : (
         <div className="flex flex-1 flex-col gap-3">
           <p className="text-[15px] text-muted">{line}</p>
-          {full.isLoading && <Skeleton className="h-96 rounded-2xl" />}
+          {full.isLoading && <Skeleton className="h-96 rounded-xl" />}
           {full.isError && <Notice tone="warn">We couldn&apos;t load this post&apos;s picture. <button className="font-semibold underline" onClick={() => void full.refetch()}>Try again</button></Notice>}
           {full.data && <div className="max-w-sm"><PostCard item={full.data} tag={tagOverride ?? tagFor(full.data, summary)} onOpen={() => onOpen(post.id)} /></div>}
         </div>

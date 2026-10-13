@@ -6,7 +6,7 @@ import { ErrorState, Notice } from '@/components/ui/states';
 import { api } from '@/lib/api/endpoints';
 import type { Performer } from '@/types/api';
 import { VideoReportView } from './video-report';
-export function DeepVideoAnalysisModal({ open, onOpenChange, item }: { open: boolean; onOpenChange: (open: boolean) => void; item: Performer | null }) {
+export function DeepVideoAnalysisModal({ open, onOpenChange, item }: { open: boolean; onOpenChange: (open: boolean) => void; item: Pick<Performer, 'mediaId' | 'title' | 'caption'> | null }) {
   const query = useQuery({ queryKey: ['video-content-evidence-v1', item?.mediaId], queryFn: () => api.analyzeVideo(item!.mediaId), enabled: Boolean(open && item), staleTime: 60_000, retry: false });
   const data = query.data;
   const analyzed = data?.ai && ['ran', 'cached'].includes(data.ai.status);

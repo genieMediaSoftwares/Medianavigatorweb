@@ -26,9 +26,7 @@ export function AuthLayout({ title, subtitle, children, footer }: { title: strin
         </div>
       </div>
       <aside className="relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between p-12 text-ink" style={{ background: 'var(--panel-gradient)' }}>
-        <div aria-hidden="true" className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-white/10 blur-3xl" />
-        <div aria-hidden="true" className="absolute -bottom-32 -left-16 h-96 w-96 rounded-full bg-brand-200/40 blur-3xl" />
-        <div className="relative rounded-2xl bg-white p-5 shadow-[var(--shadow-pop)] self-start"><LogoLockup width={260} /></div>
+        <div className="relative rounded-xl bg-white p-5 border border-line self-start"><LogoLockup width={260} /></div>
         <div className="relative">
           <p className="font-display text-4xl font-extrabold leading-[1.1] tracking-tight">Know what to post <span className="text-brand-700">before</span> you post it.</p>
           <ul className="mt-10 space-y-6">

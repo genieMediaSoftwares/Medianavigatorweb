@@ -99,7 +99,7 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
       && (!q || `${p.title} ${p.caption ?? ''}`.toLowerCase().includes(q)));
   }, [perf.data, kind, channel, insufficient, format, query]);
 
-  if (perf.isLoading || summary.isLoading) return <div className="space-y-4" role="status" aria-label="Loading"><Skeleton className="h-48 rounded-2xl" /><Skeleton className="h-48 rounded-2xl" /></div>;
+  if (perf.isLoading || summary.isLoading) return <div className="space-y-4" role="status" aria-label="Loading"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div>;
   if (perf.isError) return <ErrorState error={perf.error} onRetry={() => void perf.refetch()} />;
 
   const allSrc = perf.data ? (kind === 'working' ? perf.data.top : perf.data.bottom) : [];

@@ -1,5 +1,5 @@
 import type { PlatformType } from '../../../shared/types.js';
-import { badRequest, conflict, providerError, notFound } from '../lib/errors.js';
+import { AppError, badRequest, conflict, providerError, notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { ProviderHttpError } from '../lib/http.js';
 import { getAdapter, PLATFORMS } from '../integrations/registry.js';
@@ -40,7 +40,11 @@ export const connectionService = {
     try {
       const v = await adapter.validate(creds);
       if (!v.isValid) throw badRequest(v.error || `${platform} authorization failed`);
-      const account = await adapter.resolveAccount(creds);
+      // A provider that cannot identify the account (wrong handle, key without a channel) says why in plain words.
+      const account = await adapter.resolveAccount(creds).catch((e: unknown) => {
+        if (e instanceof ProviderHttpError || e instanceof AppError || !(e instanceof Error)) throw e;
+        throw badRequest(e.message);
+      });
 
       const owner = await ConnectedAccount.findOne({ platform, providerAccountId: account.providerAccountId, active: true }).select('userId').lean<{ userId: unknown }>();
       if (owner && String(owner.userId) !== userId) throw conflict('This account is already connected to another Media Navigator user');

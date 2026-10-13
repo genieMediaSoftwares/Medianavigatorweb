@@ -81,7 +81,7 @@ export function HomeView() {
             empty="Nothing stands out as needing attention. That is a good sign." />
         </div>
 
-        <Card className="flex flex-wrap items-center justify-between gap-4 border-line bg-gradient-to-r from-brand-50/70 via-white to-white p-6 shadow-2xs dark:border-slate-800 dark:from-slate-900/90 dark:to-slate-900">
+        <Card className="flex flex-wrap items-center justify-between gap-4 border-line bg-brand-50 p-6">
           <div className="min-w-0">
             <p className="eyebrow text-brand-600 dark:text-brand-300">Next best action</p>
             <p className="mt-1 text-[15px] font-semibold text-ink">{next.why}</p>
