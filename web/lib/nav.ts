@@ -1,18 +1,20 @@
-import { CalendarCheck, Clock, LayoutGrid, Plug, Settings, Sparkles, House, ShieldCheck, type LucideIcon } from 'lucide-react';
+import { CalendarCheck, LayoutGrid, Plug, Settings, Sparkles, House, ShieldCheck, type LucideIcon } from 'lucide-react';
 
-export interface NavItem { href: string; label: string; icon: LucideIcon; match: string[] }
+export interface NavItem { href: string; label: string; icon: LucideIcon; match: string[]; group?: string }
 
-/** The whole navigation: seven items. Everything else lives inside a page as a tab. */
+/**
+ * Six destinations in three groups. Related views live inside a page as tabs (Insights holds Overview, Key takeaways,
+ * Formats and Best times; Posts holds All, What's working and Needs work).
+ */
 export const NAV: NavItem[] = [
-  { href: '/home', label: 'Home', icon: House, match: ['/home'] },
-  { href: '/posts', label: 'Posts', icon: LayoutGrid, match: ['/posts'] },
-  { href: '/insights', label: 'Insights', icon: Sparkles, match: ['/insights'] },
-  { href: '/best-times', label: 'Best times', icon: Clock, match: ['/best-times'] },
-  { href: '/plan', label: 'Plan', icon: CalendarCheck, match: ['/plan'] },
-  { href: '/connections', label: 'Connections', icon: Plug, match: ['/connections'] },
-  { href: '/settings', label: 'Settings', icon: Settings, match: ['/settings'] },
+  { href: '/home', label: 'Home', icon: House, match: ['/home'], group: 'Analyze' },
+  { href: '/posts', label: 'Posts', icon: LayoutGrid, match: ['/posts'], group: 'Analyze' },
+  { href: '/insights', label: 'Insights', icon: Sparkles, match: ['/insights', '/best-times'], group: 'Analyze' },
+  { href: '/plan', label: 'Plan', icon: CalendarCheck, match: ['/plan'], group: 'Create' },
+  { href: '/connections', label: 'Connections', icon: Plug, match: ['/connections'], group: 'Manage' },
+  { href: '/settings', label: 'Settings', icon: Settings, match: ['/settings'], group: 'Manage' },
 ];
-export const ADMIN_NAV: NavItem = { href: '/admin', label: 'Admin', icon: ShieldCheck, match: ['/admin'] };
+export const ADMIN_NAV: NavItem = { href: '/admin', label: 'Admin', icon: ShieldCheck, match: ['/admin'], group: 'Manage' };
 
 export const isActive = (item: NavItem, pathname: string) => item.match.some((m) => pathname === m || pathname.startsWith(`${m}/`));
 export function titleFor(pathname: string): string {

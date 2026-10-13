@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Clock, FileStack, Lock, Plus, RefreshCw, Settings2, Users } from 'lucide-react';
+import { AlertTriangle, Clock, FileStack, Lock, Plus, RefreshCw, Users } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -88,7 +88,7 @@ function PlatformCard({ platform, connection, onConnect, onDisconnect }: { platf
             {view.needsAction
               ? <Button size="sm" onClick={onConnect}>Reconnect</Button>
               : <Button size="sm" variant="secondary" disabled={syncing} onClick={() => void sync.start(platform)}><RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} aria-hidden="true" />Sync now</Button>}
-            <Button size="sm" variant="ghost" onClick={onDisconnect}><Settings2 className="h-4 w-4" aria-hidden="true" />Disconnect</Button>
+            <Button size="sm" variant="ghost" className="ml-auto !text-bad hover:!bg-bad-bg" onClick={onDisconnect}>Disconnect</Button>
           </div>
         </>
       ) : (

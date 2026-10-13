@@ -25,12 +25,12 @@ export function TopBar({ collapsed }: { collapsed: boolean }) {
   return (
     <header className={`fixed inset-x-0 top-0 z-20 h-[76px] border-b border-line bg-surface/85 backdrop-blur-md transition-[padding] duration-200 dark:bg-slate-950/85 ${collapsed ? 'lg:pl-[72px]' : 'lg:pl-[264px]'}`}>
       <div className="mx-auto flex h-full max-w-[1200px] items-center gap-3 px-4 sm:px-6">
-        <div className="flex items-center gap-2.5 lg:hidden"><LogoMark size={30} /><span className="font-display text-lg font-bold text-ink">{titleFor(pathname)}</span></div>
-        <div className="hidden lg:block">
+        <div className="flex items-center gap-2.5 lg:hidden"><LogoMark size={30} /><span className="hidden font-display text-lg font-bold text-ink sm:inline">{titleFor(pathname)}</span></div>
+        <div>
           {hasLive && (
             <label className="relative flex items-center">
               <span className="sr-only">Channel</span>
-              <select value={channel} onChange={(e) => setChannel(e.target.value as Platform | 'all')} className="h-11 appearance-none rounded-xl border border-line bg-surface pl-4 pr-10 text-sm font-semibold text-ink shadow-xs transition-colors hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:bg-slate-900">
+              <select value={channel} onChange={(e) => setChannel(e.target.value as Platform | 'all')} className="h-11 max-w-[9.5rem] appearance-none truncate rounded-xl border border-line bg-surface pl-4 pr-10 text-sm font-semibold text-ink shadow-xs transition-colors hover:border-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-200 dark:bg-slate-900">
                 <option value="all">All channels</option>
                 {live.map((c) => <option key={c.platform} value={c.platform}>{platformName(c.platform)}</option>)}
               </select>

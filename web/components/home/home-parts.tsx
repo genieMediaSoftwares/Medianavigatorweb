@@ -120,7 +120,7 @@ export function StatRow({ summary }: { summary: Summary }) {
 
 const SIGNAL_LINK: Record<string, { href: string; Icon: typeof Clock }> = {
   content: { href: '/posts', Icon: LayoutGrid },
-  timing: { href: '/best-times', Icon: Clock },
+  timing: { href: '/insights?tab=best_times', Icon: Clock },
   plan: { href: '/plan', Icon: CalendarCheck },
 };
 export const signalLink = (target: string) => SIGNAL_LINK[target] ?? { href: '/insights', Icon: Sparkles };
