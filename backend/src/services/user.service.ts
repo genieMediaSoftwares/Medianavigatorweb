@@ -14,6 +14,7 @@ import { plannedRepository } from '../repositories/planned.repository.js';
 import { aiCacheRepository } from '../repositories/aiCache.repository.js';
 import { SyncRun } from '../models/SyncRun.js';
 import { ConnectedAccount } from '../models/ConnectedAccount.js';
+import { ContentAnalysis } from '../models/ContentAnalysis.js';
 import { deleteObject, storageEnabled } from '../lib/storage.js';
 import { publicUser } from './auth.service.js';
 
@@ -60,7 +61,7 @@ export const userService = {
     await Promise.all([
       mediaRepository.deleteAllForUser(id), analyticsRepository.deleteAllForUser(id), notificationRepository.deleteAllForUser(id),
       fileRepository.deleteAllForUser(id), plannedRepository.deleteAllForUser(id), aiCacheRepository.deleteAllForUser(id), profileRepository.deleteByUserId(id),
-      ConnectedAccount.deleteMany({ userId: id }),
+      ConnectedAccount.deleteMany({ userId: id }), ContentAnalysis.deleteMany({ userId: id }),
     ]);
     await userRepository.markDeleted(id, `deleted+${String(id)}@deleted.invalid`);
     await userRepository.setPassword(id, `!${randomToken(24)}`); // unusable hash

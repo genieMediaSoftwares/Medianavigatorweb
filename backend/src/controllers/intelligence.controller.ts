@@ -2,6 +2,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { ok } from '../lib/response.js';
 import { analyticsService } from '../services/analytics.service.js';
 import { aiAnalysisService } from '../services/ai/aiAnalysis.service.js';
+import { contentAnalysisService } from '../services/ai/contentAnalysis.service.js';
 import { userService } from '../services/user.service.js';
 import { oauthEnabled } from '../services/oauth.service.js';
 import { PLATFORMS, getAdapter } from '../integrations/registry.js';
@@ -11,6 +12,14 @@ import { emailEnabled } from '../services/email.service.js';
 const uid = (req: any) => req.auth!.userId as string;
 
 export const intelligenceController = {
+  contentAnalysis: asyncHandler(async (req, res) => {
+    const b = req.body as { mediaId: string; type: 'deep' | 'why_top' | 'why_bottom'; reanalyze?: boolean; rank?: string };
+    ok(res, await contentAnalysisService.analyze(uid(req), b.mediaId, b.type, { reanalyze: b.reanalyze, rank: b.rank ?? null }));
+  }),
+  savedContentAnalysis: asyncHandler(async (req, res) => {
+    const q = req.query as { mediaId: string; type: 'deep' | 'why_top' | 'why_bottom' };
+    ok(res, await contentAnalysisService.get(uid(req), q.mediaId, q.type));
+  }),
   overview: asyncHandler(async (req, res) => ok(res, await analyticsService.overview(uid(req)))),
   timing: asyncHandler(async (req, res) => ok(res, await analyticsService.timing(uid(req)))),
   signals: asyncHandler(async (req, res) => ok(res, { title: 'What should you know right now?', insights: await analyticsService.signals(uid(req)) })),

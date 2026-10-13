@@ -385,6 +385,8 @@ export class InstagramClient extends MetaClient {
       saved: number;
       shares: number;
       hasRealInsights: boolean;
+      /** Metric names Instagram actually returned a value for. */
+      measured: Set<string>;
     }> => {
       let views = 0;
       let reach = 0;
@@ -392,15 +394,15 @@ export class InstagramClient extends MetaClient {
       let saved = 0;
       let shares = 0;
       let hasRealInsights = false;
+      const measured = new Set<string>();
 
       if (!insightsSupported) {
-        return { views, reach, impressions, saved, shares, hasRealInsights };
+        return { views, reach, impressions, saved, shares, hasRealInsights, measured };
       }
 
-      // Best 2 metric combinations to keep API calls minimal and rapid
-      const metricGroups = isVideoOrReel
-        ? ['views,reach,saved,shares', 'reach,saved']
-        : ['impressions,reach,saved,shares', 'reach,saved'];
+      // Most complete group first; narrower groups when a metric is not offered for this media type.
+      void isVideoOrReel;
+      const metricGroups = ['views,reach,saved,shares', 'reach,saved,shares', 'reach'];
 
       for (const metrics of metricGroups) {
         if (!insightsSupported) break;
@@ -439,35 +441,15 @@ export class InstagramClient extends MetaClient {
                   ? m.total_value.value
                   : (typeof m.values?.[0]?.value === 'number' ? m.values[0].value : (typeof m.value === 'number' ? m.value : 0));
 
-                if (m.name === 'views') {
-                  views = val;
-                  hasRealInsights = true;
-                }
-                if (m.name === 'plays') {
-                  if (views === 0) views = val;
-                  hasRealInsights = true;
-                }
-                if (m.name === 'impressions') {
-                  impressions = val;
-                  if (views === 0) views = val;
-                  hasRealInsights = true;
-                }
-                if (m.name === 'reach') {
-                  reach = val;
-                  hasRealInsights = true;
-                }
-                if (m.name === 'saved') {
-                  saved = val;
-                  hasRealInsights = true;
-                }
-                if (m.name === 'shares') {
-                  shares = val;
-                  hasRealInsights = true;
-                }
+                // `plays` is Instagram's older name for reel views. Impressions are a different measure and are never used as views.
+                if (m.name === 'views' || m.name === 'plays') { views = val; measured.add('views'); }
+                if (m.name === 'impressions') { impressions = val; measured.add('impressions'); }
+                if (m.name === 'reach') { reach = val; measured.add('reach'); }
+                if (m.name === 'saved') { saved = val; measured.add('saved'); }
+                if (m.name === 'shares') { shares = val; measured.add('shares'); }
+                hasRealInsights = true;
               }
-              if (views > 0 || reach > 0) {
-                break;
-              }
+              break;
             }
           }
         } catch {
@@ -475,7 +457,7 @@ export class InstagramClient extends MetaClient {
         }
       }
 
-      return { views, reach, impressions, saved, shares, hasRealInsights };
+      return { views, reach, impressions, saved, shares, hasRealInsights, measured };
     };
 
     // Process all items in concurrent batches of 10
@@ -497,42 +479,30 @@ export class InstagramClient extends MetaClient {
             childMedia?.media_url ||
             '';
 
-          // Check if we already have verified insights in existingMediaMap
+          // Reuse already-verified numbers only for posts older than 30 days that were stored by this
+          // version (they carry `missingMetrics`); newer posts get fresh insights on every sync.
           const existing = existingMediaMap?.get(item.id) || existingMediaMap?.get(`ig_${item.id}`);
-          let views = (existing && existing.views > 0) ? existing.views : 0;
-          let reach = (existing && existing.reach > 0) ? existing.reach : 0;
-          let shares = (existing && existing.shares > 0) ? existing.shares : 0;
+          const ageDays = item.timestamp ? (Date.now() - Date.parse(item.timestamp)) / 86_400_000 : Infinity;
+          const reuse = Boolean(existing && Array.isArray(existing.missingMetrics) && ageDays > 30);
 
-          if (views === 0) {
-            // Retrieve live verified insights for new or unmeasured item
+          let views = 0;
+          let reach = 0;
+          let shares = 0;
+          const missingInsights: string[] = [];
+          if (reuse && existing) {
+            views = existing.views;
+            reach = existing.reach;
+            shares = existing.shares;
+            for (const m of existing.missingMetrics ?? []) if (['views', 'reach', 'shares', 'engagementRate'].includes(m)) missingInsights.push(m);
+          } else {
             const insights = await fetchItemInsights(item.id, isReel);
             views = insights.views;
             reach = insights.reach;
-            shares = insights.shares || insights.saved;
-          }
-
-          // If views was not directly provided by insights but reach was, use reach
-          if (views === 0 && reach > 0) {
-            views = reach;
-          }
-
-          // If insights could not be retrieved from Meta (e.g. token without instagram_manage_insights,
-          // or post in 48-hour processing window), derive realistic, statistically grounded counts
-          // based on the verified likes and comments rather than presenting inaccurate 0 views:
-          if (views === 0 && interactions > 0) {
-            // High-precision benchmark: Reels average 3.5% engagement (views ~ 28x interactions),
-            // Carousels average 4.2% engagement (views ~ 24x interactions),
-            // Posts average 3.8% engagement (views ~ 26x interactions).
-            const multiplier = isReel ? 28 : (isCarousel ? 24 : 26);
-            views = Math.round(interactions * multiplier);
-            reach = Math.round(views * 0.88);
-            if (shares === 0) {
-              shares = Math.max(1, Math.round(likes * 0.08));
-            }
-          } else if (views === 0 && reach === 0) {
-            const baseReach = Math.max(25, Math.round((accountInfo?.followersCount || 300) * 0.08));
-            reach = baseReach;
-            views = isReel ? Math.round(baseReach * 1.35) : baseReach;
+            shares = insights.shares;
+            // Anything Instagram did not return stays unavailable: never estimated, never borrowed from another metric.
+            if (!insights.measured.has('views')) missingInsights.push('views');
+            if (!insights.measured.has('reach')) missingInsights.push('reach');
+            if (!insights.measured.has('shares')) missingInsights.push('shares');
           }
 
           let contentType: NormalizedMedia['contentType'] = 'post';
@@ -542,9 +512,10 @@ export class InstagramClient extends MetaClient {
             contentType = 'carousel';
           }
 
-          // Accurate engagement rate calculation: (interactions / reach) * 100 or (interactions / views) * 100
-          const divisor = reach > 0 ? reach : (views > 0 ? views : Math.max(100, interactions * 10));
+          // Engagement rate = interactions / reach (or / views) × 100, only when that denominator was measured.
+          const divisor = !missingInsights.includes('reach') && reach > 0 ? reach : !missingInsights.includes('views') && views > 0 ? views : 0;
           const engagementRate = divisor > 0 ? Number(((interactions / divisor) * 100).toFixed(2)) : 0;
+          if (divisor === 0 && !missingInsights.includes('engagementRate')) missingInsights.push('engagementRate');
 
           let tier: PerformanceTier = 'Average';
           if (engagementRate > 5.5 || interactions > 250 || views > 10000) tier = 'Strong';
@@ -588,7 +559,7 @@ export class InstagramClient extends MetaClient {
               ],
             },
             isDemo: false,
-            missingMetrics: [...(typeof item.like_count === 'number' ? [] : ['likes']), ...(typeof item.comments_count === 'number' ? [] : ['comments'])],
+            missingMetrics: [...(typeof item.like_count === 'number' ? [] : ['likes']), ...(typeof item.comments_count === 'number' ? [] : ['comments']), ...missingInsights],
           };
         })
       );

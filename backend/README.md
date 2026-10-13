@@ -50,6 +50,7 @@ Optional feature groups (Gemini, R2, SMTP, each OAuth provider) must be **all se
 | `SYNC_WORKER_POLL_MS` | yes | Worker poll interval |
 | `JOBS_TRIGGER_SECRET` | no | Enables `POST /api/v1/internal/jobs/run` for an external scheduler (Render Cron Job) |
 | `AI_TIMEOUT_MS`, `AI_MAX_INPUT_CHARS`, `AI_CACHE_TTL_HOURS` | yes | AI limits and cache lifetime |
+| `CONTENT_ANALYSIS_TIMEOUT_MS`, `CONTENT_ANALYSIS_MAX_MEDIA_MB`, `CONTENT_ANALYSIS_STALE_HOURS` | yes | Six-point content analysis: time allowed per analysis (videos need ~1–3 min), largest image/video downloaded, and how long a saved analysis stays fresh |
 | `GEMINI_API_KEY`, `GEMINI_MODEL` | group | Both or neither |
 | `FILE_MAX_BYTES`, `FILE_ALLOWED_MIME_TYPES`, `FILE_PRESIGNED_URL_TTL_SECONDS` | yes | Upload limits (allowed: jpeg, png, webp, gif, pdf, mp4, csv, txt) |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` (+ optional `R2_PUBLIC_BASE_URL`) | group | Cloudflare R2 |

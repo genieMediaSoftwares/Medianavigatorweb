@@ -24,3 +24,6 @@ intelligenceRouter.post('/analyze-item', aiLimiter, validate({ body: v.item }), 
 intelligenceRouter.post('/diagnose-post', aiLimiter, validate({ body: v.diagnose }), c.diagnose);
 intelligenceRouter.post('/analyze-video', aiLimiter, validate({ body: v.item }), c.analyzeVideo);
 intelligenceRouter.post('/compare', validate({ body: v.compare }), c.compare);
+// Six-point content analysis (deep / why_top / why_bottom) over the real media, saved per post.
+intelligenceRouter.post('/content-analysis', aiLimiter, validate({ body: v.contentAnalysis }), c.contentAnalysis);
+intelligenceRouter.get('/content-analysis', validate({ query: v.contentAnalysisQuery }), c.savedContentAnalysis);

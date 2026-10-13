@@ -97,6 +97,10 @@ const schema = z.object({
   AI_TIMEOUT_MS: int('AI_TIMEOUT_MS', 1000),
   AI_MAX_INPUT_CHARS: int('AI_MAX_INPUT_CHARS', 100),
   AI_CACHE_TTL_HOURS: int('AI_CACHE_TTL_HOURS', 1),
+  // Deep content analysis (real image/video understanding)
+  CONTENT_ANALYSIS_TIMEOUT_MS: int('CONTENT_ANALYSIS_TIMEOUT_MS', 10000),
+  CONTENT_ANALYSIS_MAX_MEDIA_MB: int('CONTENT_ANALYSIS_MAX_MEDIA_MB', 1),
+  CONTENT_ANALYSIS_STALE_HOURS: int('CONTENT_ANALYSIS_STALE_HOURS', 1),
   GEMINI_API_KEY: optionalText,
   GEMINI_MODEL: optionalText,
 
@@ -236,6 +240,11 @@ export function buildConfig(source: Record<string, string | undefined>) {
       timeoutMs: raw.AI_TIMEOUT_MS,
       maxInputChars: raw.AI_MAX_INPUT_CHARS,
       cacheTtlHours: raw.AI_CACHE_TTL_HOURS,
+      contentAnalysis: {
+        timeoutMs: raw.CONTENT_ANALYSIS_TIMEOUT_MS,
+        maxMediaBytes: raw.CONTENT_ANALYSIS_MAX_MEDIA_MB * 1024 * 1024,
+        staleHours: raw.CONTENT_ANALYSIS_STALE_HOURS,
+      },
     },
     storage: {
       maxFileBytes: raw.FILE_MAX_BYTES,
