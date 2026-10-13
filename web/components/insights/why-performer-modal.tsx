@@ -22,7 +22,17 @@ export function WhyPerformerModal({ open, onOpenChange, item, type, onOpenFullDe
   const qc = useQueryClient();
   const me = useMe();
   // Reset preflight state whenever the modal closes/opens or the post changes.
-  useEffect(() => { if (open) void qc.invalidateQueries({ queryKey: qk.me }); else { setRun(false); void qc.removeQueries({ queryKey: ['diagnose-video-evidence-v1', item?.mediaId] }); } }, [open, item?.mediaId, qc]);
+  useEffect(() => {
+    if (open) {
+      void qc.invalidateQueries({ queryKey: qk.me });
+      return;
+    }
+
+    void qc.removeQueries({ queryKey: ['diagnose-video-evidence-v1', item?.mediaId] });
+    const id = setTimeout(() => setRun(false), 0);
+
+    return () => clearTimeout(id);
+  }, [open, qc, item?.mediaId]);
   useEffect(() => { if (query.data) void qc.invalidateQueries({ queryKey: qk.me }); }, [query.data, qc]);
   if (!item) return null;
   const data = query.data;
