@@ -2,15 +2,15 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query';
 import {
-  AlertTriangle, ArrowRight, Bot, ChevronDown, ChevronRight, Database,
+  AlertTriangle, Bot, ChevronDown, ChevronRight, Database,
   FileText, Flame, Layers, RefreshCw, Send, Sparkles, TrendingUp, Trophy, Video
 } from 'lucide-react';
-import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { EmptyState, ErrorState } from '@/components/ui/states';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PlatformTile } from '@/components/ui/platform-logo';
@@ -81,63 +81,35 @@ export function InsightsView() {
   const patternsCount = patterns.data?.length ?? 0;
 
   const tabs = [
-    { id: 'full_archive' as TabId, label: `Full Archive Audit (${archiveCount})`, icon: Database },
-    { id: 'whats_working' as TabId, label: `What's Working (${workingCount})`, icon: Trophy },
-    { id: 'needs_attention' as TabId, label: `Needs Attention (${attentionCount})`, icon: AlertTriangle },
-    { id: 'executive_insights' as TabId, label: `Executive Insights (${executiveCount})`, icon: Sparkles },
-    { id: 'format_patterns' as TabId, label: `Format Patterns (${patternsCount})`, icon: Layers },
+    { id: 'full_archive' as TabId, label: 'Overview', count: archiveCount, icon: Database },
+    { id: 'whats_working' as TabId, label: 'Top posts', count: workingCount, icon: Trophy },
+    { id: 'needs_attention' as TabId, label: 'Needs work', count: attentionCount, icon: AlertTriangle },
+    { id: 'executive_insights' as TabId, label: 'Key takeaways', count: executiveCount, icon: Sparkles },
+    { id: 'format_patterns' as TabId, label: 'Formats', count: patternsCount, icon: Layers },
   ];
 
   return (
     <div className="space-y-6 animate-fade">
-      {/* Top Header Section */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-ink">AI Intelligence & Performance</h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Verified Data Engine
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-muted">
-            Performance analysis across your synced posts. Open Content Library to browse every imported post.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Link
-            href="/posts"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 text-xs font-semibold text-ink hover:bg-brand-50 hover:border-brand-200 transition-colors"
-          >
-            Content library <ArrowRight className="h-3.5 w-3.5 text-subtle" />
-          </Link>
-          <Link
-            href="/best-times"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line bg-surface px-3.5 text-xs font-semibold text-ink hover:bg-brand-50 hover:border-brand-200 transition-colors"
-          >
-            Timing matrix <ArrowRight className="h-3.5 w-3.5 text-subtle" />
-          </Link>
-        </div>
-      </div>
+      <PageHeader title="Insights" subtitle="What is working, what needs attention, and what to try next, based on your own posts." />
 
-      {/* Pill Navigation Tabs */}
-      <div className="no-print overflow-x-auto custom-scroll pb-1">
-        <div className="inline-flex items-center gap-1.5 rounded-2xl border border-line bg-surface/80 p-1.5 backdrop-blur-sm min-w-max">
+      <div className="no-print overflow-x-auto custom-scroll pb-1" role="tablist" aria-label="Insights sections">
+        <div className="inline-flex items-center gap-1.5 rounded-2xl border border-line bg-surface/80 p-1.5 min-w-max">
           {tabs.map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
             return (
               <button
                 key={t.id}
+                role="tab"
+                aria-selected={active}
                 onClick={() => setTab(t.id)}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all ${
-                  active
-                    ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30'
-                    : 'text-muted hover:bg-brand-50 hover:text-ink'
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+                  active ? 'bg-brand-600 text-white shadow-sm shadow-brand-600/30' : 'text-muted hover:bg-brand-50 hover:text-ink'
                 }`}
               >
-                <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-subtle'}`} />
+                <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-subtle'}`} aria-hidden="true" />
                 <span>{t.label}</span>
+                {t.count > 0 && <span className={`rounded-full px-1.5 text-xs ${active ? 'bg-white/20' : 'bg-brand-50 text-brand-700'}`}>{t.count}</span>}
               </button>
             );
           })}
@@ -236,21 +208,16 @@ function AskMediaNavigatorSection() {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-brand-400">
-              ASK MEDIA NAVIGATOR
-            </span>
-            <span className="text-xs text-subtle">· Real-time Gemini AI Engine</span>
+            <span className="text-sm font-bold text-ink">Ask about your posts</span>
           </div>
-          <p className="text-xs text-muted mt-0.5">
-            Real-time answers synthesized directly from your verified channel history
-          </p>
+          <p className="text-xs text-muted mt-0.5">Get an answer based on your own post history.</p>
 
           <form onSubmit={handleAsk} className="mt-3 flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="e.g. Which posts generated the highest verified views and what opening patterns worked?"
+              placeholder="e.g. Which posts got the most views, and how did they start?"
               className="flex-1 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm text-ink placeholder:text-subtle focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
             />
             <Button
@@ -269,10 +236,10 @@ function AskMediaNavigatorSection() {
               <div className="flex items-center justify-between gap-2 border-b border-line pb-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-brand-500" />
-                  <span className="text-xs font-bold text-ink">AI Synthesis</span>
+                  <span className="text-xs font-bold text-ink">Answer</span>
                 </div>
                 <Badge tone="brand">
-                  {ask.data.ai.status === 'cached' ? 'Cached Analysis' : 'Live Gemini 3.5'}
+                  {ask.data.ai.status === 'cached' ? 'Saved answer' : 'New answer'}
                 </Badge>
               </div>
               <p className="text-sm font-medium text-ink leading-relaxed">{ask.data.answer}</p>

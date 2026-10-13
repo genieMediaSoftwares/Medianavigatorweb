@@ -19,7 +19,9 @@ export const mediaService = {
     const pageRows = rows.slice(0, limit);
     const last = pageRows[pageRows.length - 1] as ContentItemDoc | undefined;
     const lastPubTime = last ? (last.publishedAt instanceof Date ? last.publishedAt.getTime() : new Date(last.publishedAt).getTime()) : 0;
+    const total = cur ? undefined : await mediaRepository.countForFeed(uid, live.map((a) => a._id), q.platform && q.platform !== 'all' ? q.platform : undefined);
     return {
+      ...(total !== undefined ? { total } : {}),
       items: pageRows.map(toNormalized),
       nextCursor: rows.length > limit && last ? encodeCursor({ t: lastPubTime, id: String(last._id) }) : null,
       limit,

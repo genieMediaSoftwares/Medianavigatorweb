@@ -242,25 +242,25 @@ export class InstagramClient extends MetaClient {
 
       while (currentUrl && page < maxPages) {
         page++;
-        try {
-          const res: Response = await httpFetch(currentUrl, {
-            headers: { 'Authorization': `Bearer ${effectiveToken}` },
-          });
-          if (!res.ok) break;
-
-          const json: any = await res.json();
-          if (json.data && Array.isArray(json.data)) {
-            items.push(...json.data);
-          }
-
-          if (json.paging?.next) {
-            currentUrl = json.paging.next;
-          } else {
-            currentUrl = null;
-          }
-        } catch {
-          break;
+        // A failed page used to end the listing silently, dropping every later post. Retry it, and with smaller pages
+        // (Instagram rejects large nested-field pages with "reduce the amount of data") before giving up.
+        let json: any = null;
+        let url: string = currentUrl;
+        for (let attempt = 0; attempt < 4 && !json; attempt++) {
+          try {
+            const res: Response = await httpFetch(url, { headers: { 'Authorization': `Bearer ${effectiveToken}` } });
+            if (res.ok) { json = await res.json(); break; }
+            const status = res.status;
+            if (status === 400 || status === 500) {
+              const limit = Number(new URL(url).searchParams.get('limit') ?? 0);
+              if (limit > 10) { const u = new URL(url); u.searchParams.set('limit', String(Math.max(10, Math.floor(limit / 2)))); url = u.toString(); }
+            } else if (status === 401 || status === 403) break;
+          } catch { /* network blip: retry */ }
+          await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         }
+        if (!json) break;
+        if (json.data && Array.isArray(json.data)) items.push(...json.data);
+        currentUrl = json.paging?.next ?? null;
       }
       return items;
     };
