@@ -6,9 +6,14 @@ import { connectionRepository } from '../../repositories/connection.repository.j
 import type { ProviderCredentials } from '../../integrations/types.js';
 import { AiFailedError } from './geminiClient.js';
 
-export type VideoInput = { blob: Blob } | { youtubeUrl: string };
+/** `fps` is how many frames per second Gemini samples; omitted = provider default. */
+export type VideoInput = ({ blob: Blob } | { youtubeUrl: string }) & { fps?: number };
 const failure = (message: string) => new AiFailedError(message, 'provider_error');
 const MAX_BYTES = 100 * 1024 * 1024;
+const DOWNLOAD_TIMEOUT_MS = 120_000;
+
+/** MP4/MOV containers start with an `ftyp` box at byte 4. Anything else (an HTML error page, a truncated body) is not a playable video. */
+export const looksLikeMp4 = (bytes: Uint8Array) => bytes.length > 12 && String.fromCharCode(bytes[4], bytes[5], bytes[6], bytes[7]) === 'ftyp';
 
 export function isVideoCdn(url: URL): boolean {
   return url.protocol === 'https:' && !url.username && !url.password && (!url.port || url.port === '443')
@@ -18,7 +23,7 @@ export function isVideoCdn(url: URL): boolean {
 /** Download only provider-owned video CDNs, never a user-supplied arbitrary host. */
 export async function downloadVideo(source: string): Promise<Blob> {
   let url = new URL(source);
-  const signal = AbortSignal.timeout(30_000);
+  const signal = AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS);
   for (let redirects = 0; redirects <= 3; redirects++) {
     if (!isVideoCdn(url)) throw failure('The platform did not provide a supported video file URL. Sync this post again.');
     const response = await fetch(url, { redirect: 'manual', signal });
@@ -30,7 +35,7 @@ export async function downloadVideo(source: string): Promise<Blob> {
       continue;
     }
     const mimeType = response.headers.get('content-type')?.split(';')[0] ?? '';
-    if (!response.ok || !mimeType.startsWith('video/') || !response.body) {
+    if (!response.ok || !(mimeType.startsWith('video/') || mimeType === 'application/octet-stream') || !response.body) {
       await response.body?.cancel();
       throw failure('The video file is unavailable or expired. Sync the account and retry.');
     }
@@ -51,7 +56,9 @@ export async function downloadVideo(source: string): Promise<Blob> {
       }
     } finally { await reader.cancel(); }
     if (!size) throw failure('The platform returned an empty video file.');
-    return new Blob([Buffer.concat(chunks)], { type: mimeType });
+    const bytes = Buffer.concat(chunks);
+    if (!looksLikeMp4(bytes)) throw failure('The platform returned a file that is not a valid MP4 video. Sync the account and retry.');
+    return new Blob([bytes], { type: 'video/mp4' });
   }
   throw failure('The video download redirected too many times. Sync the account and retry.');
 }
