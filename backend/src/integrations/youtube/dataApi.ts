@@ -139,49 +139,12 @@ export class YouTubeDataApi {
       return this.formatChannelItem(data.items[0]);
     }
 
-    // Handle case when queryInput is NOT provided (Handle is optional when using API Key)
+    // No channel given. A Google sign-in token can say which channel it belongs to (handled above); an API key cannot.
+    // Never guess a channel (for example from the "most popular" chart): that would show someone else's videos.
     if (!queryInput || !queryInput.trim()) {
-      if (apiKey) {
-        // Query Google YouTube Data API for top trending / popular video chart to auto-discover active channel
-        try {
-          const chartUrl = new URL(`${this.API_BASE}/videos`);
-          chartUrl.searchParams.set('part', 'snippet,statistics,contentDetails');
-          chartUrl.searchParams.set('chart', 'mostPopular');
-          chartUrl.searchParams.set('regionCode', 'US');
-          chartUrl.searchParams.set('maxResults', '5');
-          this.appendAuth(chartUrl, apiKey);
-
-          const chartRes = await httpFetch(chartUrl.toString(), { headers: this.getHeaders(accessToken) });
-          const chartData = await chartRes.json();
-
-          if (chartRes.ok && chartData.items && chartData.items.length > 0) {
-            const topVideo = chartData.items[0];
-            const channelId = topVideo.snippet?.channelId;
-            if (channelId) {
-              const channel = await this.lookupChannelById(channelId, credentials);
-              if (channel) {
-                return channel;
-              }
-            }
-
-            return {
-              id: topVideo.snippet?.channelId || 'chart_channel',
-              title: topVideo.snippet?.channelTitle || 'YouTube Creator Channel',
-              description: 'Active YouTube channel synchronized directly via YouTube Data API v3.',
-              customUrl: `@${(topVideo.snippet?.channelTitle || 'YouTubeCreator').replace(/[^a-zA-Z0-9_]/g, '')}`,
-              thumbnailUrl: topVideo.snippet?.thumbnails?.medium?.url || topVideo.snippet?.thumbnails?.high?.url || topVideo.snippet?.thumbnails?.default?.url,
-              uploadsPlaylistId: 'chart_popular',
-            };
-          }
-        } catch {
-          // Fall through to error
-        }
-      }
-
-      if (accessToken) {
-        throw new Error('Please provide your YouTube Channel Handle (e.g. @YourChannel) or channel link.');
-      }
-      throw new Error('Please enter your YouTube Channel Handle (e.g. @YourChannel), custom URL, or video link so Media Navigator can analyze your channel uploads.');
+      throw new Error(accessToken
+        ? 'Please provide your YouTube channel handle (for example @YourChannel) or channel link.'
+        : 'An API key cannot tell us which channel is yours. Enter your channel handle (for example @YourChannel) or channel link, or connect with Google sign-in instead.');
     }
 
     const parsed = this.parseChannelInput(queryInput);
@@ -356,71 +319,43 @@ export class YouTubeDataApi {
 
     // Resolve uploads playlist ID: either passed in or derived from channelId (UC... -> UU...)
     let playlistId = uploadsPlaylistId;
-    if ((!playlistId || playlistId === 'chart_popular') && credentials.channelId?.startsWith('UC')) {
-      playlistId = 'UU' + credentials.channelId.slice(2);
-    }
-
-    // If playlist is chart_popular (auto-discovery mode with API key), fetch real live videos directly via videos?chart=mostPopular
-    if (uploadsPlaylistId === 'chart_popular' || playlistId === 'chart_popular') {
-      try {
-        const chartVideosUrl = new URL(`${this.API_BASE}/videos`);
-        chartVideosUrl.searchParams.set('part', 'snippet,statistics,contentDetails');
-        chartVideosUrl.searchParams.set('chart', 'mostPopular');
-        chartVideosUrl.searchParams.set('regionCode', 'US');
-        chartVideosUrl.searchParams.set('maxResults', '50');
-        this.appendAuth(chartVideosUrl, apiKey);
-
-        const chartRes = await httpFetch(chartVideosUrl.toString(), { headers: this.getHeaders(accessToken) });
-        const chartData = await chartRes.json();
-        if (chartRes.ok && chartData.items && Array.isArray(chartData.items) && chartData.items.length > 0) {
-          return this.convertYouTubeItemsToNormalizedMedia(chartData.items);
-        }
-      } catch {
-        // Continue
-      }
-    }
+    if (!playlistId && credentials.channelId?.startsWith('UC')) playlistId = 'UU' + credentials.channelId.slice(2);
 
     const allVideoIds: string[] = [];
 
-    // Attempt 1: Fetch via playlistItems
-    if (playlistId && playlistId !== 'chart_popular') {
-      try {
-        let nextPageToken: string | undefined = undefined;
-        let page = 0;
-        const maxPages = config.providers.maxPages;
+    // Attempt 1: the channel's uploads playlist. Every page is followed to the end (the old cap silently dropped older
+    // videos). A failure on the first page is a real problem (quota, permission, bad key) and is reported, not hidden;
+    // a later page that still fails after retries leaves the list partial, which the sync reports by comparing counts.
+    const seen = new Set<string>();
+    if (playlistId) {
+      let nextPageToken: string | undefined;
+      let page = 0;
+      const pageCap = Math.max(config.providers.maxPages, 400);
+      do {
+        page++;
+        const playlistUrl = new URL(`${this.API_BASE}/playlistItems`);
+        playlistUrl.searchParams.set('part', 'snippet,contentDetails');
+        playlistUrl.searchParams.set('playlistId', playlistId);
+        playlistUrl.searchParams.set('maxResults', '50');
+        if (nextPageToken) playlistUrl.searchParams.set('pageToken', nextPageToken);
+        this.appendAuth(playlistUrl, apiKey);
 
-        do {
-          page++;
-          const playlistUrl = new URL(`${this.API_BASE}/playlistItems`);
-          playlistUrl.searchParams.set('part', 'snippet,contentDetails');
-          playlistUrl.searchParams.set('playlistId', playlistId);
-          playlistUrl.searchParams.set('maxResults', '50');
-          if (nextPageToken) {
-            playlistUrl.searchParams.set('pageToken', nextPageToken);
-          }
-          this.appendAuth(playlistUrl, apiKey);
-
-          const playlistRes = await httpFetch(playlistUrl.toString(), { headers: this.getHeaders(accessToken) });
-          const playlistData = await playlistRes.json();
-
-          if (!playlistRes.ok || playlistData.error) {
-            break;
-          }
-
-          if (playlistData.items && Array.isArray(playlistData.items)) {
-            for (const it of playlistData.items) {
-              const vId = it.contentDetails?.videoId || it.snippet?.resourceId?.videoId;
-              if (vId && !allVideoIds.includes(vId)) {
-                allVideoIds.push(vId);
-              }
-            }
-          }
-
-          nextPageToken = playlistData.nextPageToken;
-        } while (nextPageToken && page < maxPages);
-      } catch {
-        // Continue to search fallback
-      }
+        let data: any;
+        try {
+          const res = await httpFetch(playlistUrl.toString(), { headers: this.getHeaders(accessToken) });
+          data = await res.json();
+          if (!res.ok || data.error) throw new Error(data.error?.message || `YouTube returned HTTP ${res.status}`);
+        } catch (err) {
+          const notFoundOrEmpty = err instanceof Error && /playlistNotFound|not be found/i.test(err.message);
+          if (page === 1 && !notFoundOrEmpty) throw new Error(`YouTube would not list this channel's videos: ${err instanceof Error ? err.message : 'unknown error'}`);
+          break;
+        }
+        for (const it of data.items ?? []) {
+          const vId = it.contentDetails?.videoId || it.snippet?.resourceId?.videoId;
+          if (vId && !seen.has(vId)) { seen.add(vId); allVideoIds.push(vId); }
+        }
+        nextPageToken = data.nextPageToken;
+      } while (nextPageToken && page < pageCap);
     }
 
     // Attempt 2: Fallback to search if playlistItems yielded nothing
@@ -469,7 +404,10 @@ export class YouTubeDataApi {
       const videosRes = await httpFetch(videosUrl.toString(), { headers: this.getHeaders(accessToken) });
       const videosData = await videosRes.json();
 
-      if (!videosRes.ok || !videosData.items) continue;
+      if (!videosRes.ok || !videosData.items) {
+        if (i === 0) throw new Error(`YouTube would not return video details: ${videosData?.error?.message || `HTTP ${videosRes.status}`}`);
+        continue;
+      }
 
       normalizedList.push(...this.convertYouTubeItemsToNormalizedMedia(videosData.items));
     }
@@ -522,9 +460,10 @@ export class YouTubeDataApi {
           status: tier,
         },
         views,
-        reach: views,
+        // YouTube's public API gives no reach or share counts; leave them at 0 (reported as unavailable) instead of inventing them.
+        reach: 0,
         engagementRate,
-        shares: Math.round(likes * 0.15),
+        shares: 0,
         likes,
         comments,
         explanation: {

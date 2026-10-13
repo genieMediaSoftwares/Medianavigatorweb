@@ -65,7 +65,7 @@ export function InsightsView() {
       <PageHeader title="Insights" subtitle="What is working, what to try next, and when to post, based on your own posts." />
 
       <div className="no-print overflow-x-auto custom-scroll pb-1" role="tablist" aria-label="Insights sections">
-        <div className="inline-flex items-center gap-1.5 rounded-2xl border border-line bg-surface/80 p-1.5 min-w-max">
+        <div className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-surface/80 p-1.5 min-w-max">
           {tabs.map((t) => {
             const Icon = t.icon;
             const active = activeTab === t.id;
@@ -137,7 +137,7 @@ function AskMediaNavigatorSection() {
   };
 
   return (
-    <Card className="p-5 bg-gradient-to-br from-brand-50/50 via-surface to-surface border-brand-100 dark:border-line">
+    <Card className="p-5 bg-brand-50/50 border-brand-100 dark:border-line">
       <div className="flex items-start gap-3.5">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-white shadow-xs">
           <Bot className="h-5 w-5" />
@@ -215,13 +215,13 @@ function FullArchiveAuditView({
   if (loading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-32 rounded-2xl" />
+        <Skeleton className="h-32 rounded-xl" />
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
         </div>
-        <Skeleton className="h-64 rounded-2xl" />
+        <Skeleton className="h-64 rounded-xl" />
       </div>
     );
   }
@@ -246,7 +246,7 @@ function FullArchiveAuditView({
   return (
     <div className="space-y-6">
       {/* Archive Header Banner */}
-      <Card className="p-6 bg-gradient-to-r from-brand-50 via-brand-100 to-surface text-ink overflow-hidden relative shadow-card">
+      <Card className="p-6 bg-brand-50 text-ink overflow-hidden relative">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
           <div className="space-y-2 max-w-3xl">
             <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-ink">
@@ -319,7 +319,7 @@ function FullArchiveAuditView({
           {archive.formats.map((f) => (
             <div
               key={f.format}
-              className={`rounded-2xl border p-5 transition-all ${
+              className={`rounded-xl border p-5 transition-all ${
                 f.isTopFormat
                   ? 'border-emerald-500/40 bg-emerald-50/20 dark:bg-emerald-950/20 shadow-xs'
                   : 'border-line bg-surface'
@@ -383,7 +383,7 @@ function ExecutiveInsightsView({
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-44 rounded-2xl" />
+          <Skeleton key={i} className="h-44 rounded-xl" />
         ))}
       </div>
     );
@@ -508,7 +508,7 @@ function FormatPatternsView({
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {[1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-44 rounded-2xl" />
+          <Skeleton key={i} className="h-44 rounded-xl" />
         ))}
       </div>
     );

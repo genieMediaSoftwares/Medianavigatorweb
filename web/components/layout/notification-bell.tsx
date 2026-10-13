@@ -28,7 +28,7 @@ export function NotificationBell() {
         {count > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-600 px-1 text-[11px] font-bold text-white tabular">{count > 99 ? '99+' : count}</span>}
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="end" sideOffset={8} className="z-50 w-[min(380px,calc(100vw-32px))] rounded-2xl border border-line bg-surface shadow-[var(--shadow-pop)] animate-rise">
+        <Popover.Content align="end" sideOffset={8} className="z-50 w-[min(380px,calc(100vw-32px))] rounded-xl border border-line bg-surface shadow-[var(--shadow-pop)] animate-rise">
           <div className="flex items-center justify-between border-b border-line px-4 py-3">
             <p className="font-display text-base font-bold text-ink">Notifications</p>
             <button onClick={() => readAll.mutate()} disabled={count === 0 || readAll.isPending} className="text-sm font-semibold text-brand-600 disabled:text-subtle">Mark all read</button>

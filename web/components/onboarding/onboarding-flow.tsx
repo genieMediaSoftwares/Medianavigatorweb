@@ -68,7 +68,7 @@ export function OnboardingFlow() {
       <div className="my-auto py-10">
         <div className="mb-8">
           <div className="mb-2 flex items-center justify-between text-sm font-semibold"><span className="text-brand-600">Step {step} of 2</span><span className="text-subtle">{step === 1 ? 'About you' : 'Connect an account'}</span></div>
-          <div className="h-2 overflow-hidden rounded-full bg-brand-100" role="progressbar" aria-valuemin={1} aria-valuemax={2} aria-valuenow={step}><div className="h-full rounded-full transition-all duration-300" style={{ width: step === 1 ? '50%' : '100%', background: 'var(--gradient)' }} /></div>
+          <div className="h-2 overflow-hidden rounded-full bg-brand-100" role="progressbar" aria-valuemin={1} aria-valuemax={2} aria-valuenow={step}><div className="h-full rounded-full bg-brand-600 transition-all duration-300" style={{ width: step === 1 ? '50%' : '100%' }} /></div>
         </div>
 
         {step === 1 ? (
@@ -93,7 +93,7 @@ export function OnboardingFlow() {
                 const live = connected.some((c) => c.platform === p);
                 return (
                   <button key={p} onClick={() => !live && setConnecting(p)} aria-label={live ? `${PLATFORM_NAME[p]} is connected` : `Connect ${PLATFORM_NAME[p]}`}
-                    className={cn('flex h-20 items-center gap-4 rounded-2xl border p-4 text-left transition-colors', live ? 'border-good bg-good-bg' : 'border-line-strong bg-surface hover:border-brand-500 hover:bg-brand-50')}>
+                    className={cn('flex h-20 items-center gap-4 rounded-xl border p-4 text-left transition-colors', live ? 'border-good bg-good-bg' : 'border-line-strong bg-surface hover:border-brand-500 hover:bg-brand-50')}>
                     <PlatformTile platform={p} size="lg" />
                     <span className="flex-1"><span className="block font-display text-base font-bold text-ink">{PLATFORM_NAME[p]}</span><span className="block text-[13px] text-muted">{live ? 'Connected' : 'Tap to connect'}</span></span>
                     {live && <CheckCircle2 className="h-6 w-6 text-good" aria-hidden="true" />}

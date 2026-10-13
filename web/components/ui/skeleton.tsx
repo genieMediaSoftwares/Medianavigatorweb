@@ -6,7 +6,7 @@ export const Skeleton = ({ className }: { className?: string }) => <div aria-hid
 export function StatRowSkeleton({ count = 3 }: { count?: number }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" role="status" aria-label="Loading">
-      {Array.from({ length: count }, (_, i) => <Skeleton key={i} className="h-32 rounded-2xl" />)}
+      {Array.from({ length: count }, (_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
     </div>
   );
 }
@@ -15,8 +15,8 @@ export function PageSkeleton() {
   return (
     <div className="space-y-6" role="status" aria-label="Loading">
       <StatRowSkeleton />
-      <Skeleton className="h-72 rounded-2xl" />
-      <Skeleton className="h-48 rounded-2xl" />
+      <Skeleton className="h-72 rounded-xl" />
+      <Skeleton className="h-48 rounded-xl" />
     </div>
   );
 }

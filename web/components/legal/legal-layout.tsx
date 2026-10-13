@@ -4,7 +4,7 @@ import { Wordmark } from '@/components/brand/logo';
 
 export function Operator() {
   return (
-    <div className="my-8 rounded-2xl border-2 border-dashed border-brand-200 bg-brand-50 p-5 text-[15px]">
+    <div className="my-8 rounded-xl border-2 border-dashed border-brand-200 bg-brand-50 p-5 text-[15px]">
       <p className="font-semibold text-ink">Operator: [to be added by the owner]</p>
       <p className="mt-1 font-semibold text-ink">Contact: [to be added by the owner]</p>
     </div>

@@ -11,7 +11,7 @@ export function Modal({ open, onOpenChange, title, description, children, classN
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-50 bg-[rgba(2,16,54,0.5)] backdrop-blur-[2px] animate-fade" />
-        <RadixDialog.Content className={cn('fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-surface p-6 shadow-[var(--shadow-pop)] animate-rise focus:outline-none', className)}>
+        <RadixDialog.Content className={cn('fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[calc(100%-32px)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-xl bg-surface p-6 shadow-[var(--shadow-pop)] animate-rise focus:outline-none', className)}>
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <RadixDialog.Title className="font-display text-xl font-bold text-ink">{title}</RadixDialog.Title>

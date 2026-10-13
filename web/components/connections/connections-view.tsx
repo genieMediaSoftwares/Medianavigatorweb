@@ -111,7 +111,7 @@ export function ConnectionsView() {
   const by = (p: Platform) => data?.find((c) => c.platform === p);
   const liveCount = (data ?? []).filter((c) => c.connected).length;
 
-  if (isLoading) return <div className="grid gap-6 lg:grid-cols-2">{PLATFORMS.map((p) => <Skeleton key={p} className="h-64 rounded-2xl" />)}</div>;
+  if (isLoading) return <div className="grid gap-6 lg:grid-cols-2">{PLATFORMS.map((p) => <Skeleton key={p} className="h-64 rounded-xl" />)}</div>;
   if (error) return <ErrorState error={error} onRetry={() => void refetch()} />;
 
   return (
@@ -124,7 +124,7 @@ export function ConnectionsView() {
       <div className="grid gap-6 lg:grid-cols-2">
         {PLATFORMS.map((p) => <PlatformCard key={p} platform={p} connection={by(p)} onConnect={() => setConnecting(p)} onDisconnect={() => setDisconnecting(p)} />)}
       </div>
-      <div className="mt-8 flex gap-3 rounded-2xl border border-line bg-surface p-5 text-sm text-muted">
+      <div className="mt-8 flex gap-3 rounded-xl border border-line bg-surface p-5 text-sm text-muted">
         <Lock className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />
         <p><strong className="text-ink">How access works.</strong> Media Navigator only reads, so it can&apos;t post, edit or delete anything on your accounts. Your access is encrypted and deleted when you disconnect. Your past results stay unless you delete your account in Settings.</p>
       </div>

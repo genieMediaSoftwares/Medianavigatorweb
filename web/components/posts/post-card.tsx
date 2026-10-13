@@ -19,7 +19,7 @@ export function ThumbFallback({ platform, type, label }: { platform: Platform; t
   const Icon = TYPE_ICON[type] ?? ImageIcon;
   return (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-brand-50 text-subtle dark:bg-slate-900" title={label}>
-      <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-brand-100 bg-white shadow-2xs dark:border-slate-800 dark:bg-slate-900"><PlatformIcon platform={platform} className="h-8 w-8" /></span>
+      <span className="flex h-14 w-14 items-center justify-center rounded-xl border border-brand-100 bg-white shadow-2xs dark:border-slate-800 dark:bg-slate-900"><PlatformIcon platform={platform} className="h-8 w-8" /></span>
       <Icon className="h-5 w-5" aria-hidden="true" />
       {label && <span className="flex items-center gap-1 text-xs font-medium"><ImageOff className="h-3.5 w-3.5" aria-hidden="true" />{label}</span>}
     </div>
@@ -51,7 +51,7 @@ function Metric({ icon: Icon, label, value, na, platform }: { icon: LucideIcon; 
 /** One card layout for every post, so a grid always looks tidy. */
 export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag; onOpen: () => void }) {
   return (
-    <button onClick={onOpen} className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-line bg-white text-left shadow-2xs transition-all duration-200 hover:border-[#1D5FD1] hover:shadow-[0_12px_32px_rgba(29,95,209,0.16)] dark:border-slate-800 dark:bg-slate-900/95 dark:hover:border-brand-400">
+    <button onClick={onOpen} className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-line bg-white text-left shadow-2xs transition-all duration-200 hover:border-[#1D5FD1] hover:shadow-[0_12px_32px_rgba(29,95,209,0.16)] dark:border-slate-800 dark:bg-slate-900/95 dark:hover:border-brand-400">
       <div className="relative">
         <PostThumb item={item} uniform />
         <div className="absolute left-3 top-3 flex items-center gap-1.5">

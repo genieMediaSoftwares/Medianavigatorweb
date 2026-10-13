@@ -23,7 +23,7 @@ import type { Connection, ConnectInput, Platform } from '@/types/api';
 const EXTRA: Record<Platform, { key: keyof ConnectInput; label: string; hint: string } | null> = {
   instagram: { key: 'accountId', label: 'Instagram account ID', hint: 'Only if your token has more than one account.' },
   facebook: { key: 'pageId', label: 'Facebook Page ID', hint: 'Choose which Page to read when your token has several.' },
-  youtube: { key: 'channelQuery', label: 'Channel handle or link', hint: 'For example @YourChannel. Leave empty to use the channel your token belongs to.' },
+  youtube: { key: 'channelQuery', label: 'Channel handle or link', hint: 'For example @YourChannel. Required with an API key. Optional with a Google access token, which already knows your channel.' },
   linkedin: { key: 'organizationId', label: 'Company Page ID', hint: 'The number of the Company Page you manage.' },
 };
 
@@ -53,6 +53,8 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
   const submit = handleSubmit(async (v) => {
     setError(null);
     const body: ConnectInput = platform === 'youtube' && !v.secret.startsWith('ya29') ? { apiKey: v.secret } : { accessToken: v.secret };
+    // An API key cannot say which channel is yours, so without a handle we would have nothing real to import.
+    if (platform === 'youtube' && 'apiKey' in body && !v.extra?.trim()) { setError('Add your channel handle (for example @YourChannel) or channel link. An API key alone can’t tell us which channel is yours.'); return; }
     if (extra && v.extra) body[extra.key] = v.extra;
     try {
       await api.connect(platform, body);
