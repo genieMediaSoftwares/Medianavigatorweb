@@ -1,5 +1,17 @@
 import { Schema, model, type Types } from 'mongoose';
 
+/** Which notification categories the user wants. Every category is on until the user turns it off. */
+export interface NotificationPrefs {
+  /** "Sync complete" messages after each successful sync. */
+  syncUpdates: boolean;
+  /** Expired access, failed syncs and missing permissions. */
+  connectionProblems: boolean;
+  /** Performance alerts derived from synced posts. */
+  performanceAlerts: boolean;
+}
+
+export const NOTIFICATION_CATEGORIES = ['syncUpdates', 'connectionProblems', 'performanceAlerts'] as const;
+
 export interface ProfileDoc {
   _id: Types.ObjectId;
   userId: Types.ObjectId;
@@ -9,6 +21,7 @@ export interface ProfileDoc {
   timezone?: string;
   avatarFileId?: Types.ObjectId | null;
   onboardingCompleted: boolean;
+  notificationPrefs?: Partial<NotificationPrefs>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +35,11 @@ const schema = new Schema<ProfileDoc>(
     timezone: { type: String, trim: true, maxlength: 64 },
     avatarFileId: { type: Schema.Types.ObjectId, ref: 'File', default: null },
     onboardingCompleted: { type: Boolean, default: false },
+    notificationPrefs: {
+      syncUpdates: { type: Boolean, default: true },
+      connectionProblems: { type: Boolean, default: true },
+      performanceAlerts: { type: Boolean, default: true },
+    },
   },
   { timestamps: true },
 );

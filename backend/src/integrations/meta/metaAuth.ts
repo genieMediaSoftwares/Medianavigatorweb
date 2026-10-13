@@ -90,9 +90,11 @@ export class MetaAuth {
       }
 
       // 2. If standard /me failed, check if this is an Instagram User Token on graph.instagram.com
+      let igError: string | undefined;
       try {
         const igMeRes = await httpFetch(`https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${encodeURIComponent(cleanToken)}`);
         const igMeData = await igMeRes.json();
+        igError = igMeData?.error?.message;
 
         if (igMeRes.ok && igMeData && igMeData.id && !igMeData.error) {
           return {
@@ -136,13 +138,15 @@ export class MetaAuth {
       }
 
       // If token failed all endpoints, extract the error message
-      const errMsg = meData?.error?.message || 'Instagram authorization failed. Please check your Access Token or API Key and try again.';
+      // Instagram Login tokens (IGAA…) fail on graph.facebook.com with a parse error, so prefer graph.instagram.com's reason for them.
+      const raw = (cleanToken.startsWith('IG') ? igError || meData?.error?.message : meData?.error?.message || igError) as string | undefined;
+      const errMsg = raw && /api access blocked/i.test(raw)
+        ? 'Meta has blocked API access for this token. In Graph API Explorer, check the selected Meta app and its access restrictions, then generate a new token with the required Instagram and Page permissions. Test GET /me?fields=id,name in Explorer before reconnecting. This restriction cannot be removed by Media Navigator.'
+        : raw || 'Instagram authorization failed. Please check your Access Token or API Key and try again.';
       return {
         isValid: false,
         scopes: [],
-        error: /API access blocked/i.test(errMsg)
-          ? 'Meta has blocked API access for this token. In Graph API Explorer, check the selected Meta app and its access restrictions, then generate a new token with the required Instagram and Page permissions. Test GET /me?fields=id,name in Explorer before reconnecting. This restriction cannot be removed by Media Navigator.'
-          : errMsg,
+        error: errMsg,
       };
     } catch (err: any) {
       return {

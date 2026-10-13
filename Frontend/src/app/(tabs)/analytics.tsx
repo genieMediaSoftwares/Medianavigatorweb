@@ -7,23 +7,25 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MediaNavigatorLogo } from '@/components/brand/MediaNavigatorLogo';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
-import { PlatformLogo } from '@/components/PlatformLogo';
+import { Button } from '@/components/ui/Button';
+import { Notice } from '@/components/ui/Notice';
 import { SegmentedControl } from '@/components/visual/SegmentedControl';
 import { colors } from '@/constants/colors';
 import { ANALYSIS_TABS, AnalysisTab, PlatformAnalysisLists } from '@/features/analysis/PlatformAnalysis';
 import { fetchConnections } from '@/features/connections/api';
 import { PLATFORM_META, PLATFORM_ORDER } from '@/features/connections/platforms';
+import { PlatformPicker } from '@/features/connections/PlatformPicker';
 import { useApiResource } from '@/hooks/useApiResource';
-import type { Platform } from '@/types/api';
+import type { AccountScope, Platform } from '@/types/api';
 
 /**
- * Analysis tab: pick one of your connected platforms, then All Posts / Top Performing / Needs Attention.
- * Only platforms the server reports as connected can be chosen.
+ * Analysis tab: pick a platform's handle (or all accounts), then All Posts / Top Performing / Needs Attention.
+ * Every platform is listed; ones that aren't connected offer to connect. Each handle is analysed only against itself.
  */
 export default function AnalysisTabScreen() {
   const router = useRouter();
   const connections = useApiResource(fetchConnections);
-  const [chosen, setChosen] = useState<Platform | null>(null);
+  const [chosen, setChosen] = useState<AccountScope | null>(null);
   const [tab, setTab] = useState<AnalysisTab>('all');
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -37,8 +39,10 @@ export default function AnalysisTabScreen() {
 
   const list = connections.state.status === 'success' ? connections.state.data : [];
   const connected = PLATFORM_ORDER.filter((p) => list.some((c) => c.platform === p && c.connected));
-  const platform = chosen && connected.includes(chosen) ? chosen : (connected[0] ?? null);
-  const connection = platform ? list.find((c) => c.platform === platform) : undefined;
+  // "All accounts" only makes sense with two or more; otherwise fall back to the first connected handle.
+  const scope: AccountScope | null = chosen === 'all' ? (connected.length > 1 ? 'all' : connected[0] ?? null) : chosen ?? connected[0] ?? null;
+  const connection = scope && scope !== 'all' ? list.find((c) => c.platform === scope) : undefined;
+  const problem = connection?.connected && (connection.status === 'connection_expired' || connection.status === 'permission_required');
 
   return (
     <SafeAreaView edges={['top', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.white }}>
@@ -65,38 +69,43 @@ export default function AnalysisTabScreen() {
         <Text className="text-[28px] font-extrabold text-navy" accessibilityRole="header">
           Analysis
         </Text>
-        <Text className="mb-lg mt-[2px] text-[13px] text-neutral-500">See every post, what is working and what needs attention.</Text>
+        <Text className="mb-lg mt-[2px] text-[13px] text-neutral-500">See every post on each of your accounts, what is working and what needs attention.</Text>
 
         {connections.state.status === 'loading' ? (
           <ActivityIndicator className="my-xl" color={colors.primary} />
         ) : connections.state.status !== 'success' ? (
           <ErrorState message={connections.state.message} onRetry={connections.reload} />
-        ) : !platform || !connection ? (
-          <EmptyState icon="link-outline" title="No account connected yet" message="Connect a platform on the Dashboard with its access token or API key. Its analysis appears here once it is connected." action={{ label: 'Go to Dashboard', onPress: () => router.navigate('/') }} />
+        ) : connected.length === 0 ? (
+          <EmptyState icon="link-outline" title="No account connected yet" message="Connect a platform with its access token. Its analysis appears here once it is connected." action={{ label: 'Connected accounts', onPress: () => router.push('/connected-accounts') }} />
         ) : (
           <>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-lg mb-md" contentContainerClassName="px-lg" accessibilityRole="tablist">
-              {connected.map((p) => {
-                const selected = p === platform;
-                return (
-                  <Pressable
-                    key={p}
-                    onPress={() => setChosen(p)}
-                    accessibilityRole="tab"
-                    accessibilityState={{ selected }}
-                    className={`mr-sm min-h-11 flex-row items-center rounded-[12px] border px-md ${selected ? 'border-primary/30 bg-sky' : 'border-neutral-100 bg-white'}`}
-                  >
-                    <PlatformLogo platform={p} size={24} />
-                    <Text className={`ml-sm text-[13px] font-semibold ${selected ? 'text-primary' : 'text-navy'}`}>{PLATFORM_META[p].name}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-            <View className="mb-md">
-              <SegmentedControl segments={ANALYSIS_TABS} value={tab} onChange={setTab} />
-            </View>
-            {/* Keyed by platform so switching platforms starts each list fresh. */}
-            <PlatformAnalysisLists key={platform} platform={platform} connection={connection} tab={tab} reloadKey={reloadKey} onSynced={refreshConnections} />
+            <PlatformPicker connections={list} value={scope ?? connected[0]} onChange={setChosen} />
+            {scope !== 'all' && !connection?.connected ? (
+              <EmptyState
+                icon="link-outline"
+                title={`${PLATFORM_META[scope as Platform].name} isn’t connected`}
+                message={`Connect your ${PLATFORM_META[scope as Platform].name} account to analyse its posts here.`}
+                action={{ label: `Connect ${PLATFORM_META[scope as Platform].name}`, onPress: () => router.push({ pathname: '/connect/[platform]', params: { platform: scope as Platform } }) }}
+              />
+            ) : (
+              <>
+                {problem ? (
+                  <View className="mb-md">
+                    <Notice
+                      variant="warning"
+                      title={connection!.status === 'connection_expired' ? `${connection!.name} access expired` : `${connection!.name} needs more permissions`}
+                      message="Showing the posts already synced. Reconnect to keep them up to date."
+                    />
+                    <Button title={`Reconnect ${connection!.name}`} size="sm" variant="secondary" onPress={() => router.push({ pathname: '/connect/[platform]', params: { platform: connection!.platform } })} />
+                  </View>
+                ) : null}
+                <View className="mb-md">
+                  <SegmentedControl segments={ANALYSIS_TABS} value={tab} onChange={setTab} />
+                </View>
+                {/* Keyed by scope so switching handles starts each list fresh. */}
+                <PlatformAnalysisLists key={scope!} scope={scope!} connections={list} tab={tab} reloadKey={reloadKey} onSynced={refreshConnections} onScope={setChosen} />
+              </>
+            )}
           </>
         )}
       </ScrollView>

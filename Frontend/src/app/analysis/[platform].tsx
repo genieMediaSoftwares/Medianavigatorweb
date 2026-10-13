@@ -79,7 +79,7 @@ export default function PlatformAnalysisScreen() {
         ) : !connection?.connected ? (
           <EmptyState icon="link-outline" title={`${name} is not connected`} message={`Connect your ${name} account to analyze its posts.`} action={{ label: `Connect ${name}`, onPress: () => router.push({ pathname: '/connect/[platform]', params: { platform } }) }} />
         ) : (
-          <PlatformAnalysisLists platform={platform} connection={connection} tab={tab} reloadKey={reloadKey} onSynced={connections.refresh} />
+          <PlatformAnalysisLists scope={platform} connections={connections.state.data} tab={tab} reloadKey={reloadKey} onSynced={connections.refresh} />
         )}
       </ScrollView>
     </SafeAreaView>

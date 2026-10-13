@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, View } from 'react-native';
+import { AccessibilityInfo, Animated, Platform, View } from 'react-native';
+
+// The native animation driver doesn't exist on web; requesting it there only logs a warning.
+const useNativeDriver = Platform.OS !== 'web';
 
 /**
  * Neutral placeholder block shown while real content loads. It never contains text or numbers.
@@ -17,8 +20,8 @@ export function Skeleton({ className }: { className: string }) {
     if (reduceMotion) return;
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver: true }),
-        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0.5, duration: 700, useNativeDriver }),
+        Animated.timing(opacity, { toValue: 1, duration: 700, useNativeDriver }),
       ]),
     );
     pulse.start();

@@ -5,13 +5,14 @@ import { Pressable, ScrollView, Text, View } from 'react-native';
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
 import { LoadingState } from '@/components/LoadingState';
+import { PlatformLogo } from '@/components/PlatformLogo';
 import { Button } from '@/components/ui/Button';
 import { Notice } from '@/components/ui/Notice';
-import { PLATFORM_META } from '@/features/connections/platforms';
+import { PLATFORM_META, PLATFORM_ORDER } from '@/features/connections/platforms';
 import { useSync } from '@/features/connections/useSync';
 import { formatRelativeTime } from '@/lib/format';
 import { useApiResource } from '@/hooks/useApiResource';
-import type { Connection, MediaItem, Performer, PerformerSort, Platform } from '@/types/api';
+import type { AccountScope, Connection, MediaItem, Performer, PerformerSort, Platform } from '@/types/api';
 
 import { fetchMediaPage, fetchPerformers, fetchSummary } from './api';
 import { AnalysisPostCard, CardMetric } from './components';
@@ -36,7 +37,7 @@ const RANK_SORTS: { value: PerformerSort; label: string }[] = [
 ];
 
 
-function useNav(platform: Platform) {
+function useNav(platform?: Platform) {
   const router = useRouter();
   return {
     deep: (id: string) => router.push({ pathname: '/analysis/deep/[id]', params: { id } }),
@@ -44,8 +45,9 @@ function useNav(platform: Platform) {
   };
 }
 
-/** Option 1: every synced post, page by page from GET /media. Action: Deep Analysis only. */
-function AllPosts({ platform, connection, reloadKey, onSynced }: { platform: Platform; connection: Connection; reloadKey: number; onSynced?: () => void }) {
+/** Option 1: every synced post, page by page from GET /media, for one handle or all of them. Action: Deep Analysis. */
+function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountScope; connections: Connection[]; reloadKey: number; onSynced?: () => void }) {
+  const platform = scope === 'all' ? undefined : scope;
   const nav = useNav(platform);
   const [items, setItems] = useState<MediaItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -76,6 +78,7 @@ function AllPosts({ platform, connection, reloadKey, onSynced }: { platform: Pla
       },
     );
   }, [platform, reloadKey, retryKey]);
+  const live = connections.filter((c) => c.connected && (scope === 'all' || c.platform === scope));
 
   const more = async () => {
     if (!cursor || loadingMore) return;
@@ -98,21 +101,24 @@ function AllPosts({ platform, connection, reloadKey, onSynced }: { platform: Pla
   if (state.kind === 'error') return <ErrorState message={state.message} onRetry={() => { setState({ kind: 'loading' }); setRetryKey((k) => k + 1); }} />;
   if (items.length === 0) return <EmptyState icon="images-outline" title="No posts yet" message="Your account is connected, but no posts have been imported yet. Sync it from the Dashboard to check again." />;
 
-  const total = connection.dataPointsCount;
+  const total = live.reduce((a, c) => a + c.dataPointsCount, 0);
   // Instagram and YouTube report how many posts the profile has; compare it with what was synced.
-  const reported = connection.accountInfo?.mediaCount;
-  const syncing = sync.active.includes(platform);
+  const reported = live.length === 1 ? live[0].accountInfo?.mediaCount : undefined;
+  const syncing = platform ? sync.active.includes(platform) : sync.active.length > 0;
+  const lastSynced = live.map((c) => c.lastSyncedAt).filter(Boolean).sort()[0] ?? null;
   return (
     <View>
       <View className="mb-sm rounded-[12px] bg-neutral-50 p-md">
         <View className="flex-row items-center">
           <View className="flex-1 pr-sm">
             <Text className="text-[13px] font-semibold text-navy">
-              {reported !== undefined ? `${total.toLocaleString()} of ${reported.toLocaleString()} profile posts synced` : `${total.toLocaleString()} posts synced`}
+              {reported !== undefined
+                ? `${total.toLocaleString()} of ${reported.toLocaleString()} profile posts synced`
+                : `${total.toLocaleString()} posts synced${live.length > 1 ? ` across ${live.length} accounts` : ''}`}
             </Text>
-            <Text className="mt-[2px] text-[11px] text-neutral-500">{`Last synced ${formatRelativeTime(connection.lastSyncedAt || null)} · showing ${items.length.toLocaleString()}`}</Text>
+            <Text className="mt-[2px] text-[11px] text-neutral-500">{`${live.length > 1 ? 'Oldest sync' : 'Last synced'} ${formatRelativeTime(lastSynced)} · showing ${items.length.toLocaleString()}`}</Text>
           </View>
-          <Button title={syncing ? 'Syncing…' : 'Sync now'} size="sm" variant="secondary" icon="refresh-outline" loading={syncing} onPress={() => void sync.start(platform)} />
+          <Button title={syncing ? 'Syncing…' : live.length > 1 ? 'Sync all' : 'Sync now'} size="sm" variant="secondary" icon="refresh-outline" loading={syncing} onPress={() => void sync.start(platform ?? 'all')} />
         </View>
         {reported !== undefined && total < reported && !syncing ? (
           <Text className="mt-xs text-[11px] text-warning">{`${(reported - total).toLocaleString()} posts on the profile aren’t synced yet. Sync now to fetch them; posts the platform doesn’t share through its API (for example some stories or deleted posts) can’t be imported.`}</Text>
@@ -151,11 +157,10 @@ function AllPosts({ platform, connection, reloadKey, onSynced }: { platform: Pla
   );
 }
 
-/** Options 2 and 3: the server's ranked lists (GET /intelligence/performers), as on the web Posts page. */
-function Ranked({ kind, platform, connection }: { kind: 'top' | 'bottom'; platform: Platform; connection: Connection }) {
+/** One handle's ranked posts, compared only with that handle's own typical post (GET /intelligence/performers?platform=). */
+function RankedPlatform({ kind, sort, platform, connection, limit, onOpen }: { kind: 'top' | 'bottom'; sort: PerformerSort; platform: Platform; connection: Connection; limit?: number; onOpen?: () => void }) {
   const nav = useNav(platform);
-  const [sort, setSort] = useState<PerformerSort>('views');
-  const fetcher = useCallback(() => Promise.all([fetchPerformers(sort), fetchSummary(platform)]), [sort, platform]);
+  const fetcher = useCallback(() => Promise.all([fetchPerformers(sort, platform), fetchSummary(platform)]), [sort, platform]);
   const { state, reload } = useApiResource(fetcher);
   const name = PLATFORM_META[platform].name;
   const notProvided = connection.capabilities?.unavailableMetrics ?? [];
@@ -172,10 +177,62 @@ function Ranked({ kind, platform, connection }: { kind: 'top' | 'bottom'; platfo
     ];
   };
 
+  if (state.status === 'loading') return <LoadingState message={`Ranking your ${name} posts…`} />;
+  if (state.status !== 'success') return <ErrorState message={state.message} onRetry={reload} />;
+  const [perf, summary] = state.data;
+  const all = kind === 'top' ? perf.top : perf.bottom;
+  if (summary.insufficientHistory.includes(platform) || all.length === 0) {
+    return (
+      <EmptyState
+        icon="albums-outline"
+        title="We need a few more posts before we can say"
+        message={`Once you have at least five posts on ${name}, we can show what is working and what could be better, compared with your own usual.`}
+        compact
+      />
+    );
+  }
+  const shown = limit ? all.slice(0, limit) : all;
+  const sortLabel = RANK_SORTS.find((r) => r.value === sort)?.label.toLowerCase() ?? sort;
+  return (
+    <View>
+      <View className="flex-row flex-wrap justify-between">
+        {shown.map((p, i) => {
+          const video = isVideoType(p.contentType);
+          return (
+            <AnalysisPostCard
+              key={p.id}
+              platform={p.platform}
+              thumbnailUrl={p.thumbnailUrl}
+              contentType={p.contentType}
+              caption={p.title || p.caption || ''}
+              publishedAt={p.publishedAt}
+              metrics={metrics(p)}
+              badge={kind === 'top' ? { label: `#${i + 1} · Above usual`, tone: 'good' } : { label: `#${i + 1} · Below usual`, tone: 'warn' }}
+              comparison={cap(sentence(plainComparison(p.baselineComparison)))}
+              actions={[
+                { label: kind === 'top' ? 'Why Top?' : 'Why Bottom?', icon: 'help-circle-outline', onPress: () => nav.why(p.mediaId, kind, `#${i + 1} of ${all.length} on ${name} by ${sortLabel}`) },
+                { label: 'Deep Analysis', icon: video ? 'videocam-outline' : 'search-outline', primary: true, onPress: () => nav.deep(p.mediaId) },
+              ]}
+            />
+          );
+        })}
+      </View>
+      {limit && all.length > limit && onOpen ? <Button title={`See all ${all.length} on ${name}`} variant="secondary" size="sm" onPress={onOpen} /> : null}
+    </View>
+  );
+}
+
+/** Options 2 and 3. For all accounts, one section per handle: platforms are never ranked against each other. */
+function Ranked({ kind, scope, connections, onScope }: { kind: 'top' | 'bottom'; scope: AccountScope; connections: Connection[]; onScope?: (s: AccountScope) => void }) {
+  const [sort, setSort] = useState<PerformerSort>('views');
+  const targets = PLATFORM_ORDER.filter((p) => connections.some((c) => c.platform === p && c.connected) && (scope === 'all' || p === scope));
+
   return (
     <View>
       <Text className="mb-sm text-[13px] text-neutral-500">
-        {kind === 'top' ? 'These posts did better than your usual. See what they have in common and do more of it.' : 'Every account has quieter posts. These are the ones with the most room to grow, with an idea for each.'}
+        {kind === 'top'
+          ? 'These posts did better than your usual on that account. See what they have in common and do more of it.'
+          : 'Every account has quieter posts. These are the ones with the most room to grow, compared with your usual on that account.'}
       </Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-md">
         <Text className="mr-sm self-center text-[12px] font-semibold text-navy">Rank by</Text>
@@ -185,51 +242,21 @@ function Ranked({ kind, platform, connection }: { kind: 'top' | 'bottom'; platfo
           </Pressable>
         ))}
       </ScrollView>
-
-      {state.status === 'loading' ? (
-        <LoadingState message="Ranking your posts…" />
-      ) : state.status !== 'success' ? (
-        <ErrorState message={state.message} onRetry={reload} />
-      ) : (
-        (() => {
-          const [perf, summary] = state.data;
-          const src = (kind === 'top' ? perf.top : perf.bottom).filter((p) => p.platform === platform);
-          if (summary.insufficientHistory.includes(platform) || src.length === 0) {
-            return (
-              <EmptyState
-                icon="albums-outline"
-                title="We need a few more posts before we can say"
-                message={`Once you have at least five posts on ${name}, we can show what is working and what could be better, compared with your own usual.`}
-                compact
-              />
-            );
-          }
-          return (
-            <View className="flex-row flex-wrap justify-between">
-              {src.map((p, i) => {
-            const video = isVideoType(p.contentType);
-            return (
-              <AnalysisPostCard
-                key={p.id}
-                platform={p.platform}
-                thumbnailUrl={p.thumbnailUrl}
-                contentType={p.contentType}
-                caption={p.title || p.caption || ''}
-                publishedAt={p.publishedAt}
-                metrics={metrics(p)}
-                badge={kind === 'top' ? { label: `#${i + 1} · Above usual`, tone: 'good' } : { label: `#${i + 1} · Below usual`, tone: 'warn' }}
-                comparison={cap(sentence(plainComparison(p.baselineComparison)))}
-                actions={[
-                  { label: kind === 'top' ? 'Why Top?' : 'Why Bottom?', icon: 'help-circle-outline', onPress: () => nav.why(p.mediaId, kind, `#${i + 1} of ${src.length} by ${RANK_SORTS.find((r) => r.value === sort)?.label.toLowerCase() ?? sort}`) },
-                  { label: 'Deep Analysis', icon: video ? 'videocam-outline' : 'search-outline', primary: true, onPress: () => nav.deep(p.mediaId) },
-                ]}
-              />
-            );
-              })}
-            </View>
-          );
-        })()
-      )}
+      {targets.map((p) => {
+        const connection = connections.find((c) => c.platform === p)!;
+        return (
+          <View key={p} className={scope === 'all' ? 'mb-lg' : ''}>
+            {scope === 'all' ? (
+              <View className="mb-sm flex-row items-center">
+                <PlatformLogo platform={p} size={24} />
+                <Text className="ml-sm text-title text-navy" accessibilityRole="header">{PLATFORM_META[p].name}</Text>
+                <Text className="ml-xs flex-1 text-caption text-neutral-500" numberOfLines={1}>{connection.accountHandle}</Text>
+              </View>
+            ) : null}
+            <RankedPlatform kind={kind} sort={sort} platform={p} connection={connection} limit={scope === 'all' ? 4 : undefined} onOpen={onScope ? () => onScope(p) : undefined} />
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -239,19 +266,30 @@ function Ranked({ kind, platform, connection }: { kind: 'top' | 'bottom'; platfo
  * The selected option's list for one connected platform. All three stay mounted, so switching
  * options keeps each list and its place; `reloadKey` reloads them (pull to refresh).
  */
-export function PlatformAnalysisLists({ platform, connection, tab, reloadKey, onSynced }: { platform: Platform; connection: Connection; tab: AnalysisTab; reloadKey: number; onSynced?: () => void }) {
-  const importing = connection.status === 'syncing' || connection.status === 'connecting';
+export function PlatformAnalysisLists({ scope, connections, tab, reloadKey, onSynced, onScope }: {
+  /** One platform's handle, or every connected account. */
+  scope: AccountScope;
+  connections: Connection[];
+  tab: AnalysisTab;
+  reloadKey: number;
+  onSynced?: () => void;
+  /** Lets the all-accounts view jump to one handle. */
+  onScope?: (s: AccountScope) => void;
+}) {
+  const importing = connections.filter((c) => c.connected && (scope === 'all' || c.platform === scope) && (c.status === 'syncing' || c.status === 'connecting'));
   return (
     <>
-      {importing ? <Notice variant="info" title="Importing your posts" message={`${connection.dataPointsCount.toLocaleString()} posts synced so far. Pull down to refresh.`} /> : null}
+      {importing.map((c) => (
+        <Notice key={c.platform} variant="info" title={`Importing your ${c.name} posts`} message={`${c.dataPointsCount.toLocaleString()} posts synced so far. Pull down to refresh.`} />
+      ))}
       <View style={{ display: tab === 'all' ? 'flex' : 'none' }}>
-        <AllPosts platform={platform} connection={connection} reloadKey={reloadKey} onSynced={onSynced} />
+        <AllPosts scope={scope} connections={connections} reloadKey={reloadKey} onSynced={onSynced} />
       </View>
       <View style={{ display: tab === 'top' ? 'flex' : 'none' }}>
-        <Ranked key={`top${reloadKey}`} kind="top" platform={platform} connection={connection} />
+        <Ranked key={`top${reloadKey}`} kind="top" scope={scope} connections={connections} onScope={onScope} />
       </View>
       <View style={{ display: tab === 'attention' ? 'flex' : 'none' }}>
-        <Ranked key={`bottom${reloadKey}`} kind="bottom" platform={platform} connection={connection} />
+        <Ranked key={`bottom${reloadKey}`} kind="bottom" scope={scope} connections={connections} onScope={onScope} />
       </View>
     </>
   );

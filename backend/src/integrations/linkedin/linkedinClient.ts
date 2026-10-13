@@ -157,6 +157,8 @@ export class LinkedInClient {
         views: impressions,
         reach: impressions,
         engagementRate,
+        // Without impressions the rate has no denominator: unknown, not 0%.
+        missingMetrics: impressions > 0 ? [] : ['engagementRate', 'views'],
         shares,
         likes,
         comments,

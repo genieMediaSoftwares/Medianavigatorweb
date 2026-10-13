@@ -12,4 +12,6 @@ export const analyticsRepository = {
     return Analytics.find(filter).sort({ date: -1 }).limit(params.limit).lean<AnalyticsDoc[]>();
   },
   deleteAllForUser: (userId: Types.ObjectId) => Analytics.deleteMany({ userId }),
+  /** Removes one connection's daily snapshots (used when the connected channel changes, so old history never mixes in). */
+  deleteForAccount: (connectedAccountId: Types.ObjectId) => Analytics.deleteMany({ connectedAccountId }),
 };

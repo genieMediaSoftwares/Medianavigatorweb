@@ -125,7 +125,6 @@ describe('analytics API', () => {
     const s = (await get('/intelligence/summary')).body.data;
     expect(s).toMatchObject({ platformsIncluded: [], topContent: [], needsImprovement: [], trendingTopics: [] });
     expect(s.contentIdeas.items).toEqual([]);
-    expect((await get('/workspaces')).body.data.demoMode).toBe(false);
   });
 
   it('computes summary, history and planner insights from stored data for the connected platform only', async () => {

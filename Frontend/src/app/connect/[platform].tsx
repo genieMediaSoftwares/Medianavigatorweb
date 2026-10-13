@@ -1,7 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform as RNPlatform, ScrollView, Text, View } from 'react-native';
+import { KeyboardAvoidingView, Platform as RNPlatform, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { EmptyState } from '@/components/EmptyState';
@@ -15,10 +15,12 @@ import { SegmentedControl } from '@/components/visual/SegmentedControl';
 import { colors } from '@/constants/colors';
 import { connectPlatform, disconnectPlatform, fetchConnections, startOAuth } from '@/features/connections/api';
 import { ConnectedPanel, ConnectionHeader, ConnectionSuccess, connectErrorMessage, ProviderSetupCard } from '@/features/connections/ConnectionParts';
+import { YouTubeAnalyticsSection, YouTubeDataApiSection } from '@/features/connections/YouTubeConnect';
 import { isPlatform, PLATFORM_META, problemMessage, statusView } from '@/features/connections/platforms';
 import { PLATFORM_SETUP } from '@/features/connections/setup';
 import { useSync } from '@/features/connections/useSync';
 import { useApiResource } from '@/hooks/useApiResource';
+import { confirmDestructive, showMessage } from '@/lib/confirm';
 import { formatRelativeTime } from '@/lib/format';
 import type { Connection, ConnectInput, Platform } from '@/types/api';
 
@@ -38,6 +40,8 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
   const [extra, setExtra] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
+  // With one-tap sign-in available, the manual token form is a fallback the user opens on purpose.
+  const [manual, setManual] = useState(!connection.oauthAvailable);
 
   const extraRequired = mode.extra !== undefined && !mode.extra.label.includes('(optional)');
   const ready = secret.trim().length > 0 && (!extraRequired || extra.trim().length > 0);
@@ -79,15 +83,27 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
 
   return (
     <>
+      {error && !manual ? <Notice variant="error" message={error} /> : null}
+
       {connection.oauthAvailable ? (
         <View className="mb-xl">
           <Button title={`Continue with ${name}`} onPress={() => void signIn()} loading={phase === 'authorizing'} disabled={phase !== 'idle'} />
-          <Text className="mt-sm text-center text-[12px] text-neutral-500">Or connect manually with a token below.</Text>
+          <Text className="mt-sm text-center text-[12px] text-neutral-500">{`Sign in with ${name} to connect.`}</Text>
+          <Text
+            className="mt-md text-center text-[13px] font-semibold text-primary"
+            onPress={() => setManual((m) => !m)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: manual }}
+          >
+            {manual ? 'Hide the access token option' : 'Use an access token instead'}
+          </Text>
         </View>
-      ) : platform === 'youtube' || platform === 'linkedin' ? (
+      ) : platform === 'linkedin' ? (
         <Notice variant="info" title="One-tap sign-in isn’t set up yet" message={`${name} OAuth isn’t configured on the server, so connect with a token generated in the developer console.`} />
       ) : null}
 
+      {manual ? (
+    <>
       <ProviderSetupCard setup={setup.setup} />
 
       {setup.modes.length > 1 ? (
@@ -139,6 +155,8 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
         Your access token is sent securely to the Media Navigator server, verified with {name}, and stored encrypted. It is never shown again.
       </Text>
     </>
+      ) : null}
+    </>
   );
 }
 
@@ -168,25 +186,19 @@ export default function ConnectPlatformScreen() {
   const setup = PLATFORM_SETUP[platform];
   const connection = state.status === 'success' ? state.data.find((c) => c.platform === platform) : undefined;
 
-  const confirmDisconnect = () =>
-    Alert.alert(`Disconnect ${name}?`, 'Stored access is deleted and syncing stops. Your synced history is kept.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Disconnect',
-        style: 'destructive',
-        onPress: async () => {
-          setDisconnecting(true);
-          try {
-            await disconnectPlatform(platform);
-            await refresh();
-          } catch (e) {
-            Alert.alert('Unable to disconnect', e instanceof Error ? e.message : 'Please try again.');
-          } finally {
-            setDisconnecting(false);
-          }
-        },
-      },
-    ]);
+  const confirmDisconnect = async () => {
+    const ok = await confirmDestructive(`Disconnect ${name}?`, 'Stored access is deleted and syncing stops. Your synced history is kept.', 'Disconnect');
+    if (!ok) return;
+    setDisconnecting(true);
+    try {
+      await disconnectPlatform(platform);
+      await refresh();
+    } catch (e) {
+      showMessage('Unable to disconnect', e instanceof Error ? e.message : 'Please try again.');
+    } finally {
+      setDisconnecting(false);
+    }
+  };
 
   const afterOAuth = async () => {
     setOauthNotice(null);
@@ -234,7 +246,7 @@ export default function ConnectPlatformScreen() {
           ) : (
             <>
               {oauthNotice ? <Notice variant="warning" message={oauthNotice} /> : null}
-              {connection.connected ? <ConnectedPanel connection={connection} onDisconnect={confirmDisconnect} disconnecting={disconnecting} /> : null}
+              {connection.connected ? <ConnectedPanel connection={connection} onDisconnect={() => void confirmDisconnect()} disconnecting={disconnecting} /> : null}
               {problemMessage(connection) ? <Notice variant="warning" title={status?.label} message={problemMessage(connection)!} /> : null}
               {sync.error ? <Notice variant="error" title="Sync" message={sync.error} /> : null}
 
@@ -247,7 +259,13 @@ export default function ConnectPlatformScreen() {
                 </View>
               ) : null}
 
-              {showForm ? <ConnectForm platform={platform} connection={connection} onConnected={setSuccess} onOAuthReturn={() => void afterOAuth()} /> : null}
+              {showForm && platform === 'youtube' ? <YouTubeDataApiSection onConnected={setSuccess} /> : null}
+              {platform === 'youtube' && (showForm || connection.authMethod !== 'oauth') ? (
+                <View style={{ marginTop: connection.connected && !showForm ? 16 : 0 }}>
+                  <YouTubeAnalyticsSection connection={connection} onReturn={() => void afterOAuth()} />
+                </View>
+              ) : null}
+              {showForm && platform !== 'youtube' ? <ConnectForm platform={platform} connection={connection} onConnected={setSuccess} onOAuthReturn={() => void afterOAuth()} /> : null}
             </>
           )}
         </ScrollView>

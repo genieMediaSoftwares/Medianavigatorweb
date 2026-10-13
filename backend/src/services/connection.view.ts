@@ -32,6 +32,7 @@ export function toPlatformConnection(platform: PlatformType, a?: ConnectedAccoun
     statusMessage: a?.statusMessage ?? `Connect ${META[platform].name} to start analyzing your media.`,
     primaryStrength: META[platform].strength,
     dataPointsCount: live ? a!.dataPointsCount : 0,
+    authMethod: live ? a!.authMethod ?? null : null,
     missingPermissions: live ? a!.missingPermissions : undefined,
     accountInfo: live ? a!.accountInfo : undefined,
     sync: {

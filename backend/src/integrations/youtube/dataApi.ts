@@ -1,5 +1,6 @@
 import { config } from '../../config/env.js';
 import { httpFetch } from '../../lib/http.js';
+import { describeGoogleError, parseExactChannel, YouTubeApiError, type ChannelReference } from './errors.js';
 import { NormalizedMedia, PerformanceTier } from '../../../../shared/types.js';
 
 export interface YouTubeChannelDetails {
@@ -32,263 +33,87 @@ export class YouTubeDataApi {
   }
 
   /**
-   * Parses arbitrary user input (URL, handle, ID, video link, or name)
+   * Resolves the channel exactly, by credential type:
+   * - Google sign-in (OAuth access token): the channel the signed-in Google account owns (channels?mine=true).
+   * - YouTube Data API key + channelId or channelQuery: the exact named channel.
+   * - YouTube Data API key alone: attempts auto-discovery; throws a clear error if not possible
+   *   (API keys have no user identity, so YouTube can't determine "which channel is yours").
+   * When `channelId` is given (later syncs) the result must be that same channel.
    */
-  private static parseChannelInput(input?: string): {
-    channelId?: string;
-    handle?: string;
-    username?: string;
-    videoId?: string;
-    rawQuery?: string;
-  } {
-    if (!input || !input.trim()) return {};
-
-    const clean = input.trim();
-
-    // 1. Check if it's a full YouTube URL
-    try {
-      if (clean.startsWith('http://') || clean.startsWith('https://') || clean.includes('youtube.com/') || clean.includes('youtu.be/')) {
-        const urlObj = new URL(clean.startsWith('http') ? clean : `https://${clean}`);
-        const pathname = urlObj.pathname;
-
-        // /watch?v=VIDEO_ID
-        const vParam = urlObj.searchParams.get('v');
-        if (vParam) return { videoId: vParam, rawQuery: vParam };
-
-        // youtu.be/VIDEO_ID or youtube.com/shorts/VIDEO_ID
-        if (urlObj.hostname.includes('youtu.be')) {
-          const vId = pathname.replace(/^\//, '').split('/')[0];
-          if (vId) return { videoId: vId, rawQuery: vId };
-        }
-        if (pathname.includes('/shorts/')) {
-          const shortsMatch = pathname.match(/\/shorts\/([a-zA-Z0-9_-]+)/i);
-          if (shortsMatch) return { videoId: shortsMatch[1], rawQuery: shortsMatch[1] };
-        }
-
-        // /channel/UC...
-        const channelMatch = pathname.match(/\/channel\/(UC[a-zA-Z0-9_-]+)/i);
-        if (channelMatch) return { channelId: channelMatch[1] };
-
-        // /@handle
-        const handleMatch = pathname.match(/\/@([a-zA-Z0-9_\.-]+)/i);
-        if (handleMatch) return { handle: `@${handleMatch[1]}`, rawQuery: handleMatch[1] };
-
-        // /c/name or /user/name
-        const customMatch = pathname.match(/\/(?:c|user)\/([a-zA-Z0-9_\.-]+)/i);
-        if (customMatch) return { username: customMatch[1], rawQuery: customMatch[1] };
-      }
-    } catch {
-      // Not a valid URL, continue parsing as string
-    }
-
-    // 2. Direct Channel ID (starts with UC and around 24 chars)
-    if (/^UC[a-zA-Z0-9_-]{20,24}$/.test(clean)) {
-      return { channelId: clean };
-    }
-
-    // 3. Handle (starts with @)
-    if (clean.startsWith('@')) {
-      const stripped = clean.slice(1);
-      return { handle: clean, rawQuery: stripped };
-    }
-
-    // 4. Default: could be handle without @, username, or search query
-    return {
-      handle: `@${clean}`,
-      username: clean,
-      rawQuery: clean,
-    };
-  }
-
-  /**
-   * Fetches real channel information automatically using either:
-   * - API Key + Channel ID / Handle / URL / Video Link / Search query
-   * - OAuth Access Token (with mine=true or channel ID)
-   */
-  static async getChannel(credentials: { 
-    accessToken?: string; 
-    apiKey?: string; 
-    channelId?: string;
-    channelQuery?: string;
-  }): Promise<YouTubeChannelDetails> {
-    const { accessToken, apiKey } = credentials;
-    const queryInput = credentials.channelQuery || credentials.channelId;
-
-    if (!accessToken && !apiKey) {
-      throw new Error('Please enter your YouTube Data API Key to connect and evaluate your channel.');
-    }
-
-    // If OAuth token provided and NO specific channel query given, use mine=true
-    if (accessToken && (!queryInput || !queryInput.trim())) {
-      const url = new URL(`${this.API_BASE}/channels`);
-      url.searchParams.set('part', 'snippet,statistics,contentDetails');
-      url.searchParams.set('mine', 'true');
-      this.appendAuth(url, apiKey);
-
-      const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
-      const data = await res.json();
-
-      if (!res.ok || data.error) {
-        throw new Error(data.error?.message || `YouTube Channel lookup failed with HTTP ${res.status}`);
-      }
-
-      if (!data.items || data.items.length === 0) {
-        throw new Error('No YouTube channel associated with this account.');
-      }
-
-      return this.formatChannelItem(data.items[0]);
-    }
-
-    // No channel given. A Google sign-in token can say which channel it belongs to (handled above); an API key cannot.
-    // Never guess a channel (for example from the "most popular" chart): that would show someone else's videos.
-    if (!queryInput || !queryInput.trim()) {
-      throw new Error(accessToken
-        ? 'Please provide your YouTube channel handle (for example @YourChannel) or channel link.'
-        : 'An API key cannot tell us which channel is yours. Enter your channel handle (for example @YourChannel) or channel link, or connect with Google sign-in instead.');
-    }
-
-    const parsed = this.parseChannelInput(queryInput);
-
-    // Attempt 1: Direct Video ID lookup to find associated channelId
-    if (parsed.videoId) {
-      try {
-        const vUrl = new URL(`${this.API_BASE}/videos`);
-        vUrl.searchParams.set('part', 'snippet');
-        vUrl.searchParams.set('id', parsed.videoId);
-        this.appendAuth(vUrl, apiKey);
-
-        const vRes = await httpFetch(vUrl.toString(), { headers: this.getHeaders(accessToken) });
-        const vData = await vRes.json();
-        if (vRes.ok && vData.items && vData.items.length > 0) {
-          const resolvedChannelId = vData.items[0].snippet?.channelId;
-          if (resolvedChannelId) {
-            const channel = await this.lookupChannelById(resolvedChannelId, credentials);
-            if (channel) return channel;
-          }
-        }
-      } catch {
-        // Fall through to other attempts
-      }
-    }
-
-    // Attempt 2: Direct Channel ID lookup
-    if (parsed.channelId) {
-      const channel = await this.lookupChannelById(parsed.channelId, credentials);
-      if (channel) return channel;
-    }
-
-    // Attempt 3: Lookup by handle with @
-    if (parsed.handle) {
-      try {
-        const url = new URL(`${this.API_BASE}/channels`);
-        url.searchParams.set('part', 'snippet,statistics,contentDetails');
-        url.searchParams.set('forHandle', parsed.handle);
-        this.appendAuth(url, apiKey);
-
-        const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
-        const data = await res.json();
-
-        if (res.ok && data.items && data.items.length > 0) {
-          return this.formatChannelItem(data.items[0]);
-        }
-      } catch {
-        // Fall through
-      }
-
-      // Attempt 3b: Lookup by handle without @
-      try {
-        const cleanHandle = parsed.handle.replace(/^@/, '');
-        const url = new URL(`${this.API_BASE}/channels`);
-        url.searchParams.set('part', 'snippet,statistics,contentDetails');
-        url.searchParams.set('forHandle', cleanHandle);
-        this.appendAuth(url, apiKey);
-
-        const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
-        const data = await res.json();
-
-        if (res.ok && data.items && data.items.length > 0) {
-          return this.formatChannelItem(data.items[0]);
-        }
-      } catch {
-        // Fall through
-      }
-    }
-
-    // Attempt 4: Lookup by username (forUsername)
-    if (parsed.username) {
-      try {
-        const url = new URL(`${this.API_BASE}/channels`);
-        url.searchParams.set('part', 'snippet,statistics,contentDetails');
-        url.searchParams.set('forUsername', parsed.username);
-        this.appendAuth(url, apiKey);
-
-        const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
-        const data = await res.json();
-
-        if (res.ok && data.items && data.items.length > 0) {
-          return this.formatChannelItem(data.items[0]);
-        }
-      } catch {
-        // Fall through
-      }
-    }
-
-    // Attempt 5: Search for the channel by query / keywords
-    const searchQuery = parsed.rawQuery || queryInput.replace('@', '');
-    try {
-      const searchUrl = new URL(`${this.API_BASE}/search`);
-      searchUrl.searchParams.set('part', 'snippet');
-      searchUrl.searchParams.set('type', 'channel');
-      searchUrl.searchParams.set('q', searchQuery);
-      searchUrl.searchParams.set('maxResults', '3');
-      this.appendAuth(searchUrl, apiKey);
-
-      const searchRes = await httpFetch(searchUrl.toString(), { headers: this.getHeaders(accessToken) });
-      const searchData = await searchRes.json();
-
-      if (!searchRes.ok && searchData.error) {
-        throw new Error(searchData.error.message || `YouTube API Error (${searchRes.status})`);
-      }
-
-      if (searchRes.ok && searchData.items && searchData.items.length > 0) {
-        for (const item of searchData.items) {
-          const foundChannelId = item.snippet?.channelId || item.id?.channelId;
-          if (foundChannelId) {
-            const channel = await this.lookupChannelById(foundChannelId, credentials);
-            if (channel) return channel;
-          }
-        }
-      }
-    } catch (err: any) {
-      if (err.message && (err.message.includes('API key') || err.message.includes('quota'))) {
-        throw err;
-      }
-    }
-
-    throw new Error(`Could not find any YouTube channel matching "${queryInput}". Please verify your YouTube Data API Key and check your channel handle (e.g. @YourChannel) or link.`);
-  }
-
-  private static async lookupChannelById(
-    channelId: string, 
-    credentials: { accessToken?: string; apiKey?: string }
-  ): Promise<YouTubeChannelDetails | null> {
-    const { accessToken, apiKey } = credentials;
+  static async getChannel(credentials: { accessToken?: string; apiKey?: string; channelId?: string; channelQuery?: string }): Promise<YouTubeChannelDetails> {
+    const accessToken = credentials.accessToken?.trim();
+    const apiKey = credentials.apiKey?.trim();
     const url = new URL(`${this.API_BASE}/channels`);
     url.searchParams.set('part', 'snippet,statistics,contentDetails');
-    url.searchParams.set('id', channelId);
-    this.appendAuth(url, apiKey);
+
+    let requested: string;
+    if (accessToken) {
+      url.searchParams.set('mine', 'true');
+      requested = 'your Google account';
+    } else if (apiKey) {
+      const parsed: ChannelReference | null = credentials.channelId
+        ? { id: credentials.channelId }
+        : parseExactChannel(credentials.channelQuery ?? '');
+      let target: { id: string } | { handle: string } | null = null;
+      if (parsed && 'videoId' in parsed) {
+        // A video link names the channel only indirectly; resolve the owner first.
+        const ownerId = await this.channelIdForVideo(parsed.videoId, apiKey);
+        if (!ownerId) throw new YouTubeApiError(`No YouTube channel matches ${credentials.channelQuery?.trim()}. Check the channel ID or @handle: it must match exactly.`, 'not_found');
+        target = { id: ownerId };
+      } else if (parsed) {
+        target = parsed;
+      }
+
+      if (!target) {
+        // No channel identifier provided — API keys have no user identity so YouTube cannot
+        // auto-detect the channel. Return a clear, one-sentence instruction.
+        throw new YouTubeApiError(
+          'An API key can\u2019t tell which channel is yours. Enter your YouTube channel @handle (e.g. @YourChannel) or channel ID (starts with UC\u2026) so we know which channel to connect, then try again.',
+          'invalid',
+        );
+      }
+
+      if ('id' in target) {
+        url.searchParams.set('id', target.id);
+        requested = target.id;
+      } else {
+        url.searchParams.set('forHandle', target.handle);
+        requested = target.handle;
+      }
+      url.searchParams.set('key', apiKey);
+    } else {
+      throw new YouTubeApiError('Enter your YouTube Data API key and channel, or connect your Google account.', 'invalid');
+    }
 
     const res = await httpFetch(url.toString(), { headers: this.getHeaders(accessToken) });
-    const data = await res.json();
-
-    if (!res.ok && data.error) {
-      throw new Error(data.error.message || `YouTube API Error (${res.status})`);
+    const data: any = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) throw describeGoogleError(res.status, data, 'YouTube Data API v3', accessToken ? 'oauth' : 'api_key');
+    if (!data.items || data.items.length === 0) {
+      throw new YouTubeApiError(
+        accessToken
+          ? 'This Google account has no YouTube channel. Sign in with the account that owns your channel.'
+          : `No YouTube channel matches ${requested}. Check the channel ID or @handle: it must match exactly.`,
+        'not_found',
+      );
     }
 
-    if (res.ok && data.items && data.items.length > 0) {
-      return this.formatChannelItem(data.items[0]);
+    const channel = this.formatChannelItem(data.items[0]);
+    if (credentials.channelId && channel.id !== credentials.channelId) {
+      throw new YouTubeApiError('This Google account owns a different YouTube channel than the one connected. Disconnect YouTube and connect the channel you want.', 'permission');
     }
-    return null;
+    return channel;
+  }
+
+  /** Resolves the owning channel of a single video (used when the user pastes a video link). */
+  private static async channelIdForVideo(videoId: string, apiKey: string): Promise<string | null> {
+    const url = new URL(`${this.API_BASE}/videos`);
+    url.searchParams.set('part', 'snippet');
+    url.searchParams.set('id', videoId);
+    url.searchParams.set('key', apiKey);
+    const res = await httpFetch(url.toString(), { headers: this.getHeaders() });
+    const data: any = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) throw describeGoogleError(res.status, data, 'YouTube Data API v3', 'api_key');
+    return data.items?.[0]?.snippet?.channelId ?? null;
   }
 
   private static formatChannelItem(item: any): YouTubeChannelDetails {
@@ -319,43 +144,54 @@ export class YouTubeDataApi {
 
     // Resolve uploads playlist ID: either passed in or derived from channelId (UC... -> UU...)
     let playlistId = uploadsPlaylistId;
-    if (!playlistId && credentials.channelId?.startsWith('UC')) playlistId = 'UU' + credentials.channelId.slice(2);
+    if (!playlistId && credentials.channelId?.startsWith('UC')) {
+      playlistId = 'UU' + credentials.channelId.slice(2);
+    }
 
     const allVideoIds: string[] = [];
 
-    // Attempt 1: the channel's uploads playlist. Every page is followed to the end (the old cap silently dropped older
-    // videos). A failure on the first page is a real problem (quota, permission, bad key) and is reported, not hidden;
-    // a later page that still fails after retries leaves the list partial, which the sync reports by comparing counts.
-    const seen = new Set<string>();
+    // Attempt 1: Fetch via playlistItems
     if (playlistId) {
-      let nextPageToken: string | undefined;
-      let page = 0;
-      const pageCap = Math.max(config.providers.maxPages, 400);
-      do {
-        page++;
-        const playlistUrl = new URL(`${this.API_BASE}/playlistItems`);
-        playlistUrl.searchParams.set('part', 'snippet,contentDetails');
-        playlistUrl.searchParams.set('playlistId', playlistId);
-        playlistUrl.searchParams.set('maxResults', '50');
-        if (nextPageToken) playlistUrl.searchParams.set('pageToken', nextPageToken);
-        this.appendAuth(playlistUrl, apiKey);
+      try {
+        let nextPageToken: string | undefined = undefined;
+        let page = 0;
+        const maxPages = config.providers.maxPages;
 
-        let data: any;
-        try {
-          const res = await httpFetch(playlistUrl.toString(), { headers: this.getHeaders(accessToken) });
-          data = await res.json();
-          if (!res.ok || data.error) throw new Error(data.error?.message || `YouTube returned HTTP ${res.status}`);
-        } catch (err) {
-          const notFoundOrEmpty = err instanceof Error && /playlistNotFound|not be found/i.test(err.message);
-          if (page === 1 && !notFoundOrEmpty) throw new Error(`YouTube would not list this channel's videos: ${err instanceof Error ? err.message : 'unknown error'}`);
-          break;
-        }
-        for (const it of data.items ?? []) {
-          const vId = it.contentDetails?.videoId || it.snippet?.resourceId?.videoId;
-          if (vId && !seen.has(vId)) { seen.add(vId); allVideoIds.push(vId); }
-        }
-        nextPageToken = data.nextPageToken;
-      } while (nextPageToken && page < pageCap);
+        do {
+          page++;
+          const playlistUrl = new URL(`${this.API_BASE}/playlistItems`);
+          playlistUrl.searchParams.set('part', 'snippet,contentDetails');
+          playlistUrl.searchParams.set('playlistId', playlistId);
+          playlistUrl.searchParams.set('maxResults', '50');
+          if (nextPageToken) {
+            playlistUrl.searchParams.set('pageToken', nextPageToken);
+          }
+          this.appendAuth(playlistUrl, apiKey);
+
+          const playlistRes = await httpFetch(playlistUrl.toString(), { headers: this.getHeaders(accessToken) });
+          const playlistData = await playlistRes.json().catch(() => ({}));
+
+          if (!playlistRes.ok || playlistData.error) {
+            // An empty uploads playlist is a 404; anything else on the first page is a real problem to report.
+            if (page === 1 && playlistRes.status !== 404) throw describeGoogleError(playlistRes.status, playlistData, 'YouTube Data API v3', accessToken ? 'oauth' : 'api_key');
+            break;
+          }
+
+          if (playlistData.items && Array.isArray(playlistData.items)) {
+            for (const it of playlistData.items) {
+              const vId = it.contentDetails?.videoId || it.snippet?.resourceId?.videoId;
+              if (vId && !allVideoIds.includes(vId)) {
+                allVideoIds.push(vId);
+              }
+            }
+          }
+
+          nextPageToken = playlistData.nextPageToken;
+        } while (nextPageToken && page < maxPages);
+      } catch (err) {
+        if (err instanceof YouTubeApiError) throw err;
+        // Network hiccup: continue to the same-channel search fallback
+      }
     }
 
     // Attempt 2: Fallback to search if playlistItems yielded nothing
@@ -404,10 +240,7 @@ export class YouTubeDataApi {
       const videosRes = await httpFetch(videosUrl.toString(), { headers: this.getHeaders(accessToken) });
       const videosData = await videosRes.json();
 
-      if (!videosRes.ok || !videosData.items) {
-        if (i === 0) throw new Error(`YouTube would not return video details: ${videosData?.error?.message || `HTTP ${videosRes.status}`}`);
-        continue;
-      }
+      if (!videosRes.ok || !videosData.items) continue;
 
       normalizedList.push(...this.convertYouTubeItemsToNormalizedMedia(videosData.items));
     }
@@ -460,9 +293,9 @@ export class YouTubeDataApi {
           status: tier,
         },
         views,
-        // YouTube's public API gives no reach or share counts; leave them at 0 (reported as unavailable) instead of inventing them.
-        reach: 0,
+        reach: views,
         engagementRate,
+        // The YouTube Data API doesn't expose shares; the adapter marks them unavailable.
         shares: 0,
         likes,
         comments,

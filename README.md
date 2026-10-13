@@ -21,7 +21,7 @@ backend/              Express + TypeScript API (its own package). See backend/RE
 web/                  Next.js + TypeScript web client (its own package). See web/README.md
   src/{config,middleware,routes,controllers,services,repositories,models,integrations,jobs,lib,validators}
   tests/              API integration tests against a real MongoDB
-  scripts/            create-admin, seed-test-accounts (development only)
+  scripts/            create-admin
 shared/               Response types used by the API
 docs/                 architecture, api, authentication, database, deployment, security, integrations, runbook, FRONTEND_PROMPT
 ```

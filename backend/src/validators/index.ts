@@ -20,7 +20,11 @@ export const auth = {
 };
 
 export const users = {
-  profile: z.object({ fullName: text(120).optional(), organization: text(160).optional(), accountType: text(60).optional(), timezone: timezone.optional(), onboardingCompleted: z.boolean().optional() }).strict()
+  profile: z.object({
+    fullName: text(120).optional(), organization: text(160).optional(), accountType: text(60).optional(), timezone: timezone.optional(), onboardingCompleted: z.boolean().optional(),
+    notificationPrefs: z.object({ syncUpdates: z.boolean().optional(), connectionProblems: z.boolean().optional(), performanceAlerts: z.boolean().optional() }).strict()
+      .refine((v) => Object.keys(v).length > 0, 'Provide at least one notification category').optional(),
+  }).strict()
     .refine((v) => Object.keys(v).length > 0, 'Provide at least one field'),
   deleteAccount: z.object({ password: z.string().min(1).max(128) }).strict(),
   sessionParams: z.object({ id: objectId }).strict(),
@@ -34,8 +38,6 @@ export const connections = {
     accessToken: credential.optional(), apiKey: credential.optional(), accountId: z.string().trim().max(200).optional(), pageId: z.string().trim().max(200).optional(),
     channelId: z.string().trim().max(200).optional(), channelQuery: z.string().trim().max(200).optional(), organizationId: z.string().trim().max(200).optional(), username: z.string().trim().max(200).optional(),
   }).strict().refine((v) => v.accessToken || v.apiKey, 'accessToken or apiKey is required'),
-  lookup: z.object({ apiKey: credential.optional(), accessToken: credential.optional(), channelQuery: z.string().trim().max(200).optional(), channelId: z.string().trim().max(200).optional() }).strict()
-    .refine((v) => v.apiKey || v.accessToken, 'apiKey or accessToken is required'),
   oauthCallback: z.object({ code: z.string().min(1).max(2048).optional(), state: z.string().min(10).max(200), error: z.string().max(200).optional(), error_description: z.string().max(500).optional() }).passthrough(),
 };
 
@@ -46,7 +48,7 @@ export const media = {
 
 export const intelligence = {
   summary: z.object({ platform: platform.optional(), days: z.coerce.number().int().min(7).max(365).default(30) }).strict(),
-  performers: z.object({ sortBy: z.enum(['views', 'engagement', 'likes', 'comments']).default('views') }).strict(),
+  performers: z.object({ sortBy: z.enum(['views', 'engagement', 'likes', 'comments']).default('views'), platform: platform.optional() }).strict(),
   history: z.object({ from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(), platform: platform.optional(), limit: z.coerce.number().int().min(1).max(366).default(90) }).strict(),
   ask: z.object({ question: z.string().trim().min(2).max(500) }).strict(),
   item: z.object({ mediaId: z.string().min(1).max(200) }).strict(),
@@ -69,6 +71,12 @@ export const planner = {
   idParams: z.object({ id: objectId }).strict(),
   recParams: z.object({ id: z.string().min(1).max(200) }).strict(),
   plan: z.object({ day: z.enum(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).optional(), time: text(20).optional() }).strict().default({}),
+  bestTimes: z.object({
+    platform: z.enum(['instagram', 'facebook', 'youtube', 'linkedin', 'all']),
+    days: z.enum(['30', '60', '90']).default('90').transform(Number),
+    metric: z.enum(['engagementRate', 'reach', 'views']).optional(),
+    contentType: z.enum(['all', 'reel', 'short', 'video', 'post', 'article', 'carousel']).optional(),
+  }).strict(),
 };
 
 export const notifications = {

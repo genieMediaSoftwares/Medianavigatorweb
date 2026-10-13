@@ -238,6 +238,24 @@ describe('data lifecycle and ownership', () => {
     expect((await api().post('/api/v1/connections/instagram/sync').set(u.auth)).status).toBe(404);
   });
 
+  it('reconnecting a different account replaces its content instead of mixing in the previous channel', async () => {
+    const u = await registerUser('switch@test.example');
+    await connect(u);
+    await drain();
+    expect(await ContentItem.countDocuments()).toBe(12); // the original channel
+
+    // Same user and platform, but the connection now resolves to a different provider account with new media ids.
+    fake.accountId = 'acct-2';
+    fake.items = makeMedia(5, 'instagram').map((m, i) => ({ ...m, id: `nw_${i + 1}`, platformContentId: `new-${i + 1}` }));
+    expect((await connect(u)).status).toBe(202);
+    await drain();
+
+    const items = await ContentItem.find().lean();
+    expect(items).toHaveLength(5); // old channel's posts are gone, not merged
+    expect(items.every((i) => i.providerMediaId.startsWith('new-'))).toBe(true);
+    expect(await Analytics.countDocuments()).toBe(1); // only the new account's snapshot remains
+  });
+
   it('isolates users: nobody can read another user’s content, sync runs or analytics', async () => {
     const a = await registerUser('iso-a@test.example');
     const b = await registerUser('iso-b@test.example');

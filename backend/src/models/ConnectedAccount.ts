@@ -18,6 +18,8 @@ export interface ConnectedAccountDoc {
   credentialsExpiresAt?: Date | null;
   status: ConnectionState;
   statusMessage?: string;
+  /** How the account was connected: Google/Meta/LinkedIn sign-in, a pasted token, or an API key (public data only). */
+  authMethod?: 'oauth' | 'token' | 'api_key';
   missingPermissions: string[];
   accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number };
   /** true while the connection is live. Used by the partial unique index so a provider account has at most one live owner. */
@@ -48,6 +50,7 @@ const schema = new Schema<ConnectedAccountDoc>(
       required: true,
     },
     statusMessage: { type: String, maxlength: 1000 },
+    authMethod: { type: String, enum: ['oauth', 'token', 'api_key'] },
     missingPermissions: { type: [String], default: [] },
     accountInfo: { type: Schema.Types.Mixed },
     active: { type: Boolean, default: true },

@@ -2,7 +2,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { ComponentProps } from 'react';
 
 import { colors } from '@/constants/colors';
-import type { Connection, ConnectInput, Platform } from '@/types/api';
+import type { Connection, Platform } from '@/types/api';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -35,14 +35,6 @@ export const PLATFORM_ACCOUNT_NOUN: Record<Platform, string> = {
 export function isPlatform(value: unknown): value is Platform {
   return typeof value === 'string' && (PLATFORM_ORDER as readonly string[]).includes(value);
 }
-
-/** Optional extra field the token form can send, per platform (see POST /connections/:platform/connect). */
-export const CONNECT_EXTRA: Record<Platform, { key: keyof ConnectInput; label: string; hint: string }> = {
-  instagram: { key: 'accountId', label: 'Instagram account ID (optional)', hint: 'Only needed when your token covers more than one account.' },
-  facebook: { key: 'pageId', label: 'Facebook Page ID (optional)', hint: 'Choose which Page to read when your token has several.' },
-  youtube: { key: 'channelQuery', label: 'Channel handle or link (optional)', hint: 'For example @YourChannel. Leave empty to use the token’s own channel.' },
-  linkedin: { key: 'organizationId', label: 'Company Page ID (optional)', hint: 'The number of the Company Page you manage.' },
-};
 
 export interface StatusView {
   label: string;

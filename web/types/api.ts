@@ -92,6 +92,8 @@ export interface Connection {
   sync?: { state: string; lastSyncedAt: string | null; nextSyncAt: string | null; lastError: string | null };
   capabilities?: ProviderCapabilities;
   oauthAvailable?: boolean;
+  /** How the live account was connected; 'api_key' means public data only (e.g. no YouTube watch time). */
+  authMethod?: 'oauth' | 'token' | 'api_key' | null;
 }
 
 export type SyncRunStatus = 'queued' | 'running' | 'succeeded' | 'partial' | 'failed' | 'cancelled';

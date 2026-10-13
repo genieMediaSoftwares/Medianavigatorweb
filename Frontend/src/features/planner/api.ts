@@ -1,5 +1,10 @@
 import { apiRequest } from '@/lib/api/client';
-import type { NewPlannedItem, PlannedItem, PlannerInsights } from '@/types/api';
+import type { BestTimes, NewPlannedItem, PlannedItem, PlannerInsights, PlannerMetricKey, PlannerRange, PlannerScope } from '@/types/api';
+
+/** Evidence-based best times for one platform's account (or all accounts combined), from its own synced posts. */
+export function fetchBestTimes(params: { platform: PlannerScope; days: PlannerRange; metric?: PlannerMetricKey; contentType?: string }): Promise<BestTimes> {
+  return apiRequest<BestTimes>('/planner/best-times', { auth: true, query: params });
+}
 
 /** Best windows, formats and topics measured from the user's own history. */
 export function fetchPlannerInsights(): Promise<PlannerInsights> {

@@ -75,45 +75,33 @@ export class FacebookClient extends MetaClient {
    */
   async fetchPosts(accessToken: string, pageId: string, pageAccessToken?: string): Promise<NormalizedMedia[]> {
     const effectiveToken = pageAccessToken || accessToken;
-    const fullFields = 'id,message,created_time,full_picture,permalink_url,shares,reactions.summary(total_count),comments.summary(total_count),status_type,attachments{media,media_type,type,target,subattachments{media,media_type,type}}';
-    const basicFields = 'id,message,created_time,full_picture,permalink_url,status_type,attachments{media,media_type,type,target,subattachments{media,media_type,type}}';
-    const fieldSets = [fullFields, basicFields];
-    const endpoints = [`${pageId}/posts`, `${pageId}/published_posts`, `${pageId}/feed`];
-
+    const fields = 'id,message,created_time,full_picture,permalink_url,shares,reactions.summary(total_count),comments.summary(total_count)';
+    
+    // Fetch all pages using paging.next
     let allPosts: any[] = [];
-    fieldLoop: for (const fields of fieldSets) {
-      for (const endpoint of endpoints) {
-        if (allPosts.length > 0) break fieldLoop;
-        let currentUrl: string | null = `https://graph.facebook.com/${config.providers.metaApiVersion}/${endpoint}?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
-        let pageCount = 0;
-        while (currentUrl && pageCount < config.providers.maxPages) {
-          pageCount++;
-          try {
-            const res: Response = await httpFetch(currentUrl, {
-              headers: { 'Authorization': `Bearer ${effectiveToken}`, 'Accept': 'application/json' },
-            });
-            if (!res.ok) break;
-            const json: any = await res.json();
-            if (json?.error) break;
-            if (json.data && Array.isArray(json.data)) {
-              allPosts.push(...json.data);
-            }
-            if (json.paging && typeof json.paging.next === 'string' && json.paging.next.length > 0) {
-              currentUrl = json.paging.next;
-            } else {
-              currentUrl = null;
-            }
-          } catch {
-            break;
-          }
+    let currentUrl: string | null = `https://graph.facebook.com/${config.providers.metaApiVersion}/${pageId}/posts?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
+    let pageCount = 0;
+
+    while (currentUrl && pageCount < config.providers.maxPages) {
+      pageCount++;
+      try {
+        const res: Response = await httpFetch(currentUrl, {
+          headers: { 'Authorization': `Bearer ${effectiveToken}`, 'Accept': 'application/json' },
+        });
+        if (!res.ok) break;
+        const json: any = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          allPosts.push(...json.data);
         }
+        if (json.paging && typeof json.paging.next === 'string' && json.paging.next.length > 0) {
+          currentUrl = json.paging.next;
+        } else {
+          currentUrl = null;
+        }
+      } catch {
+        break;
       }
     }
-
-    // Deduplicate posts returned by multiple endpoints or field variants.
-    const unique = new Map<string, any>();
-    for (const p of allPosts) { if (p?.id && !unique.has(p.id)) unique.set(p.id, p); }
-    allPosts = [...unique.values()];
 
     if (allPosts.length === 0) {
       return [];
@@ -128,26 +116,25 @@ export class FacebookClient extends MetaClient {
       const totalInteractions = reactionsCount + commentsCount + sharesCount;
 
       let postImpressions = 0;
-      let postEngagedUsers = 0;
 
       // Query post insights if permissions allow
       try {
         const insightsRes = await this.get<any>(`${post.id}/insights`, effectiveToken, {
-          metric: 'post_impressions,post_engaged_users',
+          metric: 'post_impressions',
         });
         if (insightsRes.data && Array.isArray(insightsRes.data)) {
           for (const item of insightsRes.data) {
             const val = item.values?.[0]?.value || 0;
             if (item.name === 'post_impressions') postImpressions = val;
-            if (item.name === 'post_engaged_users') postEngagedUsers = val;
           }
         }
       } catch {
         // Leave at 0 if restricted by Facebook API permissions
       }
 
-      const divisor = postImpressions > 0 ? postImpressions : (reactionsCount + commentsCount > 0 ? (reactionsCount + commentsCount) * 15 : 100);
-      const engagementRate = Number(((totalInteractions / divisor) * 100).toFixed(2));
+      // Engagement rate needs measured impressions. Without them it is unknown, never estimated.
+      const engagementRate = postImpressions > 0 ? Number(((totalInteractions / postImpressions) * 100).toFixed(2)) : 0;
+      const missingMetrics = postImpressions > 0 ? [] : ['engagementRate', 'views'];
 
       let tier: PerformanceTier = 'Average';
       if (engagementRate > 4.5 || totalInteractions > 100) tier = 'Strong';
@@ -155,23 +142,18 @@ export class FacebookClient extends MetaClient {
       else if (engagementRate < 0.5 && totalInteractions === 0) tier = 'Declining';
 
       const text = post.message || 'Facebook Update';
-      const title = text.slice(0, 60).replace(/\\n/g, ' ') + (text.length > 60 ? '...' : '');
-
-      const attachment = Array.isArray(post.attachments?.data) ? post.attachments.data[0] : null;
-      const isVideo = post.status_type === 'added_video' || attachment?.media_type === 'video' || attachment?.type === 'video_autoplay';
-      const thumbnailUrl = post.full_picture || attachment?.media?.image?.src || attachment?.media?.picture || '';
-      const mediaUrl = post.permalink_url || attachment?.target?.url || '';
+      const title = text.slice(0, 60).replace(/\n/g, ' ') + (text.length > 60 ? '...' : '');
 
       normalizedList.push({
         id: `fb_${post.id}`,
         workspaceId: 'ws_live',
         platform: 'facebook',
         platformContentId: post.id,
-        contentType: isVideo ? 'video' : 'post',
+        contentType: 'post',
         title,
         caption: post.message || '',
-        thumbnailUrl,
-        mediaUrl,
+        thumbnailUrl: post.full_picture || '',
+        mediaUrl: post.permalink_url,
         publishedAt: post.created_time,
         primarySignal: {
           label: 'Interactions',
@@ -179,7 +161,9 @@ export class FacebookClient extends MetaClient {
           status: tier,
         },
         views: postImpressions,
-        reach: postEngagedUsers,
+        // post_engaged_users counts people who interacted, which is not reach; reach is left unavailable.
+        reach: 0,
+        missingMetrics,
         engagementRate,
         shares: sharesCount,
         likes: reactionsCount,

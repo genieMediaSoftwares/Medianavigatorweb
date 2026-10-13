@@ -4,8 +4,8 @@ import type { ContentAnalysis, ContentAnalysisType, MediaItem, PerformerSort, Pe
 // The same endpoints the web client uses (web/lib/api/endpoints.ts). Rankings, baselines and AI text
 // all come from the server; nothing is calculated here.
 
-/** Synced posts for one platform, newest first, following the server's cursor. */
-export function fetchMediaPage(platform: Platform, cursor?: string | null): Promise<Page<MediaItem>> {
+/** Synced posts for one platform (or every connected one when omitted), newest first, following the server's cursor. */
+export function fetchMediaPage(platform?: Platform, cursor?: string | null): Promise<Page<MediaItem>> {
   return apiPage<MediaItem>('/media', { platform, limit: 24, cursor: cursor ?? undefined });
 }
 
@@ -13,9 +13,9 @@ export function fetchMediaItem(id: string): Promise<MediaItem> {
   return apiRequest<MediaItem>(`/media/${encodeURIComponent(id)}`, { auth: true });
 }
 
-/** Best and weakest posts, ranked by `sortBy` against the account's average. */
-export function fetchPerformers(sortBy: PerformerSort): Promise<PerformersResponse> {
-  return apiRequest<PerformersResponse>('/intelligence/performers', { auth: true, query: { sortBy } });
+/** Best and weakest posts of one platform, ranked by `sortBy` and compared with that account's typical post. */
+export function fetchPerformers(sortBy: PerformerSort, platform?: Platform): Promise<PerformersResponse> {
+  return apiRequest<PerformersResponse>('/intelligence/performers', { auth: true, query: { sortBy, platform } });
 }
 
 /** The platform's baseline and whether it has enough history (web uses the 1-year summary). */

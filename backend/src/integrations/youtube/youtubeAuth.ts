@@ -1,5 +1,6 @@
-import { config } from '../../config/env.js';
 import { httpFetch } from '../../lib/http.js';
+import { looksLikeApiKey, parseExactChannel } from './errors.js';
+
 export interface YouTubeAuthValidation {
   isValid: boolean;
   channelId?: string;
@@ -11,25 +12,46 @@ export interface YouTubeAuthValidation {
 }
 
 export class YouTubeAuth {
-  /**
-   * Validates YouTube credentials (OAuth Access Token or Data API Key)
-   */
+  /** Validates YouTube credentials by type: a Data API key (key only), or a Google sign-in (OAuth). */
   static async validate(credentials: {
     accessToken?: string;
     apiKey?: string;
     channelId?: string;
     channelQuery?: string;
   }): Promise<YouTubeAuthValidation> {
-    const { accessToken, apiKey, channelId } = credentials;
+    const { accessToken, apiKey, channelQuery, channelId } = credentials;
+    const fail = (error: string, authType: 'oauth' | 'api_key', missingPermissions: string[] = []): YouTubeAuthValidation =>
+      ({ isValid: false, hasAnalyticsPermission: false, missingPermissions, authType, error });
 
-    if (!accessToken && !apiKey) {
+    // An API key sent where a Google sign-in token belongs is what produced Google's bare "Invalid Value" before.
+    if (accessToken?.trim() && looksLikeApiKey(accessToken)) {
+      return fail('That is a YouTube Data API key, not a Google sign-in. Paste it in the API key field instead.', 'api_key');
+    }
+
+    if (!accessToken?.trim()) {
+      if (!apiKey?.trim()) return fail('Enter your YouTube Data API key, or connect your Google account.', 'api_key');
+      if (!looksLikeApiKey(apiKey)) return fail('That doesn\u2019t look like a Google API key. Keys start with \u201cAIza\u201d and are 39 characters long; copy it from Google Cloud Console \u2192 Credentials.', 'api_key');
+
+      // An API key has no user identity, so YouTube can't tell which channel is yours: the channel must be named exactly.
+      if (!channelId?.trim() && !channelQuery?.trim()) {
+        return fail('An API key can\u2019t tell which channel is yours. Enter your YouTube channel @handle (e.g. @YourChannel) or channel ID (starts with UC\u2026) so we know which channel to connect, then try again.', 'api_key');
+      }
+
+      // If the user supplied a channel handle/ID, validate its format early.
+      if (!channelId?.trim() && !parseExactChannel(channelQuery ?? '')) {
+        return fail('Enter your channel ID (starts with UC\u2026) or your exact @handle (e.g. @YourChannel). Search terms aren\u2019t accepted.', 'api_key');
+      }
+
       return {
-        isValid: false,
+        isValid: true,
         hasAnalyticsPermission: false,
-        missingPermissions: ['youtube.readonly', 'yt-analytics.readonly'],
-        authType: 'oauth',
-        error: 'Please provide a valid YouTube OAuth Access Token or YouTube Data API Key.',
+        missingPermissions: ['https://www.googleapis.com/auth/yt-analytics.readonly'],
+        authType: 'api_key',
       };
+    }
+
+    if (channelQuery?.trim()) {
+      return fail('A channel ID or @handle isn\u2019t needed with Google sign-in: the channel your Google account owns is connected automatically.', 'oauth');
     }
 
     // Check OAuth Access Token if provided
@@ -44,12 +66,21 @@ export class YouTubeAuth {
             hasAnalyticsPermission: false,
             missingPermissions: [],
             authType: 'oauth',
-            error: tokenInfo.error_description || 'YouTube OAuth token validation failed. Token may be invalid or expired.',
+            error: 'Your Google sign-in is invalid or has expired. Connect your Google account again.',
           };
         }
 
         const scopeString = tokenInfo.scope || '';
         const scopes = scopeString.split(' ');
+        if (!scopes.some((sc: string) => /auth\/youtube(\.readonly)?$/.test(sc))) {
+          return {
+            isValid: false,
+            hasAnalyticsPermission: false,
+            missingPermissions: ['https://www.googleapis.com/auth/youtube.readonly'],
+            authType: 'oauth',
+            error: 'This token doesn\u2019t include YouTube access. Authorize the youtube.readonly scope and generate a new token.',
+          };
+        }
         const hasAnalytics = scopes.some((s: string) => s.includes('yt-analytics'));
         const missing: string[] = [];
 
@@ -70,46 +101,6 @@ export class YouTubeAuth {
           missingPermissions: [],
           authType: 'oauth',
           error: `YouTube OAuth verification error: ${err.message}`,
-        };
-      }
-    }
-
-    // Validate YouTube API Key
-    if (apiKey && apiKey.trim().length > 0) {
-      try {
-        // Test YouTube Data API key directly against Google's API
-        // If channelId is a 24-character UC ID, test channels endpoint; otherwise test video endpoint to verify key
-        const isNumericOrUC = channelId && /^UC[a-zA-Z0-9_-]{22}$/.test(channelId);
-        const testUrl = isNumericOrUC
-          ? `https://www.googleapis.com/youtube/${config.providers.youtubeApiVersion}/channels?part=snippet&id=${encodeURIComponent(channelId)}&key=${encodeURIComponent(apiKey)}`
-          : `https://www.googleapis.com/youtube/${config.providers.youtubeApiVersion}/videos?part=snippet&id=dQw4w9WgXcQ&key=${encodeURIComponent(apiKey)}`;
-
-        const testRes = await httpFetch(testUrl);
-        const testData = await testRes.json();
-
-        if (!testRes.ok || testData.error) {
-          return {
-            isValid: false,
-            hasAnalyticsPermission: false,
-            missingPermissions: [],
-            authType: 'api_key',
-            error: `${testData.error?.message || 'Invalid YouTube Data API key.'}${testData.error?.errors?.[0]?.reason ? ` (${testData.error.errors[0].reason})` : ''} Enable YouTube Data API v3 in Google Cloud and allow this server to use the key.`,
-          };
-        }
-
-        return {
-          isValid: true,
-          hasAnalyticsPermission: true,
-          missingPermissions: [],
-          authType: 'api_key',
-        };
-      } catch (err: any) {
-        return {
-          isValid: false,
-          hasAnalyticsPermission: false,
-          missingPermissions: [],
-          authType: 'api_key',
-          error: `YouTube API key verification error: ${err.message}`,
         };
       }
     }

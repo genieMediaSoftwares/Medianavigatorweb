@@ -1,10 +1,13 @@
 import type { PlatformType } from '../../../shared/types.js';
-import { AppError, badRequest, conflict, providerError, notFound } from '../lib/errors.js';
+import { YouTubeApiError } from '../integrations/youtube/errors.js';
+import { badRequest, conflict, providerError, notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { ProviderHttpError } from '../lib/http.js';
 import { getAdapter, PLATFORMS } from '../integrations/registry.js';
 import type { ProviderCredentials } from '../integrations/types.js';
 import { connectionRepository } from '../repositories/connection.repository.js';
+import { mediaRepository } from '../repositories/media.repository.js';
+import { analyticsRepository } from '../repositories/analytics.repository.js';
 import { syncRunRepository } from '../repositories/syncRun.repository.js';
 import { ConnectedAccount } from '../models/ConnectedAccount.js';
 import { sealCredentials, syncService } from './sync.service.js';
@@ -40,28 +43,40 @@ export const connectionService = {
     try {
       const v = await adapter.validate(creds);
       if (!v.isValid) throw badRequest(v.error || `${platform} authorization failed`);
-      // A provider that cannot identify the account (wrong handle, key without a channel) says why in plain words.
-      const account = await adapter.resolveAccount(creds).catch((e: unknown) => {
-        if (e instanceof ProviderHttpError || e instanceof AppError || !(e instanceof Error)) throw e;
-        throw badRequest(e.message);
-      });
+      const account = await adapter.resolveAccount(creds);
 
       const owner = await ConnectedAccount.findOne({ platform, providerAccountId: account.providerAccountId, active: true }).select('userId').lean<{ userId: unknown }>();
       if (owner && String(owner.userId) !== userId) throw conflict('This account is already connected to another Media Navigator user');
+
+      // Reconnecting must never leave the previous channel's media in the analysis: when the resolved channel
+      // differs from the stored one, its content and daily snapshots are cleared before the new sync runs.
+      const previous = await connectionRepository.findForUser(uid, platform);
+      const changedChannel = Boolean(previous && previous.providerAccountId !== account.providerAccountId);
 
       resolvedCreds = { ...creds, ...account.credentialsPatch };
       const doc = await connectionRepository.upsertConnected(uid, platform, {
         providerAccountId: account.providerAccountId, handle: account.handle, displayName: account.displayName, avatarUrl: account.avatarUrl,
         accountInfo: account.accountInfo, credentialsEnc: sealCredentials(resolvedCreds),
+        // Only the kind of credential is recorded (never the credential), so clients can say what data is available.
+        authMethod: resolvedCreds.refreshToken ? 'oauth' : resolvedCreds.apiKey && !resolvedCreds.accessToken ? 'api_key' : 'token',
         credentialsExpiresAt: resolvedCreds.expiresAt ? new Date(resolvedCreds.expiresAt) : null,
+        ...(changedChannel ? { dataPointsCount: 0 } : {}),
         status: 'syncing', statusMessage: 'Connected. First synchronization queued.',
         nextSyncAt: null,
       });
+      if (changedChannel && previous) {
+        await Promise.all([
+          mediaRepository.deleteForAccount(previous._id),
+          analyticsRepository.deleteForAccount(previous._id),
+        ]);
+      }
       const { run } = await syncService.enqueue(doc, doc.lastSyncedAt ? 'manual' : 'initial', uid);
       await auditRepository.record({ actorId: uid, action: 'connection.connect', targetType: 'connected_account', targetId: String(doc._id), requestId, meta: { platform } });
       return { connection: toPlatformConnection(platform, doc), syncRun: syncRunView(run) };
     } catch (err) {
       if (err instanceof ProviderHttpError) throw providerError(`${platform} is not reachable right now: ${err.message}`);
+      // Plain-language provider errors (invalid key, API not enabled, channel not found, quota) are the user's to fix.
+      if (err instanceof YouTubeApiError) throw err.kind === 'unavailable' ? providerError(err.message) : badRequest(err.message);
       throw err;
     }
   },

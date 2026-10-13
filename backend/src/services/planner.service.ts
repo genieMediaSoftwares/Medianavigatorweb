@@ -5,17 +5,23 @@ import { plannedRepository } from '../repositories/planned.repository.js';
 import type { PlannedContentDoc } from '../models/PlannedContent.js';
 import { loadAnalyticsContext } from './analytics.service.js';
 import { buildSummary } from './analytics.stats.js';
+import { bestTimes } from './planner/bestTimes.service.js';
 
 const view = (d: PlannedContentDoc): PlannedContent => ({
   id: String(d._id), day: d.day as PlannedContent['day'], time: d.time, platform: d.platform as PlannedContent['platform'], contentType: d.contentType, title: d.title,
-  isRecommended: d.isRecommended, recommendationReason: d.recommendationReason, status: d.status as PlannedContent['status'],
+  isRecommended: d.isRecommended, recommendationReason: d.recommendationReason,
+  // Media Navigator never publishes, so nothing it stores is "scheduled". Older rows used that word for a plan.
+  status: (d.status === 'scheduled' ? 'planned' : d.status) as PlannedContent['status'],
 });
 
 export const plannerService = {
   list: async (userId: string) => (await plannedRepository.list(toObjectId(userId), 200)).map(view),
 
   add: async (userId: string, item: { day: string; time: string; platform: string; contentType?: string; title: string }) =>
-    view(await plannedRepository.create(toObjectId(userId), { ...item, contentType: item.contentType || 'Post', status: 'scheduled', isRecommended: false })),
+    view(await plannedRepository.create(toObjectId(userId), { ...item, contentType: item.contentType || 'Post', status: 'planned', isRecommended: false })),
+
+  /** Best time to post for one platform's connected account (or all accounts combined). */
+  bestTimes,
 
   remove: async (userId: string, id: string) => { await plannedRepository.remove(toObjectId(userId), id); return { id }; },
 
@@ -29,7 +35,7 @@ export const plannerService = {
     if (!day || !time) throw new AppError('VALIDATION_ERROR', 'There is not enough posting history to suggest a time. Provide day and time.');
     const platform = ctx.engine.getMedia().find((m) => `rec_${m.id}` === recId)?.platform ?? ctx.engine.getMedia()[0]?.platform ?? 'instagram';
     return view(await plannedRepository.create(toObjectId(userId), {
-      day, time, platform, contentType: rec.suggestedSlot?.format || 'post', title: rec.title, status: 'scheduled', isRecommended: true, recommendationReason: rec.reason,
+      day, time, platform, contentType: rec.suggestedSlot?.format || 'post', title: rec.title, status: 'planned', isRecommended: true, recommendationReason: rec.reason,
     }));
   },
 

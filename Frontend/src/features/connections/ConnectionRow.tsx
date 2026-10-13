@@ -1,8 +1,9 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import { PlatformLogo } from '@/components/PlatformLogo';
 import { Button } from '@/components/ui/Button';
+import { colors } from '@/constants/colors';
 import { formatCompactNumber, formatRelativeTime } from '@/lib/format';
 import type { Connection } from '@/types/api';
 
@@ -13,10 +14,12 @@ interface ConnectionRowProps {
   syncing: boolean;
   onConnect: () => void;
   onSync: () => void;
+  disconnecting: boolean;
+  onDisconnect: () => void;
 }
 
 /** One platform from GET /connections: status, account, last sync, and the next action. */
-export function ConnectionRow({ connection, syncing, onConnect, onSync }: ConnectionRowProps) {
+export function ConnectionRow({ connection, syncing, onConnect, onSync, disconnecting, onDisconnect }: ConnectionRowProps) {
   const meta = PLATFORM_META[connection.platform];
   const status = statusView(connection, syncing);
   const problem = problemMessage(connection);
@@ -52,6 +55,21 @@ export function ConnectionRow({ connection, syncing, onConnect, onSync }: Connec
         )}
       </View>
       {problem ? <Text className="ml-[56px] mt-xs text-caption text-warning">{problem}</Text> : null}
+      {connection.connected ? (
+        <Pressable
+          onPress={onDisconnect}
+          disabled={disconnecting}
+          accessibilityRole="button"
+          accessibilityLabel={`Disconnect ${meta.name}`}
+          hitSlop={8}
+          className="ml-[56px] mt-xs min-h-9 flex-row items-center self-start"
+        >
+          <Ionicons name="unlink-outline" size={14} color={disconnecting ? colors.neutral400 : colors.danger} />
+          <Text className={`ml-xs text-[13px] font-semibold ${disconnecting ? 'text-neutral-400' : 'text-danger'}`}>
+            {disconnecting ? 'Disconnecting…' : 'Disconnect'}
+          </Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
