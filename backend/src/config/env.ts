@@ -123,6 +123,9 @@ const schema = z.object({
   EMAIL_FROM: optionalText,
 
   // --- providers; each group is all-or-nothing ---
+  INSTAGRAM_APP_ID: optionalText,
+  INSTAGRAM_APP_SECRET: optionalText,
+  INSTAGRAM_REDIRECT_URI: optionalText,
   META_APP_ID: optionalText,
   META_APP_SECRET: optionalText,
   META_REDIRECT_URI: optionalText,
@@ -165,6 +168,7 @@ export function buildConfig(source: Record<string, string | undefined>) {
   const gemini = group(raw, 'Gemini', ['GEMINI_API_KEY', 'GEMINI_MODEL'], problems);
   const r2 = group(raw, 'Cloudflare R2', ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET', 'R2_ENDPOINT'], problems);
   const smtp = group(raw, 'SMTP', ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'EMAIL_FROM'], problems);
+  const instagram = group(raw, 'Instagram Login', ['INSTAGRAM_APP_ID', 'INSTAGRAM_APP_SECRET', 'INSTAGRAM_REDIRECT_URI'], problems);
   const meta = group(raw, 'Meta (Instagram/Facebook)', ['META_APP_ID', 'META_APP_SECRET', 'META_REDIRECT_URI'], problems);
   const youtube = group(raw, 'YouTube', ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REDIRECT_URI'], problems);
   const linkedin = group(raw, 'LinkedIn', ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET', 'LINKEDIN_REDIRECT_URI'], problems);
@@ -219,6 +223,7 @@ export function buildConfig(source: Record<string, string | undefined>) {
       youtubeApiVersion: raw.YOUTUBE_API_VERSION,
       linkedinApiVersion: raw.LINKEDIN_API_VERSION,
       oauthStateTtlSeconds: raw.OAUTH_STATE_TTL_SECONDS,
+      instagram: instagram && { appId: instagram.INSTAGRAM_APP_ID, appSecret: instagram.INSTAGRAM_APP_SECRET, redirectUri: instagram.INSTAGRAM_REDIRECT_URI },
       meta: meta && { appId: meta.META_APP_ID, appSecret: meta.META_APP_SECRET, redirectUri: meta.META_REDIRECT_URI },
       youtube: youtube && { clientId: youtube.YOUTUBE_CLIENT_ID, clientSecret: youtube.YOUTUBE_CLIENT_SECRET, redirectUri: youtube.YOUTUBE_REDIRECT_URI },
       linkedin: linkedin && { clientId: linkedin.LINKEDIN_CLIENT_ID, clientSecret: linkedin.LINKEDIN_CLIENT_SECRET, redirectUri: linkedin.LINKEDIN_REDIRECT_URI },

@@ -12,6 +12,9 @@ vi.mock('../src/integrations/registry.js', async () => {
   };
 });
 
+import { getAdapter } from '../src/integrations/registry.js';
+import { sealCredentials, readCredentials } from '../src/services/sync.service.js';
+import { connectionRepository } from '../src/repositories/connection.repository.js';
 import { syncService } from '../src/services/sync.service.js';
 import { enqueueDueSyncs } from '../src/jobs/sync/scheduler.js';
 import { ConnectedAccount } from '../src/models/ConnectedAccount.js';
@@ -45,6 +48,23 @@ describe('connecting a platform', () => {
     const list = await api().get('/api/v1/connections').set(u.auth);
     expect(JSON.stringify(list.body)).not.toMatch(/SECRET-TOKEN|credentialsEnc/);
     expect(list.body.data).toHaveLength(4);
+  });
+
+  it('refreshes Instagram access without a separate refresh token and persists it encrypted', async () => {
+    const u = await registerUser('ig-refresh@test.example');
+    await connect(u);
+    const account = await ConnectedAccount.findOne({ userId: u.id });
+    await ConnectedAccount.updateOne({ _id: account!._id }, { credentialsEnc: sealCredentials({ instagramLogin: true, accountId: 'instagram-acct-1', accessToken: 'old-token', expiresAt: new Date(Date.now() + 86400000).toISOString() }) });
+    const adapter = getAdapter('instagram');
+    adapter.refreshCredentials = vi.fn(async (c) => ({ ...c, accessToken: 'new-private-token', expiresAt: new Date(Date.now() + 60 * 86400000).toISOString() }));
+    try {
+      await drain();
+      expect(adapter.refreshCredentials).toHaveBeenCalledOnce();
+      const saved = await connectionRepository.findByIdWithCredentials(account!._id);
+      expect(readCredentials(saved!).accessToken).toBe('new-private-token');
+      expect(saved!.credentialsEnc).not.toContain('new-private-token');
+      expect(saved!.status).toBe('sync_complete');
+    } finally { delete adapter.refreshCredentials; }
   });
 
   it('rejects invalid provider credentials without storing anything', async () => {

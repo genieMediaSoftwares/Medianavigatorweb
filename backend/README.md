@@ -55,7 +55,8 @@ Optional feature groups (Gemini, R2, SMTP, each OAuth provider) must be **all se
 | `FILE_MAX_BYTES`, `FILE_ALLOWED_MIME_TYPES`, `FILE_PRESIGNED_URL_TTL_SECONDS` | yes | Upload limits (allowed: jpeg, png, webp, gif, pdf, mp4, csv, txt) |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_ENDPOINT` (+ optional `R2_PUBLIC_BASE_URL`) | group | Cloudflare R2 |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM` | group | Needed only for forgot-password email |
-| `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI` | group | Instagram + Facebook OAuth |
+| `INSTAGRAM_APP_ID`, `INSTAGRAM_APP_SECRET`, `INSTAGRAM_REDIRECT_URI` | group | Instagram API with Instagram Login; use the Instagram app credentials from Meta |
+| `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI` | group | Facebook OAuth |
 | `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`, `YOUTUBE_REDIRECT_URI` | group | YouTube OAuth |
 | `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI` | group | LinkedIn OAuth |
 

@@ -17,10 +17,41 @@ export interface InstagramAccountInfo {
 }
 
 export class InstagramClient extends MetaClient {
+  protected override readonly baseUrl: string;
+  constructor(private readonly instagramLogin = false) {
+    super();
+    this.baseUrl = `https://${instagramLogin ? 'graph.instagram.com' : 'graph.facebook.com'}/${config.providers.metaApiVersion}`;
+  }
+
+  async fetchAccountInsights(accessToken: string, accountId: string) {
+    const until = Math.floor(Date.now() / 1000);
+    const since = until - 28 * 86400;
+    const metrics: Record<string, number> = {};
+    const unavailable: string[] = [];
+    for (const metric of ['views', 'reach', 'accounts_engaged', 'total_interactions']) {
+      try {
+        const result = await this.get<any>(`${accountId}/insights`, accessToken, { metric, period: 'day', metric_type: 'total_value', since: String(since), until: String(until) });
+        const value = result.data?.find((entry: any) => entry.name === metric)?.total_value?.value;
+        if (typeof value === 'number' && Number.isFinite(value)) metrics[metric] = value;
+        else unavailable.push(metric);
+      } catch (error) {
+        if (error instanceof Error && /expired/i.test(error.message)) throw error;
+        unavailable.push(metric);
+      }
+    }
+    return { since: new Date(since * 1000).toISOString(), until: new Date(until * 1000).toISOString(), fetchedAt: new Date().toISOString(), metrics, unavailable };
+  }
+
   /**
    * Discovers the Instagram Account connected to the user/page token
    */
   async resolveAccount(accessToken: string, providedAccountId?: string): Promise<InstagramAccountInfo> {
+    if (this.instagramLogin) {
+      const me = await this.get<any>('me', accessToken, { fields: 'user_id,username,name,profile_picture_url,followers_count,follows_count,media_count' });
+      if (!me.user_id || !me.username) throw new Error('Instagram did not return a professional account. Please reconnect with a Business or Creator account.');
+      if (providedAccountId && String(me.user_id) !== providedAccountId) throw new Error('Instagram returned a different account. Please reconnect.');
+      return { id: String(me.user_id), username: me.username, name: me.name, profilePictureUrl: me.profile_picture_url, followersCount: me.followers_count, followsCount: me.follows_count, mediaCount: me.media_count };
+    }
     const cleanHandle = (providedAccountId || '')
       .trim()
       .replace(/^@/, '')
@@ -265,6 +296,19 @@ export class InstagramClient extends MetaClient {
       return items;
     };
 
+    if (this.instagramLogin) {
+      // Stay on the Instagram host for every page; never send an Instagram token to a Facebook endpoint.
+      let after: string | undefined;
+      let pages = 0;
+      do {
+        const page: any = await this.get<any>(`${instagramAccountId}/media`, effectiveToken, { fields, limit: '50', ...(after ? { after } : {}) });
+        rawItems.push(...(page.data ?? []));
+        after = page.paging?.next ? page.paging?.cursors?.after : undefined;
+        if (page.paging?.next && !after) throw new Error('Instagram returned an incomplete pagination cursor. Please retry syncing.');
+        pages++;
+      } while (after && pages < config.providers.maxPages);
+      if (after) throw new Error('Instagram sync reached the configured page limit. Ask the administrator to increase PROVIDER_MAX_PAGES.');
+    } else {
     // Strategy 1: Business Discovery if resolved as business discovery
     if (accountInfo?.isBusinessDiscovery && accountInfo.authorizedIgId && accountInfo.username) {
       try {
@@ -361,6 +405,8 @@ export class InstagramClient extends MetaClient {
       }
     }
 
+    }
+
     if (rawItems.length === 0) {
       return [];
     }
@@ -411,10 +457,10 @@ export class InstagramClient extends MetaClient {
           const timeout = setTimeout(() => controller.abort(), config.providers.timeoutMs);
 
           let res = await httpFetch(
-            `https://graph.facebook.com/${config.providers.metaApiVersion}/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
+            `${this.baseUrl}/${itemId}/insights?metric=${metrics}&access_token=${encodeURIComponent(effectiveToken)}`,
             { signal: controller.signal }
           );
-          if (!res.ok) {
+          if (!res.ok && !this.instagramLogin) {
             const errData = await res.json().catch(() => null);
             if (errData?.error?.code === 10 || errData?.error?.message?.includes('permission')) {
               insightsSupported = false;

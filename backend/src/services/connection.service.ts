@@ -58,7 +58,7 @@ export const connectionService = {
         providerAccountId: account.providerAccountId, handle: account.handle, displayName: account.displayName, avatarUrl: account.avatarUrl,
         accountInfo: account.accountInfo, credentialsEnc: sealCredentials(resolvedCreds),
         // Only the kind of credential is recorded (never the credential), so clients can say what data is available.
-        authMethod: resolvedCreds.refreshToken ? 'oauth' : resolvedCreds.apiKey && !resolvedCreds.accessToken ? 'api_key' : 'token',
+        authMethod: resolvedCreds.refreshToken || resolvedCreds.instagramLogin ? 'oauth' : resolvedCreds.apiKey && !resolvedCreds.accessToken ? 'api_key' : 'token',
         credentialsExpiresAt: resolvedCreds.expiresAt ? new Date(resolvedCreds.expiresAt) : null,
         ...(changedChannel ? { dataPointsCount: 0 } : {}),
         status: 'syncing', statusMessage: 'Connected. First synchronization queued.',

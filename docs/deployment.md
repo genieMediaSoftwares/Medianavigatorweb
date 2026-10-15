@@ -27,3 +27,27 @@ Syncs triggered by a user are queued immediately and wait for a worker; if none 
 3. `npm run admin:create -- <email>` (from a trusted shell with the production env).
 4. Register OAuth redirect URIs with Meta/Google/LinkedIn.
 5. Verify `/health`, register a test user, connect one account, watch `GET /connections`.
+
+## Instagram sign-in (no user-supplied tokens)
+
+New Instagram connections use Instagram API with Instagram Login. Existing Facebook-token Instagram connections remain readable until reconnected.
+
+Set this complete group in the backend environment (locally and on Render):
+
+- `INSTAGRAM_APP_ID`: Instagram app ID from Meta's Instagram API setup with Instagram Login.
+- `INSTAGRAM_APP_SECRET`: matching Instagram app secret; server only.
+- `INSTAGRAM_REDIRECT_URI`: `https://medianavigator-api.onrender.com/api/v1/connections/oauth/instagram/callback`
+
+Register that exact redirect URI in the Instagram Business Login settings. Keep `WEB_APP_URL=https://medianavigatorweb.vercel.app` and `CORS_ALLOWED_ORIGINS=https://medianavigatorweb.vercel.app` on Render. Vercel only needs `API_BASE_URL=https://medianavigator-api.onrender.com`; never put the app secret there or in `NEXT_PUBLIC_*`.
+
+The requested read-only scopes are `instagram_business_basic` and `instagram_business_manage_insights`. Test with an authorized Instagram Business/Creator tester account first. Public customers require Meta's review/access approval. Personal Instagram accounts are not supported by this API.
+
+The callback consumes a short-lived, single-use state bound to the signed-in Media Navigator user, exchanges the code on the server, upgrades and encrypts the token, and queues the existing media/insights sync. It returns to Connections, where import progress updates automatically and View analysis opens the existing analytics. No password or access token is collected in the Instagram connection form. Missing app settings show an explicit setup notice instead of a broken redirect.
+
+Verify live login, denial, reconnect, initial sync and insights with a real test account after configuring the app. Tests with mocked Meta responses do not prove that Meta has approved access.
+
+Instagram long-lived tokens are refreshed during sync when less than seven days remain. Expired or revoked access requires reconnecting. Refresh depends on the sync worker running; a sleeping Render instance cannot refresh in the background. Account insights cover the last 28 days, include collection timestamps and unavailable metric names, and feed the Ask AI context alongside synced post metrics. Full video analysis uses the existing user-triggered analysis flow.
+
+## Facebook Page sign-in
+
+The Facebook card redirects directly to official Facebook authorization when configured. There are no Facebook API-key, Page-ID, or token fields in the UI. Set `META_APP_ID`, `META_APP_SECRET`, and `META_REDIRECT_URI` on the backend. For production the redirect must be `https://medianavigator-api.onrender.com/api/v1/connections/oauth/facebook/callback`; register the identical URL in Meta's Facebook Login settings. Request `pages_show_list`, `pages_read_engagement`, and `read_insights` and complete Meta's required access review for public users. This reads managed Pages, not personal-profile posts. The backend still uses the official Graph API after consent. Without the app credentials, the UI explains that sign-in is not configured.

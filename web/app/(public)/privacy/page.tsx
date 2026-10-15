@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       <p>Media Navigator cannot post, edit or delete anything on your social accounts.</p>
 
       <h2>AI explanations</h2>
-      <p>Only if the owner of the service has switched on an AI provider, the text and public numbers of the posts being analysed may be sent to that provider to write an explanation. Passwords and access keys are never sent. If AI is not switched on, nothing is sent and you see measured facts only.</p>
+      <p>Only if the owner of the service has switched on an AI provider, post text, metrics and available images or videos may be sent to that provider to analyse the content and explain its performance. Passwords and access keys are never sent. If AI is not switched on, nothing is sent and you see measured facts only.</p>
 
       <h2>What we never do</h2>
       <ul>
@@ -35,8 +35,10 @@ export default function PrivacyPage() {
       <ul>
         <li>Disconnect any account at any time. This deletes the stored access key for it.</li>
         <li>Sign out of one or all devices in <Link href="/settings?tab=security">Settings, Security</Link>.</li>
-        <li>Delete your account and everything we hold about you in <Link href="/settings?tab=privacy">Settings, Privacy</Link>.</li>
+        <li>Delete your account and its associated content in <Link href="/settings?tab=privacy">Settings, Privacy</Link>.</li>
       </ul>
+
+      <p>See our <Link href="/data-deletion">data deletion instructions</Link> for the steps and what is removed.</p>
 
       <h2>Contact</h2>
       <p>The operator’s name and contact details are shown in the box at the top of this page.</p>

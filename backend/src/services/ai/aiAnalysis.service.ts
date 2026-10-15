@@ -106,11 +106,12 @@ export const aiAnalysisService = {
     const bottom = [...media].sort((a, b) => a.engagementRate - b.engagementRate).slice(0, 5).map((m) => ({ title: m.title.slice(0, 80), platform: m.platform, type: m.contentType, engagementPct: m.engagementRate, views: m.views }));
     const window = ctx.engine.getTimingData().strongestWindow;
     const facts = {
+      accountInsights: ctx.live.filter((a) => a.platform === 'instagram').map((a) => ({ account: a.handle, ...a.accountInfo?.insights })),
       measured: { postsAnalysed: media.length, platforms: [...new Set(media.map((m) => m.platform))], totalViews: archive.totalVerifiedViews, totalInteractions: archive.totalInteractions },
       calculated: { baselinePerPlatform: byPlatform, formatPerformance: archive.formats, bestWindow: window ? { label: window.label, slot: window.timeSlot, note: window.supportingText, timezone: ctx.timezone } : null, topPosts: top, bottomPosts: bottom },
     };
     const dataVersion = dataVersionOf(media);
-    const step = await aiStep({ userId: ctx.uid, type: 'ask', subject: sha256(question.trim().toLowerCase()), dataVersion, system: SYSTEM, prompt: askPrompt(facts, question), schema: askSchema });
+    const step = await aiStep({ userId: ctx.uid, type: 'ask', subject: sha256(question.trim().toLowerCase()), dataVersion: sha256(dataVersion + JSON.stringify(facts.accountInsights)), system: SYSTEM, prompt: askPrompt(facts, question), schema: askSchema });
     if (step.data) return { ...step.data, source: step.ai.status === 'cached' ? 'AI (cached)' : 'AI', ai: step.ai, measured: facts };
 
     const lines = [

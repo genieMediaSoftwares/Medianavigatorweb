@@ -44,6 +44,46 @@ describe('OAuth connection flow', () => {
     expect(stored!.expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
+  it('completes Instagram login, upgrades the token, queues import and prevents replay', async () => {
+    const u = await registerUser('instagram-login@test.example');
+    const start = await api().post('/api/v1/connections/instagram/oauth/start').set(u.auth);
+    const state = new URL(start.body.data.authorizeUrl).searchParams.get('state')!;
+    const calls: Array<{ url: string; body: string }> = [];
+    vi.stubGlobal('fetch', vi.fn(async (input: any, init?: RequestInit) => {
+      calls.push({ url: String(input), body: String(init?.body || '') });
+      return new Response(JSON.stringify(calls.length === 1 ? { access_token: 'short-private', user_id: '123' } : { access_token: 'long-private', expires_in: 5184000 }));
+    }));
+    const result = await api().get('/api/v1/connections/oauth/instagram/callback').query({ code: 'ig-code', state });
+    expect(result.headers.location).toBe('https://app.test.example/connections?oauth=connected&platform=instagram');
+    expect(calls[0].url).toBe('https://api.instagram.com/oauth/access_token');
+    expect(new URLSearchParams(calls[0].body).get('client_secret')).toBe('ig-secret');
+    expect(new URL(calls[1].url).searchParams.get('grant_type')).toBe('ig_exchange_token');
+    const account = await ConnectedAccount.findOne({ platform: 'instagram' }).select('+credentialsEnc').lean();
+    expect(account!.authMethod).toBe('oauth');
+    expect(account!.status).toBe('syncing');
+    expect(JSON.parse(decryptSecret(account!.credentialsEnc!))).toMatchObject({ instagramLogin: true, accessToken: 'long-private' });
+    expect(result.headers.location).not.toContain('private');
+    const replay = await api().get('/api/v1/connections/oauth/instagram/callback').query({ code: 'ig-code', state });
+    expect(replay.headers.location).toContain('oauth=failed');
+    expect(calls).toHaveLength(2);
+  });
+
+  it('sends Facebook users to official consent and returns them to the app after encrypted connection', async () => {
+    const u = await registerUser('facebook-oauth@test.example');
+    const start = await api().post('/api/v1/connections/facebook/oauth/start').set(u.auth);
+    const url = new URL(start.body.data.authorizeUrl);
+    expect(url.hostname).toBe('www.facebook.com');
+    expect(url.searchParams.get('scope')).toBe('pages_show_list,pages_read_engagement,read_insights');
+    expect(url.searchParams.get('redirect_uri')).toBe('https://api.test.example/api/v1/connections/oauth/facebook/callback');
+    const calls = stubTokenEndpoint();
+    const result = await api().get('/api/v1/connections/oauth/facebook/callback').query({ code: 'fb-code', state: url.searchParams.get('state') });
+    expect(result.headers.location).toBe('https://app.test.example/connections?oauth=connected&platform=facebook');
+    expect(calls).toHaveLength(2);
+    const account = await ConnectedAccount.findOne({ platform: 'facebook' }).select('+credentialsEnc').lean();
+    expect(account!.status).toBe('syncing');
+    expect(account!.credentialsEnc).not.toContain('access-from-provider');
+  });
+
   it('reports unconfigured providers instead of failing obscurely', async () => {
     const u = await registerUser('o2@test.example');
     const list = (await api().get('/api/v1/connections').set(u.auth)).body.data;

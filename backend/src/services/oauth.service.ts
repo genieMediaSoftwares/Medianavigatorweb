@@ -10,16 +10,17 @@ import { getAdapter } from '../integrations/registry.js';
 
 interface OAuthApp { authorizeUrl: string; clientId: string; redirectUri: string; scope: string; pkce: boolean; extra?: Record<string, string> }
 
-const META_SCOPES: Record<'instagram' | 'facebook', string> = {
-  instagram: 'instagram_basic,instagram_manage_insights,pages_show_list,pages_read_engagement,business_management',
-  facebook: 'pages_show_list,pages_read_engagement,read_insights',
-};
+const FACEBOOK_SCOPES = 'pages_show_list,pages_read_engagement,read_insights';
 
 export function oauthApp(platform: PlatformType): OAuthApp {
   const p = config.providers;
-  if (platform === 'instagram' || platform === 'facebook') {
+  if (platform === 'instagram') {
+    if (!p.instagram) throw unavailable('Instagram sign-in is not configured yet. Please contact the app administrator.');
+    return { authorizeUrl: 'https://www.instagram.com/oauth/authorize', clientId: p.instagram.appId, redirectUri: p.instagram.redirectUri, scope: 'instagram_business_basic,instagram_business_manage_insights', pkce: false, extra: { enable_fb_login: '0', force_authentication: '1' } };
+  }
+  if (platform === 'facebook') {
     if (!p.meta) throw unavailable('Meta OAuth is not configured on this server');
-    return { authorizeUrl: `https://www.facebook.com/${p.metaApiVersion}/dialog/oauth`, clientId: p.meta.appId, redirectUri: p.meta.redirectUri, scope: META_SCOPES[platform], pkce: false };
+    return { authorizeUrl: `https://www.facebook.com/${p.metaApiVersion}/dialog/oauth`, clientId: p.meta.appId, redirectUri: p.meta.redirectUri, scope: FACEBOOK_SCOPES, pkce: false };
   }
   if (platform === 'youtube') {
     if (!p.youtube) throw unavailable('YouTube OAuth is not configured on this server');
@@ -76,7 +77,21 @@ async function exchangeCode(platform: PlatformType, code: string, verifier?: str
   const app = oauthApp(platform);
   const p = config.providers;
 
-  if (platform === 'instagram' || platform === 'facebook') {
+  if (platform === 'instagram') {
+    const body = new URLSearchParams({ client_id: app.clientId, client_secret: p.instagram!.appSecret, grant_type: 'authorization_code', redirect_uri: app.redirectUri, code });
+    const response = await httpFetch('https://api.instagram.com/oauth/access_token', { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
+    const payload = await response.json().catch(() => ({}));
+    const short = Array.isArray(payload.data) && payload.data.length === 1 ? payload.data[0] : payload;
+    if (!response.ok || typeof short.access_token !== 'string' || !short.user_id) throw providerError('Instagram could not complete sign-in. Please reconnect and approve media and insights access.');
+    const url = new URL('https://graph.instagram.com/access_token');
+    url.searchParams.set('grant_type', 'ig_exchange_token');
+    url.searchParams.set('client_secret', p.instagram!.appSecret);
+    url.searchParams.set('access_token', short.access_token);
+    const long = await jsonOrThrow(await httpFetch(url, { maxRetries: 0 }), 'Instagram');
+    if (!Number.isFinite(long.expires_in) || long.expires_in <= 86400) throw providerError('Instagram did not return a long-lived token. Please reconnect.');
+    return { accessToken: long.access_token, accountId: String(short.user_id), instagramLogin: true, expiresAt: new Date(Date.now() + long.expires_in * 1000).toISOString() };
+  }
+  if (platform === 'facebook') {
     const url = new URL(`https://graph.facebook.com/${p.metaApiVersion}/oauth/access_token`);
     url.searchParams.set('client_id', app.clientId);
     url.searchParams.set('client_secret', p.meta!.appSecret);
@@ -109,7 +124,7 @@ async function jsonOrThrow(res: Response, who: string) {
   const json: any = await res.json().catch(() => ({}));
   if (!res.ok || json.error || !json.access_token) {
     // Provider error bodies can echo parameters; only the error code/description is surfaced.
-    throw providerError(`${who} rejected the authorization (${json.error?.message || json.error_description || json.error || res.status})`);
+    throw providerError(`${who} could not complete authorization. Please try signing in again and approve the requested access.`);
   }
   return json;
 }

@@ -3,6 +3,7 @@ import type { NormalizedMedia, PlatformType } from '../../../shared/types.js';
 /** Decrypted provider credentials. Exists only in memory inside sync/connection services. */
 export interface ProviderCredentials {
   accessToken?: string;
+  instagramLogin?: boolean;
   apiKey?: string;
   refreshToken?: string;
   expiresAt?: string; // ISO
@@ -33,12 +34,13 @@ export interface ResolvedAccount {
   handle: string;
   displayName?: string;
   avatarUrl?: string;
-  accountInfo: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number };
+  accountInfo: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number; insights?: { since: string; until: string; fetchedAt: string; metrics: Record<string, number>; unavailable: string[] } };
   credentialsPatch?: Partial<ProviderCredentials>;
 }
 
 export interface FetchContentResult {
   items: NormalizedMedia[];
+  accountInfo?: ResolvedAccount['accountInfo'];
   /** Items the provider could not return because of missing permissions. */
   permissionError?: { message: string; missing: string[] };
   /** Set when the result is known to be incomplete (so the sync is recorded as partial, not succeeded). */

@@ -22,8 +22,8 @@ import type { Connection, ConnectInput, Platform } from '@/types/api';
 
 /** Optional extras the token form can take, per platform. */
 const EXTRA: Record<Platform, { key: keyof ConnectInput; label: string; hint: string } | null> = {
-  instagram: { key: 'accountId', label: 'Instagram account ID', hint: 'Only if your token has more than one account.' },
-  facebook: { key: 'pageId', label: 'Facebook Page ID', hint: 'Choose which Page to read when your token has several.' },
+  instagram: null,
+  facebook: null,
   // YouTube has its own two-section form (youtube-connect.tsx).
   youtube: null,
   linkedin: { key: 'organizationId', label: 'Company Page ID', hint: 'The number of the Company Page you manage.' },
@@ -76,7 +76,21 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
 
         {error && <Notice tone="bad">{error}</Notice>}
 
-        {platform === 'youtube' ? (
+        {platform === 'instagram' ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted">Sign in on Instagram and allow access to your media and insights. You’ll return here automatically while we import your posts for analysis. Your Instagram password is never shared with Media Navigator.</p>
+            <Notice>Use an Instagram Business or Creator account. Personal accounts need to switch to a professional account first.</Notice>
+            {!oauth && <Notice tone="warn">Instagram sign-in is being set up. Please try again once the app administrator has enabled it.</Notice>}
+            <Button size="lg" className="w-full" loading={busy} disabled={!oauth} onClick={() => void startOAuth()}>Continue with Instagram</Button>
+          </div>
+        ) : platform === 'facebook' ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted">Continue to Facebook to sign in and allow read-only access to your Page posts and insights. Facebook handles your password. We import the content after you return.</p>
+            <Notice>Connect a Facebook Page you manage. Personal-profile posts are not supported.</Notice>
+            {!oauth && <Notice tone="warn">Facebook sign-in is being set up. Please try again once the app administrator has enabled it.</Notice>}
+            <Button size="lg" className="w-full" loading={busy} disabled={!oauth} onClick={() => void startOAuth()}>Continue with Facebook</Button>
+          </div>
+        ) : platform === 'youtube' ? (
           <YouTubeConnect
             connection={connection}
             onError={setError}
@@ -98,18 +112,6 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
         )}
         {advanced && (
           <form onSubmit={submit} noValidate className="space-y-4 rounded-xl border border-line p-4">
-            {platform === 'instagram' && (
-              <details className="rounded-xl border border-line bg-app p-3 text-sm text-muted">
-                <summary className="cursor-pointer font-semibold text-ink">Using a token from Graph API Explorer?</summary>
-                <ol className="mt-3 list-decimal space-y-2 pl-5">
-                  <li>Select the Meta app that you use for this connection and check its access restrictions.</li>
-                  <li>Use a professional Instagram account linked to a Facebook Page you manage.</li>
-                  <li>Generate a token with <code>instagram_basic</code>, <code>pages_show_list</code>, <code>pages_read_engagement</code>, and <code>instagram_manage_insights</code> for analytics.</li>
-                  <li>Test <code>GET /me?fields=id,name</code> in Explorer. If Meta reports API access blocked there too, resolve the restriction in Meta before trying again here.</li>
-                </ol>
-                <a href="https://developers.facebook.com/tools/explorer/" target="_blank" rel="noopener noreferrer" className="mt-3 inline-block font-semibold text-brand-700 underline">Open Graph API Explorer</a>
-              </details>
-            )}
             <Field label="Access token" error={errors.secret?.message} hint="Paste it here once. We never show it again.">{(p) => <Input type="password" autoComplete="off" spellCheck={false} {...p} {...register('secret')} />}</Field>
             {extra && <Field label={extra.label} optional hint={extra.hint} error={errors.extra?.message}>{(p) => <Input autoComplete="off" {...p} {...register('extra')} />}</Field>}
             <Button type="submit" variant={oauth ? 'secondary' : 'primary'} size="lg" className="w-full" loading={isSubmitting}>Connect with token</Button>

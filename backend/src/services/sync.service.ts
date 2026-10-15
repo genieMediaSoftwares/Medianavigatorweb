@@ -79,7 +79,7 @@ export const syncService = {
       const adapter = getAdapter(account.platform);
       let creds = readCredentials(account);
 
-      if (creds.refreshToken && creds.expiresAt && new Date(creds.expiresAt).getTime() - Date.now() < 5 * 60_000 && adapter.refreshCredentials) {
+      if ((creds.refreshToken || creds.instagramLogin) && creds.expiresAt && new Date(creds.expiresAt).getTime() - Date.now() < (creds.instagramLogin ? 7 * 86400_000 : 5 * 60_000) && adapter.refreshCredentials) {
         creds = await adapter.refreshCredentials(creds);
         await connectionRepository.update(account._id, { credentialsEnc: sealCredentials(creds), credentialsExpiresAt: creds.expiresAt ? new Date(creds.expiresAt) : null });
       }
@@ -113,6 +113,7 @@ export const syncService = {
           ? `Synchronized ${docs.length} items. ${fetched.partialReason}`
           : `Synchronized ${docs.length} items from ${account.handle}.`;
       const updated = await connectionRepository.setStatus(account._id, status, statusMessage, {
+        ...(fetched.accountInfo ? { accountInfo: fetched.accountInfo } : {}),
         lastSyncedAt: syncedAt,
         lastSyncError: permissionBlocked ? fetched.permissionError!.message : null,
         // Permission problems need user action; scheduling more attempts would only repeat the same failure.

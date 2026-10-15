@@ -21,7 +21,7 @@ export interface ConnectedAccountDoc {
   /** How the account was connected: Google/Meta/LinkedIn sign-in, a pasted token, or an API key (public data only). */
   authMethod?: 'oauth' | 'token' | 'api_key';
   missingPermissions: string[];
-  accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number };
+  accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number; insights?: { since: string; until: string; fetchedAt: string; metrics: Record<string, number>; unavailable: string[] } };
   /** true while the connection is live. Used by the partial unique index so a provider account has at most one live owner. */
   active: boolean;
   dataPointsCount: number;

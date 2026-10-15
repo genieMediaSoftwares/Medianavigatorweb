@@ -55,7 +55,8 @@ Object.assign(process.env, {
   FILE_ALLOWED_MIME_TYPES: 'image/png,image/jpeg,application/pdf',
   FILE_PRESIGNED_URL_TTL_SECONDS: '300',
   R2_ACCOUNT_ID: 'acct', R2_ACCESS_KEY_ID: 'key', R2_SECRET_ACCESS_KEY: 'secret', R2_BUCKET: 'bucket', R2_ENDPOINT: 'https://r2.test.example',
-  META_APP_ID: 'meta-app', META_APP_SECRET: 'meta-secret', META_REDIRECT_URI: 'https://api.test.example/api/v1/connections/oauth/instagram/callback',
+  INSTAGRAM_APP_ID: 'ig-app', INSTAGRAM_APP_SECRET: 'ig-secret', INSTAGRAM_REDIRECT_URI: 'https://api.test.example/api/v1/connections/oauth/instagram/callback',
+  META_APP_ID: 'meta-app', META_APP_SECRET: 'meta-secret', META_REDIRECT_URI: 'https://api.test.example/api/v1/connections/oauth/facebook/callback',
   YOUTUBE_CLIENT_ID: 'yt-id', YOUTUBE_CLIENT_SECRET: 'yt-secret', YOUTUBE_REDIRECT_URI: 'https://api.test.example/api/v1/connections/oauth/youtube/callback',
   LINKEDIN_CLIENT_ID: 'li-id', LINKEDIN_CLIENT_SECRET: 'li-secret', LINKEDIN_REDIRECT_URI: 'https://api.test.example/api/v1/connections/oauth/linkedin/callback',
 });
