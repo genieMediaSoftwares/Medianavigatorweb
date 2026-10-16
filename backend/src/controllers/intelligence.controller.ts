@@ -1,3 +1,5 @@
+import { badRequest } from '../lib/errors.js';
+import { looksLikeMp4 } from '../services/ai/videoInput.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { ok } from '../lib/response.js';
 import { analyticsService } from '../services/analytics.service.js';
@@ -14,6 +16,11 @@ export const intelligenceController = {
   contentAnalysis: asyncHandler(async (req, res) => {
     const b = req.body as { mediaId: string; type: 'deep' | 'why_top' | 'why_bottom'; reanalyze?: boolean; rank?: string };
     ok(res, await contentAnalysisService.analyze(uid(req), b.mediaId, b.type, { reanalyze: b.reanalyze, rank: b.rank ?? null }));
+  }),
+  uploadContentAnalysis: asyncHandler(async (req, res) => {
+    if (!req.file || !looksLikeMp4(req.file.buffer)) throw badRequest('Choose an original MP4 or MOV video file.');
+    const b = req.body as { mediaId: string; type: 'deep' | 'why_top' | 'why_bottom' };
+    ok(res, await contentAnalysisService.analyze(uid(req), b.mediaId, b.type, { reanalyze: true, uploadedVideo: req.file.buffer }));
   }),
   savedContentAnalysis: asyncHandler(async (req, res) => {
     const q = req.query as { mediaId: string; type: 'deep' | 'why_top' | 'why_bottom' };

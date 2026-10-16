@@ -64,13 +64,17 @@ export async function downloadVideo(source: string): Promise<Blob> {
   throw failure('The video download redirected too many times. Sync the account and retry.');
 }
 
-export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): Promise<VideoInput> {
+export async function loadVideoInput(userId: Types.ObjectId, mediaId: string, options: { allowThirdParty?: boolean } = {}): Promise<VideoInput> {
   const doc = await mediaRepository.findByLegacyId(userId, mediaId);
   if (!doc) throw failure('Video not found.');
   if (doc.platform === 'youtube' && /^[A-Za-z0-9_-]{11}$/.test(doc.providerMediaId)) {
     return { youtubeUrl: `https://www.youtube.com/watch?v=${doc.providerMediaId}` };
   }
   if (doc.platform !== 'instagram') throw failure('Full video input is currently supported for Instagram and public YouTube videos.');
+  // The post ownership lookup above authorizes this request. Public media does not
+  // require a still-valid token; private API data continues to require one below.
+  const publicVideo = await retrievePublicVideo(doc.mediaUrl);
+  if (publicVideo) return { blob: publicVideo };
   const account = await connectionRepository.findForUserWithCredentials(userId, 'instagram');
   if (!account?.active || String(account._id) !== String(doc.connectedAccountId)) throw failure('Reconnect the Instagram account that owns this video.');
   if (!account.credentialsEnc) throw failure('Reconnect Instagram to restore video access.');
@@ -104,10 +108,11 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): P
 // Last resort 2: read the reel's public page and extract the direct video URL embedded in it.
   // This keeps analysis working when the graph token is expired or the API withheld the URL,
   // provided the post is public.
-  if (!source && typeof doc.mediaUrl === 'string' && /instagram\.com/i.test(doc.mediaUrl)) {
+  const publicUrl = instagramPermalink(doc.mediaUrl);
+  if (!source && publicUrl) {
     try {
-      const response = await fetch(doc.mediaUrl, {
-        redirect: 'follow',
+      const response = await fetch(publicUrl, {
+        redirect: 'error',
         signal: AbortSignal.timeout(10_000),
         headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', accept: 'text/html' },
       });
@@ -134,6 +139,39 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): P
     } catch { /* public page not reachable */ }
   }
 
+  // Last resort 3: ask Firecrawl to render and scrape the public page when direct fetching is blocked.
+  if (!source && options.allowThirdParty && config.firecrawl && publicUrl) {
+    try {
+      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${config.firecrawl}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: publicUrl, formats: ['html'], onlyMainContent: false, timeout: 20000 }),
+        signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+      });
+      if (response.ok) {
+        const body = await response.json().catch(() => ({}) as Record<string, unknown>);
+        const html = (body.data as { html?: string } | undefined)?.html ?? (typeof body.html === 'string' ? body.html : '');
+        const unescape = (s: string) => s.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+        const patterns = [
+          /property=["']og:video["'][^>]*content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["'][^>]*property=["']og:video(?::secure_url)?["']/i,
+          /"video_url"\s*:\s*"([^"]+)"/i,
+          /"video_versions"\s*:\s*\[[^\]]*"url"\s*:\s*"([^"]+)"/i,
+        ];
+        for (const pattern of patterns) {
+          const match = html.match(pattern);
+          if (match?.[1]) {
+            const candidate = unescape(match[1]);
+            try {
+              const url = new URL(candidate);
+              if (isVideoCdn(url)) { source = candidate; break; }
+            } catch { /* not a URL */ }
+          }
+        }
+      }
+    } catch { /* Firecrawl not reachable */ }
+  }
+
   if (!source && loginExpired) {
     // The token is dead: record it so the Connections page asks for a reconnect instead of failing again later.
     await connectionRepository.setStatus(account._id, 'connection_expired', 'Instagram login expired; reconnect required').catch(() => undefined);
@@ -148,4 +186,40 @@ function describeGraphError(error?: { code?: number; message?: string }): string
   if (error?.code === 10 || error?.code === 200 || (error?.code ?? 0) >= 200 && (error?.code ?? 0) < 300) return 'The Instagram connection lacks permission to read this media.';
   if (error?.code === 100) return 'Instagram could not find this media (it may have been deleted or belongs to another account).';
   return `Instagram refused the request${error?.code ? ` (code ${error.code})` : ''}.`;
+}
+
+/** Accept only public Instagram post URLs, never arbitrary hosts or embedded credentials. */
+export function instagramPermalink(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  try {
+    const u = new URL(value);
+    if (u.protocol !== 'https:' || !['instagram.com', 'www.instagram.com'].includes(u.hostname) || u.username || u.password || u.port) return null;
+    if (!/^\/(?:p|reel|reels|tv)\/[A-Za-z0-9_-]+\/?$/.test(u.pathname)) return null;
+    u.hostname = 'www.instagram.com';
+    u.search = ''; u.hash = '';
+    return u.toString();
+  } catch { return null; }
+}
+
+async function retrievePublicVideo(permalink: unknown): Promise<Blob | null> {
+  const page = instagramPermalink(permalink);
+  if (!page) return null;
+  try {
+    const response = await fetch(page, { redirect: 'error', signal: AbortSignal.timeout(15000), headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html' } });
+    if (!response.ok) return null;
+    const html = await response.text();
+    const patterns = [
+      /property=["']og:video(?::secure_url)?["'][^>]*content=["']([^"']+)["']/i,
+      /content=["']([^"']+)["'][^>]*property=["']og:video(?::secure_url)?["']/i,
+      /"video_url"\s*:\s*"([^"]+)"/i,
+      /"video_versions"\s*:\s*\[[^\]]*"url"\s*:\s*"([^"]+)"/i,
+    ];
+    for (const pattern of patterns) {
+      const raw = html.match(pattern)?.[1];
+      if (!raw) continue;
+      const source = raw.replace(/\\u0026/g, '&').replace(/\\\//g, '/').replace(/&amp;/g, '&');
+      try { if (isVideoCdn(new URL(source))) return await downloadVideo(source); } catch { /* try another declared video source */ }
+    }
+  } catch { /* public file unavailable */ }
+  return null;
 }
