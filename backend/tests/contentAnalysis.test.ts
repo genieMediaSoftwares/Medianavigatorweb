@@ -20,6 +20,10 @@ const MP4_24S = vi.hoisted(() => {
   b.set([0, 0, 0x5d, 0xc0], 48); // duration 24000
   return b;
 });
+vi.mock('../src/services/ai/videoInput.js', async (original) => {
+  const real: any = await original();
+  return { ...real, loadVideoInput: vi.fn(async () => { throw new Error('Public video unavailable in fixture'); }) };
+});
 vi.mock('../src/lib/http.js', async (orig) => {
   const real: any = await orig();
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -67,6 +71,7 @@ vi.mock('../src/services/ai/geminiClient.js', async () => {
   };
 });
 
+import { loadVideoInput, instagramPermalink } from '../src/services/ai/videoInput.js';
 import { syncService } from '../src/services/sync.service.js';
 import { AiFailedError } from '../src/services/ai/geminiClient.js';
 import { ContentAnalysis } from '../src/models/ContentAnalysis.js';
@@ -174,13 +179,14 @@ describe('six-point content analysis', () => {
     expect(d.result.limitations.join(' ')).toMatch(/removed/);
   });
 
-  it('refuses to analyze when the post image cannot be loaded, and says why (no metrics-only result)', async () => {
+  it('labels the caption-only fallback when the post image cannot be loaded', async () => {
     net.imageFails = true;
     const res = await analyze({ type: 'deep' });
-    expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe('MEDIA_UNAVAILABLE');
-    expect(res.body.error.message).toMatch(/could not be used/);
-    expect(gem.calls).toHaveLength(0);
+    expect(res.status).toBe(200);
+    expect(res.body.data.mediaBasis).toBe('none');
+    expect(res.body.data.result.evidence.images).toBe(0);
+    expect(res.body.data.result.limitations.join(' ')).toMatch(/Only the caption/);
+    expect(res.body.data.result.confidence.level).toBe('low');
   });
 
   it("does not return another user's analysis", async () => {
@@ -213,6 +219,16 @@ describe('video analysis (automatic, no upload)', () => {
     expect(d.result.limitations.join(' ')).toMatch(/removed/);
   });
 
+  it('prefers full timeline coverage even when the retry cites the same number of moments', async () => {
+    net.mediaMode = 'reel';
+    let n = 0;
+    const openingOnly = { 1: { evidence: [1, 2, 3].map(t => ({ source: 'video_frame', timestamp: `00:0${t}`, description: 'opening' })) } };
+    gem.impl = ({ schema }: any) => ({ data: schema.parse(n++ === 0 ? sixPoints(openingOnly) : sixPoints(frames)), model: 'test-model', latencyMs: 5 });
+    const d = (await analyze({ type: 'why_top' })).body.data;
+    expect(d.result.evidence.coversTimeline).toBe(true);
+    expect(n).toBe(2);
+  });
+
   it('asks again when a video answer does not cover the beginning, middle and end, and keeps the better answer', async () => {
     net.mediaMode = 'reel';
     let n = 0;
@@ -223,23 +239,46 @@ describe('video analysis (automatic, no upload)', () => {
     expect(d.result.evidence.coversTimeline).toBe(true);
   });
 
-  it('when Instagram withholds the reel file it explains why and does not produce a cover-image or metrics-only analysis', async () => {
+  it('uses an uploaded original and discloses its source', async () => {
     net.mediaMode = 'reel_withheld';
-    const res = await analyze({ type: 'deep' });
-    expect(res.status).toBe(422);
-    expect(res.body.error.code).toBe('MEDIA_UNAVAILABLE');
-    expect(res.body.error.message).toMatch(/does not provide the video file/);
+    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints(frames)), model: 'test-model', latencyMs: 5 });
+    const res = await api().post('/api/v1/intelligence/content-analysis/upload').set(user.auth).field('mediaId', postId).field('type', 'deep').attach('video', Buffer.from(MP4_24S), 'original.mp4');
+    expect(res.status).toBe(200);
+    expect(res.body.data.result.limitations.join(' ')).toMatch(/video you uploaded/);
+    expect(res.body.data.result.evidence.coversTimeline).toBe(true);
+  });
+  it('rejects non-video uploads', async () => {
+    const res = await api().post('/api/v1/intelligence/content-analysis/upload').set(user.auth).field('mediaId', postId).field('type', 'deep').attach('video', Buffer.from('not a video'), 'original.mp4');
+    expect(res.status).toBe(400);
+    expect(gem.calls).toHaveLength(0);
+  });
+  it('rejects uploads against another user’s post', async () => {
+    const other = await registerUser('upload-other@test.example');
+    const res = await api().post('/api/v1/intelligence/content-analysis/upload').set(other.auth).field('mediaId', postId).field('type', 'deep').attach('video', Buffer.from(MP4_24S), 'original.mp4');
+    expect(res.status).toBe(404);
     expect(gem.calls).toHaveLength(0);
   });
 
-  it('a withheld reel keeps a previous valid analysis and reports why the refresh failed', async () => {
-    net.mediaMode = 'reel';
-    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints(frames)), model: 'test-model', latencyMs: 5 });
-    await analyze({ type: 'deep' });
+  it('retrieves the public video automatically before falling back to a cover', async () => {
     net.mediaMode = 'reel_withheld';
-    const re = (await analyze({ type: 'deep', reanalyze: true })).body.data;
-    expect(re.mediaBasis).toBe('full_video');
-    expect(re.refreshError).toMatch(/does not provide the video file/);
+    vi.mocked(loadVideoInput).mockResolvedValueOnce({ blob: new Blob([MP4_24S], { type: 'video/mp4' }) });
+    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints(frames)), model: 'test-model', latencyMs: 5 });
+    const res = await analyze({ type: 'why_top' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.mediaBasis).toBe('full_video');
+    expect(res.body.data.result.evidence.coversTimeline).toBe(true);
+  });
+
+  it('automatically produces a labelled cover review when the reel file is unavailable', async () => {
+    net.mediaMode = 'reel_withheld';
+    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints(frames)), model: 'test-model', latencyMs: 5 });
+    const res = await analyze({ type: 'deep' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.mediaBasis).toBe('thumbnail');
+    expect(res.body.data.result.confidence.level).toBe('low');
+    expect(res.body.data.result.evidence.momentsCited).toBe(0);
+    expect(res.body.data.result.limitations.join(' ')).toMatch(/limited review/);
+    expect(res.body.data.result.points[0].title).toBe('Available evidence');
   });
 
   it('analyzes every carousel slide in order (images and video) and discloses slides it could not load', async () => {
@@ -252,9 +291,9 @@ describe('video analysis (automatic, no upload)', () => {
     expect(d.result.limitations.join(' ')).toMatch(/Slide\(s\) 3 could not be loaded/);
   });
 
-  it('has no manual upload endpoint', async () => {
+  it('requires a video on the upload endpoint', async () => {
     const res = await api().post('/api/v1/intelligence/content-analysis/upload').set(user.auth).field('mediaId', postId).field('type', 'deep');
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(400);
   });
 });
 
@@ -284,4 +323,9 @@ describe('evidence helpers', () => {
     expect(evidenceHash({ ...m, views: m.views + 3 }, 'v')).toBe(h);
     expect(evidenceHash({ ...m, views: m.views * 2 }, 'v')).not.toBe(h);
   });
+});
+
+it('only accepts exact public Instagram post URLs for retrieval', () => {
+  expect(instagramPermalink('https://instagram.com/reel/ABC_123/?igsh=test')).toBe('https://www.instagram.com/reel/ABC_123/');
+  for (const url of ['https://instagram.com.evil.test/reel/ABC/', 'https://evil.test/instagram.com', 'http://instagram.com/reel/ABC/', 'https://user:pass@instagram.com/reel/ABC/', 'https://instagram.com/accounts/login/']) expect(instagramPermalink(url)).toBeNull();
 });

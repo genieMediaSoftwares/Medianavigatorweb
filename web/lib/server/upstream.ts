@@ -15,7 +15,7 @@ export async function callApi(path: string, init: RequestInit & { accessToken?: 
   if (userAgent) h.set('user-agent', userAgent);
   if (accessToken) h.set('authorization', `Bearer ${accessToken}`);
   try {
-    return await fetch(`${getEnv().API_BASE_URL}/api/v1${path}`, { ...rest, headers: h, cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(/^\/intelligence\/(diagnose-post|analyze-video)$/.test(path) ? 240_000 : UPSTREAM_TIMEOUT_MS) });
+    return await fetch(`${getEnv().API_BASE_URL}/api/v1${path}`, { ...rest, headers: h, cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(/^\/intelligence\/(diagnose-post|analyze-video|content-analysis(?:\/upload)?)$/.test(path) ? 240_000 : UPSTREAM_TIMEOUT_MS) });
   } catch {
     throw new UpstreamUnreachable('API unreachable');
   }

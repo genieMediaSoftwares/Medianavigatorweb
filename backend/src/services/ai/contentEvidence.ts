@@ -2,6 +2,7 @@ import type { NormalizedMedia } from '../../../../shared/types.js';
 import { config } from '../../config/env.js';
 import { sha256 } from '../../lib/crypto.js';
 import { httpFetch } from '../../lib/http.js';
+import { downloadVideo } from './videoInput.js';
 import { logger } from '../../lib/logger.js';
 import { median } from '../analytics.stats.js';
 import type { ProviderCredentials } from '../../integrations/types.js';
@@ -287,7 +288,7 @@ export async function thumbnailOnly(item: Media, url: string | null | undefined,
 }
 
 const VIDEO_FORMATS = new Set(['reel', 'short', 'video']);
-const WITHHELD = 'Instagram does not provide the video file for this reel through its API (Meta withholds it for some reels, for example those with licensed music or other copyrighted material).';
+const WITHHELD = 'Instagram did not return a usable video file. The API does not explain why. Upload the original video to analyze this post.';
 
 /**
  * Fetches the post's own media through the connected account's authorized API, automatically:
@@ -308,7 +309,16 @@ export async function collectMedia(item: Media, live: LiveInstagram | null, live
     const type = live.mediaType;
 
     if (type === 'VIDEO') {
-      if (!live.mediaUrl) return fail(WITHHELD);
+      if (!live.mediaUrl) {
+        if (item.videoUrl) {
+          try {
+            const blob = await downloadVideo(item.videoUrl);
+            const v = asVideo({ bytes: new Uint8Array(await blob.arrayBuffer()), mimeType: blob.type }, 'synced video');
+            return { ...base, basis: 'full_video', videos: [v], durationSeconds: v.durationSeconds ?? base.durationSeconds };
+          } catch { /* An expired synced URL cannot replace the real video. */ }
+        }
+        return fail(WITHHELD);
+      }
       const d = await download(live.mediaUrl, max);
       if (!('bytes' in d)) return fail(`The video file from Instagram could not be used: ${d.error}.`);
       const v = asVideo(d, 'video');

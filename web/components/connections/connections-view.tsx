@@ -110,19 +110,6 @@ export function ConnectionsView() {
   const [connecting, setConnecting] = useState<Platform | null>(null);
   const [disconnecting, setDisconnecting] = useState<Platform | null>(null);
   const by = (p: Platform) => data?.find((c) => c.platform === p);
-  const [redirecting, setRedirecting] = useState<Platform | null>(null);
-  const connect = async (platform: Platform) => {
-    if ((platform !== 'facebook' && platform !== 'instagram') || !by(platform)?.oauthAvailable) { setConnecting(platform); return; }
-    if (redirecting) return;
-    setRedirecting(platform);
-    try {
-      const { authorizeUrl } = await api.startOAuth(platform);
-      window.location.assign(authorizeUrl);
-    } catch (e) {
-      toast.error(e instanceof ApiError ? e.message : `We could not open ${PLATFORM_NAME[platform]} sign-in. Please try again.`);
-      setRedirecting(null);
-    }
-  };
   const liveCount = (data ?? []).filter((c) => c.connected).length;
 
   if (isLoading) return <div className="grid gap-6 lg:grid-cols-2">{PLATFORMS.map((p) => <Skeleton key={p} className="h-64 rounded-xl" />)}</div>;
@@ -131,13 +118,12 @@ export function ConnectionsView() {
   return (
     <div>
       <OauthBanner />
-      {redirecting && <Notice className="mb-6">Opening {PLATFORM_NAME[redirecting]} sign-in…</Notice>}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[15px] text-muted"><strong className="font-bold text-ink">{liveCount} of {PLATFORMS.length}</strong> channels connected. Updates run in the background.</p>
         <Button variant="secondary" disabled={liveCount === 0 || sync.active.length > 0} onClick={() => void sync.start('all')}><RefreshCw className={`h-4 w-4 ${sync.active.length ? 'animate-spin' : ''}`} aria-hidden="true" />Sync all</Button>
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
-        {PLATFORMS.map((p) => <PlatformCard key={p} platform={p} connection={by(p)} onConnect={() => void connect(p)} onDisconnect={() => setDisconnecting(p)} />)}
+        {PLATFORMS.map((p) => <PlatformCard key={p} platform={p} connection={by(p)} onConnect={() => setConnecting(p)} onDisconnect={() => setDisconnecting(p)} />)}
       </div>
       <div className="mt-8 flex gap-3 rounded-xl border border-line bg-surface p-5 text-sm text-muted">
         <Lock className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" aria-hidden="true" />

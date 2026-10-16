@@ -1,5 +1,6 @@
 import { createPartFromBase64, createPartFromUri, type Part } from '@google/genai';
 import { z } from 'zod';
+import { loadVideoInput } from './videoInput.js';
 import { config } from '../../config/env.js';
 import { AppError, mediaUnavailable, notFound, unavailable } from '../../lib/errors.js';
 import { toObjectId } from '../../lib/ids.js';
@@ -12,17 +13,19 @@ import { mediaRepository } from '../../repositories/media.repository.js';
 import { loadAnalyticsContext } from '../analytics.service.js';
 import { creditService } from '../credits.service.js';
 import { readCredentials } from '../sync.service.js';
-import { collectMedia, compare, derivedMetrics, evidenceHash, fetchInstagramLive, syncedMetrics, type Comparison, type MediaEvidence, type MetricsSnapshot, type MetricValue } from './contentEvidence.js';
+import { thumbnailOnly, mp4DurationSeconds, collectMedia, compare, derivedMetrics, evidenceHash, fetchInstagramLive, syncedMetrics, type Comparison, type MediaEvidence, type MetricsSnapshot, type MetricValue } from './contentEvidence.js';
 import { AiFailedError, AiUnavailableError, aiAvailable, deleteUploaded, generateMultimodalJson, uploadVideo } from './geminiClient.js';
 
 /** Bump when the prompt, evidence rules or output schema change: older saved analyses are then regenerated. */
-export const CONTENT_ANALYSIS_VERSION = 'content-v3';
+export const CONTENT_ANALYSIS_VERSION = 'content-v8';
 
 const TITLES: Record<ContentAnalysisType, string[]> = {
   deep: ['Scene-by-scene understanding', 'Hook and storytelling', 'Visual and audio techniques', 'Audience appeal', 'Performance evidence', 'Distribution insights and improvements'],
   why_top: ['Actual content strengths', 'Hook and retention potential', 'Creative strategy', 'Audience response', 'Performance and discoverability', 'Repeatable success'],
   why_bottom: ['Performance gap', 'Visual content and hook', 'Retention and pacing', 'Audience response', 'Discoverability and content fit', 'Prioritized recovery plan'],
 };
+
+const LIMITED_TITLES = ['Available evidence', 'Caption and message', 'Measured audience response', 'Comparison with earlier posts', 'Possible explanations', 'Experiments to test'];
 
 const GUIDE: Record<ContentAnalysisType, string[]> = {
   deep: [
@@ -138,13 +141,13 @@ function sanitize(out: ModelOutput, type: ContentAnalysisType, basis: string, me
     .sort((a, b) => a.number - b.number)
     .map((p, i) => ({
       ...p,
-      title: TITLES[type][i],
+      title: ['thumbnail', 'none'].includes(basis) ? LIMITED_TITLES[i] : TITLES[type][i],
       metricKeys: p.metricKeys.filter((k) => available.has(k)),
       evidence: p.evidence.filter((e) => {
         const fromVideo = e.source === 'video_frame' || e.source === 'audio';
         const ok =
           (!fromVideo || videoAllowed) &&
-          (e.source !== 'on_screen_text' || basis !== 'none') &&
+          (!['on_screen_text', 'image'].includes(e.source) || basis !== 'none') &&
           (!e.timestamp || (videoAllowed && TIMESTAMP.test(e.timestamp) && (duration === null || seconds(e.timestamp) <= duration + 1)));
         if (!ok) removed += 1;
         return ok;
@@ -161,7 +164,7 @@ function promptText(type: ContentAnalysisType, item: ReturnType<typeof toNormali
       : media.basis === 'youtube_video' ? 'The public YouTube video is attached by URL. Watch the whole timeline, including audio.'
         : media.basis === 'image' ? 'The full image is attached.'
           : media.basis === 'carousel' ? `The carousel is attached in order as ${media.images.length} image slide(s) and ${media.videos.length} video slide(s); each is preceded by its label.`
-            : 'ONLY the cover image is attached. You cannot see motion, audio or later scenes.';
+            : media.basis === 'none' ? 'NO media is attached. Analyze only the caption and measured metrics. Do not make any visual or audio claims.' : 'ONLY the cover image is attached. You cannot see motion, audio or later scenes. Do not treat the cover as the opening frame.';
   const evidence = {
     post: { platform: item.platform, format: item.contentType, publishedAt: item.publishedAt, ageDays: comparison.ageDays, durationSeconds: media.durationSeconds, caption: (item.caption || item.title || '').slice(0, 2200) },
     mediaAttached: attached,
@@ -170,14 +173,14 @@ function promptText(type: ContentAnalysisType, item: ReturnType<typeof toNormali
     comparisonWithEarlierPosts: comparison,
     ...(listContext ? { ranking: listContext } : {}),
   };
-  const titles = TITLES[type];
+  const titles = ['thumbnail', 'none'].includes(media.basis) ? LIMITED_TITLES : TITLES[type];
   return `${type === 'deep' ? 'Deep analysis of this post' : type === 'why_top' ? 'Why is this post among the top performers?' : 'Why is this post among the posts that need attention?'}
 
 EVIDENCE (JSON):
 ${JSON.stringify(evidence, null, 2)}
 
 Write exactly six points, in this order:
-${titles.map((t, i) => `${i + 1}. ${t}: ${GUIDE[type][i]}`).join('\n')}
+${titles.map((t, i) => `${i + 1}. ${t}: ${['thumbnail', 'none'].includes(media.basis) ? 'Use only the available cover, caption and metrics. State evidence gaps; no scene, audio or pacing claims.' : GUIDE[type][i]}`).join('\n')}
 
 JSON shape:
 {
@@ -239,7 +242,7 @@ function toResponse(doc: ContentAnalysisDoc, fromCache: boolean, stale: boolean,
 // One generation per (user, post, type) at a time: repeated taps share the same promise.
 const inFlight = new Map<string, Promise<ContentAnalysisResponse>>();
 
-async function generate(userId: string, mediaId: string, type: ContentAnalysisType, listContext: string | null) {
+async function generate(userId: string, mediaId: string, type: ContentAnalysisType, listContext: string | null, uploadedVideo?: Uint8Array) {
   const uid = toObjectId(userId);
   const doc = await mediaRepository.findByLegacyId(uid, mediaId);
   if (!doc) throw notFound('Media not found');
@@ -269,17 +272,38 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
   const comparison = compare(item, ctx.media, metricItems);
 
   // 2. The post's own media, fetched automatically. Without real visual evidence there is no content analysis.
-  const media = await collectMedia(item, live, liveError);
+  let media: MediaEvidence = uploadedVideo ? {
+    basis: 'full_video', images: [], videos: [{ bytes: uploadedVideo, mimeType: 'video/mp4', label: 'User-provided original video', durationSeconds: mp4DurationSeconds(uploadedVideo) }], youtubeUrl: null,
+    durationSeconds: mp4DurationSeconds(uploadedVideo), failure: null,
+    notes: ['This analysis uses the video you uploaded alongside this post’s metrics. Its match to the published post has not been independently verified.'],
+  } : await collectMedia(item, live, liveError);
   // Instagram's live media type decides whether this is a video; the synced format is the fallback.
   const videoPost = live ? live.mediaType === 'VIDEO' : VIDEO_TYPES.has(item.contentType);
-  if (media.basis === 'none' || (videoPost && !VIDEO_BASIS.has(media.basis))) {
-    throw mediaUnavailable(media.failure ?? 'The post’s media could not be obtained, so its content cannot be analyzed.');
+  if (videoPost && item.platform === 'instagram' && !VIDEO_BASIS.has(media.basis)) {
+    try {
+      const input = await loadVideoInput(uid, mediaId);
+      if ('blob' in input) {
+        const bytes = new Uint8Array(await input.blob.arrayBuffer());
+        if (bytes.byteLength <= config.ai.contentAnalysis.maxMediaBytes) {
+          const duration = mp4DurationSeconds(bytes);
+          media = { basis: 'full_video', images: [], videos: [{ bytes, mimeType: input.blob.type, label: 'Video retrieved from Instagram', durationSeconds: duration }], youtubeUrl: null, durationSeconds: duration, notes: [], failure: null };
+        }
+      }
+    } catch (err) {
+      logger.warn('automatic video retrieval unavailable', { operation: 'content-analysis', error: err });
+    }
   }
+  if (videoPost && !VIDEO_BASIS.has(media.basis)) {
+    media = await thumbnailOnly(item, live?.thumbnailUrl || item.thumbnailUrl,
+      'The full video is unavailable. This is a limited review of the cover, caption and measured performance; scenes, audio and pacing were not assessed.');
+  }
+  if (media.basis === 'none' && !item.caption && !item.title) throw mediaUnavailable('There is not enough content available to review this post. Sync the account and try again.');
+  if (media.basis === 'none') media.notes.push('No visual media was available. Only the caption and measured performance were reviewed.');
 
   // 3. Model call over text + media. An invalid answer, or a video answer that does not cover the
   //    beginning, middle and end, is asked for once more with the problem spelled out.
   const call = async (correction?: string) => {
-    const parts: Part[] = [{ text: promptText(type, item, metrics, comparison, media, listContext) + (correction ? `\n\nIMPORTANT: ${correction}` : '') }];
+    const parts: Part[] = [{ text: promptText(type, item, metrics, comparison, media, listContext) + (['thumbnail', 'none'].includes(media.basis) ? '\nLIMITED REVIEW: Override all requests to describe scenes, audio, pacing, retention or timestamped moments. Use six points about available evidence, caption/message, measured audience response, historical comparison, clearly labelled hypotheses and experiments. State unavailable aspects rather than inventing observations.' : '') + (correction ? `\n\nIMPORTANT: ${correction}` : '') }];
     const uploaded: string[] = [];
     try {
       for (const v of media.videos) {
@@ -308,16 +332,18 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
     out = await call('Your previous answer did not match the required JSON. Return exactly six points numbered 1 to 6 with every required field.');
   }
   const isVideo = VIDEO_BASIS.has(media.basis);
-  if (isVideo && !coversTimeline(moments(out.data), media.durationSeconds)) {
+  if (isVideo && !coversTimeline(moments(sanitize(out.data, type, media.basis, metrics.items, media.durationSeconds)), media.durationSeconds)) {
     try {
       const again = await call(`You were given the complete video${media.durationSeconds ? ` (${media.durationSeconds}s)` : ''}. Watch it from start to end and cite at least 3 distinct moments as video_frame or audio evidence with mm:ss timestamps: one near the beginning, one in the middle and one near the end. Base points 1 to 3 on what happens in the video, not on the numbers.`);
-      if (moments(again.data).length > moments(out.data).length) out = again;
+      const retryMoments = moments(sanitize(again.data, type, media.basis, metrics.items, media.durationSeconds));
+      if (coversTimeline(retryMoments, media.durationSeconds) || retryMoments.length > moments(out.data).length) out = again;
     } catch (err) {
       logger.warn('content analysis video retry failed', { operation: 'content-analysis', error: err });
     }
   }
 
   const clean = sanitize(out.data, type, media.basis, metrics.items, media.durationSeconds);
+  if (['thumbnail', 'none'].includes(media.basis)) { clean.confidence.level = 'low'; clean.confidence.reason = 'Full content was unavailable; this review is limited to available evidence.'; }
   const times = moments(clean);
   const covers = isVideo ? coversTimeline(times, media.durationSeconds) : false;
   if (isVideo && !covers) clean.limitations.push('The analysis does not cite moments from the beginning, middle and end of the video, so its scene coverage may be partial.');
@@ -357,7 +383,7 @@ export const contentAnalysisService = {
    * `reanalyze`) fetches the post's media automatically and generates a new one. A failed refresh
    * never replaces a valid saved result.
    */
-  async analyze(userId: string, mediaId: string, type: ContentAnalysisType, opts: { reanalyze?: boolean; rank?: string | null } = {}): Promise<ContentAnalysisResponse> {
+  async analyze(userId: string, mediaId: string, type: ContentAnalysisType, opts: { reanalyze?: boolean; rank?: string | null; uploadedVideo?: Uint8Array } = {}): Promise<ContentAnalysisResponse> {
     if (!aiAvailable()) throw unavailable('AI analysis is not configured on this server.');
     const uid = toObjectId(userId);
     const doc = await mediaRepository.findByLegacyId(uid, mediaId);
@@ -398,7 +424,7 @@ export const contentAnalysisService = {
     const listContext = type === 'deep' ? null : `This post is in the account's ${type === 'why_top' ? 'top-performing' : 'needs-attention'} list${opts.rank ? ` (${opts.rank})` : ''}.`;
     const job = (async () => {
       try {
-        const g = await generate(userId, mediaId, type, listContext);
+        const g = await generate(userId, mediaId, type, listContext, opts.uploadedVideo);
         const updated = await ContentAnalysis.findOneAndUpdate(
           key,
           {

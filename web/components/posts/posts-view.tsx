@@ -10,7 +10,7 @@ import { PostGridSkeleton, Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState, Notice } from '@/components/ui/states';
 import { PlatformIcon } from '@/components/ui/platform-logo';
 import { Segmented, TabBar } from '@/components/ui/tabs';
-import { compact, dateShort, percent, whole } from '@/lib/format';
+import { compact, dateShort, percent } from '@/lib/format';
 import { useChannel } from '@/lib/hooks/useChannel';
 import { usePerformers, usePostsFeed } from '@/lib/hooks/usePosts';
 import { useConnections, useSummary } from '@/lib/hooks/useQueries';
@@ -25,7 +25,7 @@ import { WhyPerformerModal } from '@/components/insights/why-performer-modal';
 import { DeepVideoAnalysisModal } from '@/components/insights/deep-video-analysis-modal';
 
 type Tab = 'all' | 'working' | 'attention';
-const TABS = [{ id: 'all', label: 'All' }, { id: 'working', label: "What's working" }, { id: 'attention', label: 'Needs work' }];
+const TABS = [{ id: 'all', label: 'All posts' }, { id: 'working', label: 'Top performers' }, { id: 'attention', label: 'Opportunities' }];
 type AllSort = 'newest' | 'views' | 'engagement';
 const ALL_SORTS: Array<{ value: AllSort; label: string }> = [{ value: 'newest', label: 'Newest' }, { value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }];
 const RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }, { value: 'likes', label: 'Most likes' }, { value: 'comments', label: 'Most comments' }];
@@ -39,47 +39,39 @@ function useDebounced<T>(value: T, ms: number): T {
 
 const KNOWN_TYPES: ContentType[] = ['reel', 'short', 'video', 'post', 'article', 'carousel'];
 const asType = (t: string): ContentType => KNOWN_TYPES.find((k) => k === t) ?? 'post';
-const sentence = (s: string) => { const t = s.trim(); return /[.!?)]$/.test(t) ? t : `${t}.`; };
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 function RankedCard({ p, kind, rank, onOpen, onOpenWhy }: { p: Performer; kind: 'working' | 'attention'; rank: number; onOpen: () => void; onOpenWhy: (p: Performer, type: 'top' | 'bottom') => void }) {
-  const why = `${cap(sentence(plainComparison(p.baselineComparison)))} It got ${whole(p.views)} views and ${percent(p.engagementRate)} engagement.`;
   return (
-    <article className="card flex flex-col gap-4 p-4 sm:flex-row sm:p-5">
-      <button onClick={onOpen} aria-label={`Open ${p.title || 'post'}`} className="w-full shrink-0 self-start overflow-hidden rounded-xl border border-line sm:w-32">
-        <PostThumb item={{ platform: p.platform, title: p.title, thumbnailUrl: p.thumbnailUrl ?? '', contentType: asType(p.contentType) }} className="!aspect-video" />
-      </button>
-      <div className="min-w-0 flex-1 space-y-3">
-        <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-50 text-[13px] font-bold text-brand-600 tabular" aria-label={`Number ${rank}`}>{rank}</span>
-          <PlatformIcon platform={p.platform} className="h-5 w-5" /><span>{platformName(p.platform)} · {typeLabel(p.contentType)}</span>
-          <span aria-hidden="true">·</span><span>{dateShort(p.publishedAt)}</span>
-        </div>
-        <h3 className="line-clamp-2 text-base">{p.title || p.caption || 'Untitled post'}</h3>
-        <p className="text-[15px] text-ink">{why}</p>
-        <div className="rounded-xl bg-brand-50 px-4 py-3 text-[15px] text-brand-800">
-          <span className="font-semibold">{kind === 'working' ? 'Try next: ' : 'A gentle next step: '}</span>{p.patternToReplicateOrImprove}
-        </div>
-        {kind === 'attention' && p.uncertaintyNote && <p className="text-sm text-muted">{p.uncertaintyNote}</p>}
-        {p.possibleFactors.length > 0 && (
-          <details className="text-sm text-muted">
-            <summary className="min-h-11 cursor-pointer py-2.5 font-semibold text-brand-600">Show details</summary>
-            <ul className="list-disc space-y-1 pl-5">{p.possibleFactors.map((f) => <li key={f}>{f}</li>)}</ul>
-          </details>
-        )}
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" size="sm" onClick={onOpen}>See this post</Button>
-          <Button
-            size="sm"
-            variant="primary"
-            onClick={() => onOpenWhy(p, kind === 'working' ? 'top' : 'bottom')}
-            className={kind === 'working' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'}
-          >
-            <Sparkles className="h-3.5 w-3.5 mr-1" />
-            {kind === 'working' ? 'Why it is doing well' : 'Why it needs attention'}
-          </Button>
+    <article className="rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-brand-200 sm:p-6">
+      <div className="flex items-start gap-4 sm:gap-6">
+        <button onClick={onOpen} aria-label={`Open ${p.title || 'post'}`} className="w-20 shrink-0 overflow-hidden rounded-xl focus-visible:outline-2 focus-visible:outline-brand-600 sm:w-32">
+          <PostThumb item={{ platform: p.platform, title: p.title, thumbnailUrl: p.thumbnailUrl ?? '', contentType: asType(p.contentType) }} className="!aspect-[4/5]" />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
+            <span className="rounded-md bg-brand-50 px-2 py-1 font-semibold text-brand-700">#{rank}</span>
+            <PlatformIcon platform={p.platform} className="h-4 w-4" /><span>{typeLabel(p.contentType)}</span>
+            <span aria-hidden="true">·</span><span>{dateShort(p.publishedAt)}</span>
+          </div>
+          <h3 className="line-clamp-2 text-base leading-relaxed sm:text-lg"><button onClick={onOpen} className="text-left hover:text-brand-600">{p.title || p.caption || 'Untitled post'}</button></h3>
+          <dl className="mt-4 grid grid-cols-3 gap-3">
+            {[['Views', compact(p.views)], ['Likes', compact(p.likes)], ['Engagement', percent(p.engagementRate)]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted">{label}</dt><dd className="mt-1 text-base font-semibold tabular text-ink sm:text-xl">{value}</dd></div>)}
+          </dl>
         </div>
       </div>
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
+        <Button variant="ghost" size="sm" onClick={onOpen}>View post</Button>
+        <Button size="sm" onClick={() => onOpenWhy(p, kind === 'working' ? 'top' : 'bottom')}><Sparkles className="h-4 w-4" aria-hidden="true" />{kind === 'working' ? 'Why this worked' : 'Find improvements'}</Button>
+      </div>
+      <details className="mt-2 text-sm text-muted">
+        <summary className="cursor-pointer py-3 text-xs font-medium hover:text-brand-700">Performance context</summary>
+        <div className="space-y-3 rounded-xl bg-brand-50/60 p-4">
+          <p>{plainComparison(p.baselineComparison)}</p>
+          <p><strong>Suggested experiment:</strong> {p.patternToReplicateOrImprove}</p>
+          {p.uncertaintyNote && <p>{p.uncertaintyNote}</p>}
+          {p.possibleFactors.length > 0 && <ul className="list-disc space-y-1 pl-4">{p.possibleFactors.map(f => <li key={f}>{f}</li>)}</ul>}
+        </div>
+      </details>
     </article>
   );
 }
@@ -128,7 +120,7 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
         <EmptyState icon={<Search className="h-7 w-7" aria-hidden="true" />} title={filtering ? 'No posts match your search' : 'Nothing to show here yet'} description={filtering ? 'Try a different word, or clear the format filter.' : 'Check back after your next update.'} />
       ) : (
         <>
-          <div className="space-y-4">{list.slice(0, shown).map((p, i) => <RankedCard key={p.id} p={p} kind={kind} rank={i + 1} onOpen={() => onOpen(p.mediaId)} onOpenWhy={onOpenWhy} />)}</div>
+          <div className="grid gap-5 xl:grid-cols-2">{list.slice(0, shown).map((p, i) => <RankedCard key={p.id} p={p} kind={kind} rank={i + 1} onOpen={() => onOpen(p.mediaId)} onOpenWhy={onOpenWhy} />)}</div>
           {list.length > shown && <div className="flex justify-center"><Button variant="secondary" onClick={() => setShown((n) => n + RANK_PAGE)}>Show more</Button></div>}
         </>
       )}
@@ -234,7 +226,7 @@ export function PostsView() {
     body = (
       <div className="space-y-6">
         <TabBar label="Post views" tabs={TABS} value={tab} onChange={setTab} />
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3">
           <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" aria-hidden="true" />
             <Input type="search" aria-label="Search posts" placeholder="Search your posts" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
@@ -257,7 +249,7 @@ export function PostsView() {
 
   return (
     <>
-      <PageHeader title="Posts" subtitle="Browse every imported post, or switch to see what is working and what needs work." />
+      <PageHeader title="Your content" subtitle="Explore your posts. Understand what works. Choose what to create next." />
       {body}
       <PostDetailDrawer postId={open} onClose={() => setOpen(null)} />
       <WhyPerformerModal

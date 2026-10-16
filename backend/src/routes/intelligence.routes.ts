@@ -1,3 +1,5 @@
+import multer from 'multer';
+import { config } from '../config/env.js';
 import { Router } from 'express';
 import { intelligenceController as c } from '../controllers/intelligence.controller.js';
 import { validate } from '../middleware/validate.js';
@@ -26,4 +28,6 @@ intelligenceRouter.post('/analyze-video', aiLimiter, validate({ body: v.item }),
 intelligenceRouter.post('/compare', validate({ body: v.compare }), c.compare);
 // Six-point content analysis (deep / why_top / why_bottom) over the real media, saved per post.
 intelligenceRouter.post('/content-analysis', aiLimiter, validate({ body: v.contentAnalysis }), c.contentAnalysis);
+const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.ai.contentAnalysis.maxMediaBytes, files: 1, fields: 3 } });
+intelligenceRouter.post('/content-analysis/upload', aiLimiter, videoUpload.single('video'), validate({ body: v.contentAnalysis }), c.uploadContentAnalysis);
 intelligenceRouter.get('/content-analysis', validate({ query: v.contentAnalysisQuery }), c.savedContentAnalysis);

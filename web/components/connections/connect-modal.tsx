@@ -22,8 +22,8 @@ import type { Connection, ConnectInput, Platform } from '@/types/api';
 
 /** Optional extras the token form can take, per platform. */
 const EXTRA: Record<Platform, { key: keyof ConnectInput; label: string; hint: string } | null> = {
-  instagram: null,
-  facebook: null,
+  instagram: { key: 'accountId', label: 'Instagram account ID', hint: 'Optional. Use this when your Meta token can access more than one professional account.' },
+  facebook: { key: 'pageId', label: 'Facebook Page ID', hint: 'Optional. The Page you want to import.' },
   // YouTube has its own two-section form (youtube-connect.tsx).
   youtube: null,
   linkedin: { key: 'organizationId', label: 'Company Page ID', hint: 'The number of the Company Page you manage.' },
@@ -39,7 +39,8 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
   const qc = useQueryClient();
   const toast = useToast();
   const sync = useSync();
-  const oauth = Boolean(connection?.oauthAvailable);
+  const manualMeta = platform === 'instagram' || platform === 'facebook';
+  const oauth = !manualMeta && Boolean(connection?.oauthAvailable);
   const [advanced, setAdvanced] = useState(!oauth);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,21 +77,7 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
 
         {error && <Notice tone="bad">{error}</Notice>}
 
-        {platform === 'instagram' ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted">Sign in on Instagram and allow access to your media and insights. You’ll return here automatically while we import your posts for analysis. Your Instagram password is never shared with Media Navigator.</p>
-            <Notice>Use an Instagram Business or Creator account. Personal accounts need to switch to a professional account first.</Notice>
-            {!oauth && <Notice tone="warn">Instagram sign-in is being set up. Please try again once the app administrator has enabled it.</Notice>}
-            <Button size="lg" className="w-full" loading={busy} disabled={!oauth} onClick={() => void startOAuth()}>Continue with Instagram</Button>
-          </div>
-        ) : platform === 'facebook' ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted">Continue to Facebook to sign in and allow read-only access to your Page posts and insights. Facebook handles your password. We import the content after you return.</p>
-            <Notice>Connect a Facebook Page you manage. Personal-profile posts are not supported.</Notice>
-            {!oauth && <Notice tone="warn">Facebook sign-in is being set up. Please try again once the app administrator has enabled it.</Notice>}
-            <Button size="lg" className="w-full" loading={busy} disabled={!oauth} onClick={() => void startOAuth()}>Continue with Facebook</Button>
-          </div>
-        ) : platform === 'youtube' ? (
+        {platform === 'youtube' ? (
           <YouTubeConnect
             connection={connection}
             onError={setError}
@@ -103,7 +90,8 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
           />
         ) : (<>
         {oauth && <Button size="lg" className="w-full" loading={busy} onClick={() => void startOAuth()}>Continue with {name}</Button>}
-        {!oauth && <Notice>One-click sign-in with {name} isn&apos;t set up on this server yet. You can still connect with an access token below.</Notice>}
+        {manualMeta && <Notice>Paste a Meta access token with permission to read your posts and insights. Use a professional Instagram account or a Facebook Page you manage. An app secret is not an access token.</Notice>}
+        {!oauth && !manualMeta && <Notice>One-click sign-in with {name} isn&apos;t set up on this server yet. You can still connect with an access token below.</Notice>}
 
         {oauth && (
           <button type="button" onClick={() => setAdvanced((a) => !a)} aria-expanded={advanced} className="flex w-full items-center justify-between rounded-xl px-1 py-2 text-sm font-semibold text-muted hover:text-ink">

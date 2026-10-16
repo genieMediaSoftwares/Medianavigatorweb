@@ -24,10 +24,10 @@ export function TabBar({ tabs, value, onChange, label }: { tabs: TabItem[]; valu
 
 export function Segmented<T extends string | number>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[]; label: string }) {
   return (
-    <div role="radiogroup" aria-label={label} className="inline-flex rounded-xl border border-line bg-white p-1 shadow-xs dark:border-slate-800 dark:bg-slate-900">
+    <div role="radiogroup" aria-label={label} className="inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-brand-50/50 p-1 dark:border-slate-800 dark:bg-slate-900">
       {options.map((o) => (
         <button key={String(o.value)} role="radio" aria-checked={o.value === value} onClick={() => onChange(o.value)}
-          className={cn('h-9 rounded-lg px-3.5 text-sm font-semibold transition-all duration-150', o.value === value ? 'bg-brand-100 text-brand-800 shadow-xs' : 'text-muted hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-slate-800')}>
+          className={cn('h-10 shrink-0 rounded-lg px-3.5 text-sm font-medium transition-all duration-150', o.value === value ? 'bg-white text-brand-800 shadow-xs' : 'text-muted hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-slate-800')}>
           {o.label}
         </button>
       ))}
