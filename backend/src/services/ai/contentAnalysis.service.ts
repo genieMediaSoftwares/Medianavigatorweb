@@ -7,11 +7,9 @@ import { toObjectId } from '../../lib/ids.js';
 import { logger } from '../../lib/logger.js';
 import { toNormalized } from '../../integrations/mapper.js';
 import { ContentAnalysis, type ContentAnalysisDoc, type ContentAnalysisType } from '../../models/ContentAnalysis.js';
-import { User } from '../../models/User.js';
 import { connectionRepository } from '../../repositories/connection.repository.js';
 import { mediaRepository } from '../../repositories/media.repository.js';
 import { loadAnalyticsContext } from '../analytics.service.js';
-import { creditService } from '../credits.service.js';
 import { readCredentials } from '../sync.service.js';
 import { thumbnailOnly, mp4DurationSeconds, collectMedia, compare, derivedMetrics, evidenceHash, fetchInstagramLive, syncedMetrics, type Comparison, type MediaEvidence, type MetricsSnapshot, type MetricValue } from './contentEvidence.js';
 import { AiFailedError, AiUnavailableError, aiAvailable, deleteUploaded, generateMultimodalJson, uploadVideo } from './geminiClient.js';
@@ -54,8 +52,24 @@ const GUIDE: Record<ContentAnalysisType, string[]> = {
   ],
 };
 
-const SYSTEM = `You are Media Navigator's content analyst. You analyse ONE specific social media post from the evidence supplied: the attached media itself (video with its audio, images or carousel slides), its caption, and the measured metrics and comparison provided as JSON.
+const SYSTEM = `You are Media Navigator's Content Performance & Creative Intelligence Engine.
 
+You are an expert social media content strategist, visual content analyst, creative director, audience behavior analyst, and performance marketing specialist.
+
+Analyse ONE specific social media post from the evidence supplied: the attached media itself (video with its audio, images or carousel slides), its caption, and the measured metrics and comparison provided as JSON.
+
+Non-negotiable rules:
+- Actually inspect the content. For Reels and videos, examine the opening hook, first visible frame, spoken words, on-screen text, scene transitions, pacing, visual changes, audio, storytelling, payoff, and CTA.
+- If the actual creative asset is unavailable, do not fabricate visual observations; state what is missing.
+- Never infer video content from the caption, thumbnail, filename, or metadata alone.
+- Distinguish measured facts, historical benchmarks, estimates, hypotheses, and missing data.
+- Do not invent metrics, retention, audience demographics, conversion results, or view-duration statistics.
+- Never claim an observed creative weakness definitively caused low reach or low engagement unless the evidence supports causation.
+- For every significant finding, provide observed evidence, interpretation, potential performance impact, confidence, and evidence limitation.
+- Do not produce generic advice such as "the hook was weak" or "use more hashtags" unless tied to a specific observation or measured gap.
+- Every major recommendation must include exact replacement creative: headline, hook, slide copy, script, visual concept, or CTA.
+- Provide exactly 3 separate creative scripts labelled Script 1, Script 2, and Script 3, each based on an observed strength, weakness, or experiment to test.
+- Return JSON only.
 Rules you must follow:
 - Watch/look at the attached media first. The first points must be about what is actually in it, not about the numbers.
 - Analyse this exact post, not a generic example of its category.
@@ -404,24 +418,6 @@ export const contentAnalysisService = {
     const stale = Boolean(saved?.result) && (saved!.evidenceHash !== hash || ageHours > config.ai.contentAnalysis.staleHours);
 
     const needsGeneration = Boolean(!saved?.result || stale || opts.reanalyze);
-    let charge = 0;
-    let freeTopUsed = false;
-    let freeBottomUsed = false;
-    const postIsVideo = VIDEO_TYPES.has(item.contentType);
-    if (needsGeneration) {
-      if (type === 'why_top') {
-        const free = await creditService.useFreeTopCheck(userId);
-        if (free) freeTopUsed = true;
-        else charge = postIsVideo ? 20 : 5;
-      } else if (type === 'why_bottom') {
-        const free = await creditService.useFreeBottomCheck(userId);
-        if (free) freeBottomUsed = true;
-        else charge = postIsVideo ? 20 : 5;
-      } else {
-        charge = postIsVideo ? 20 : 5;
-      }
-      if (charge) await creditService.spend(userId, charge);
-    }
 
     if (saved?.result && !stale && !opts.reanalyze) return toResponse(saved, true, false);
 
@@ -443,9 +439,6 @@ export const contentAnalysisService = {
         );
         return toResponse(updated as ContentAnalysisDoc, false, false);
       } catch (err) {
-        if (charge) await creditService.grant(userId, charge);
-        if (freeTopUsed) await User.updateOne({ _id: toObjectId(userId) }, { $inc: { freeTopChecksRemaining: 1 } });
-        if (freeBottomUsed) await User.updateOne({ _id: toObjectId(userId) }, { $inc: { freeBottomChecksRemaining: 1 } });
         const message = failureMessage(err);
         await ContentAnalysis.updateOne(key, { $set: { platform: item.platform, contentType: item.contentType, lastError: message, lastErrorAt: new Date() }, $inc: { attempts: 1 } }, { upsert: true });
         if (saved?.result) return toResponse(saved, true, true, message);
