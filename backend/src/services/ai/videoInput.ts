@@ -134,6 +134,39 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string): P
     } catch { /* public page not reachable */ }
   }
 
+  // Last resort 3: ask Firecrawl to render and scrape the public page when direct fetching is blocked.
+  if (!source && config.firecrawl && typeof doc.mediaUrl === 'string' && /instagram\.com/i.test(doc.mediaUrl)) {
+    try {
+      const response = await fetch('https://api.firecrawl.dev/v1/scrape', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${config.firecrawl}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: doc.mediaUrl, formats: ['html'], onlyMainContent: false, timeout: 20000 }),
+        signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+      });
+      if (response.ok) {
+        const body = await response.json().catch(() => ({}) as Record<string, unknown>);
+        const html = (body.data as { html?: string } | undefined)?.html ?? (typeof body.html === 'string' ? body.html : '');
+        const unescape = (s: string) => s.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+        const patterns = [
+          /property=["']og:video["'][^>]*content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["'][^>]*property=["']og:video(?::secure_url)?["']/i,
+          /"video_url"\s*:\s*"([^"]+)"/i,
+          /"video_versions"\s*:\s*\[[^\]]*"url"\s*:\s*"([^"]+)"/i,
+        ];
+        for (const pattern of patterns) {
+          const match = html.match(pattern);
+          if (match?.[1]) {
+            const candidate = unescape(match[1]);
+            try {
+              const url = new URL(candidate);
+              if (isVideoCdn(url)) { source = candidate; break; }
+            } catch { /* not a URL */ }
+          }
+        }
+      }
+    } catch { /* Firecrawl not reachable */ }
+  }
+
   if (!source && loginExpired) {
     // The token is dead: record it so the Connections page asks for a reconnect instead of failing again later.
     await connectionRepository.setStatus(account._id, 'connection_expired', 'Instagram login expired; reconnect required').catch(() => undefined);

@@ -103,6 +103,7 @@ const schema = z.object({
   CONTENT_ANALYSIS_STALE_HOURS: int('CONTENT_ANALYSIS_STALE_HOURS', 1),
   GEMINI_API_KEY: optionalText,
   GEMINI_MODEL: optionalText,
+  FIRECRAWL_API_KEY: optionalText,
 
   // --- file uploads ---
   FILE_MAX_BYTES: int('FILE_MAX_BYTES', 1),
@@ -251,6 +252,7 @@ export function buildConfig(source: Record<string, string | undefined>) {
         staleHours: raw.CONTENT_ANALYSIS_STALE_HOURS,
       },
     },
+    firecrawl: raw.FIRECRAWL_API_KEY,
     storage: {
       maxFileBytes: raw.FILE_MAX_BYTES,
       allowedMimeTypes: raw.FILE_ALLOWED_MIME_TYPES,
