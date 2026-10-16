@@ -3,6 +3,7 @@ import { ACCESS_COOKIE, REFRESH_COOKIE, clearCookieHeaders, cookieHeaders, isHtt
 import { UpstreamUnreachable, callApi, refreshTokens } from '@/lib/server/upstream';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 /**
  * Backend-for-frontend. The browser only talks to this route; it forwards to the API with the access token taken from

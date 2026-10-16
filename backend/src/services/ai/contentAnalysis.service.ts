@@ -191,7 +191,7 @@ JSON shape:
     ... exactly 6 points, numbered 1 to 6 ...
   ],
   "limitations": ["evidence that was missing or could not be analysed"],
-  "recommendations": ["up to 5 actions, each tied to a specific finding"],
+  "recommendations": ["exactly 3 short scripts or hooks to try next, each tied to an observed strength or weakness; no generic advice"],
   "confidence": { "level": "high|medium|low", "reason": "why" }
 }`;
 }
@@ -311,9 +311,17 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
         uploaded.push(f.name);
         if (media.basis === 'carousel') parts.push({ text: `[${v.label}]` });
         const fps = fpsFor(v.durationSeconds);
-        parts.push({ ...createPartFromUri(f.uri, f.mimeType), ...(fps ? { videoMetadata: { fps } } : {}) });
+        const videoMetadata: Record<string, unknown> = {};
+        if (fps) videoMetadata.fps = fps;
+        const limitSeconds = 120;
+        if (v.durationSeconds && v.durationSeconds > limitSeconds) videoMetadata.endOffset = `${limitSeconds}s`;
+        parts.push({ ...createPartFromUri(f.uri, f.mimeType), ...(Object.keys(videoMetadata).length ? { videoMetadata } : {}) });
       }
-      if (media.youtubeUrl) parts.push({ fileData: { fileUri: media.youtubeUrl } });
+      if (media.youtubeUrl) {
+        const videoMetadata: Record<string, unknown> = {};
+        if (media.durationSeconds && media.durationSeconds > 120) { videoMetadata.startOffset = '0s'; videoMetadata.endOffset = '120s'; }
+        parts.push({ fileData: { fileUri: media.youtubeUrl }, ...(Object.keys(videoMetadata).length ? { videoMetadata } : {}) });
+      }
       for (const img of media.images) {
         if (media.basis === 'carousel') parts.push({ text: `[${img.label}]` });
         parts.push(createPartFromBase64(img.data, img.mimeType));
