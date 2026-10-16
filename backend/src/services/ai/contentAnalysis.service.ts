@@ -191,7 +191,7 @@ JSON shape:
     ... exactly 6 points, numbered 1 to 6 ...
   ],
   "limitations": ["evidence that was missing or could not be analysed"],
-  "recommendations": ["up to 5 actions, each tied to a specific finding"],
+  "recommendations": ["exactly 3 short scripts or hooks to try next, each tied to an observed strength or weakness; no generic advice"],
   "confidence": { "level": "high|medium|low", "reason": "why" }
 }`;
 }
