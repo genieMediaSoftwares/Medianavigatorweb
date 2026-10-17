@@ -36,10 +36,6 @@ function MenuBody() {
         <div className="border-b border-line px-3 pb-3 pt-2">
           <p className="truncate text-sm font-bold text-ink">{name}</p>
           <p className="truncate text-[13px] text-muted">{data?.user.email}</p>
-          <div className="mt-2 flex items-center gap-2 text-[12px]">
-            <span className="rounded-full bg-brand-50 px-2 py-0.5 font-semibold text-brand-700 dark:text-brand-300">{data?.user.credits ?? 0} Insight Credits</span>
-            <span className="text-muted">Free top-post reviews: {data?.user.freeTopChecksRemaining ?? 0} · Free improvement reviews: {data?.user.freeBottomChecksRemaining ?? 0}</span>
-          </div>
         </div>
         <div className="pt-2">
           <Menu.Item asChild><Link href="/settings" className={item}><Settings className="h-4 w-4" aria-hidden="true" />Settings</Link></Menu.Item>

@@ -5,7 +5,7 @@ import type { ConnectInput, Platform } from '@/types/api';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
-const META_GRAPH_EXPLORER = 'https://business.facebook.com/business/loginpage/?next=https%3A%2F%2Fdevelopers.facebook.com%2Ftools%2Fexplorer%2F#';
+const META_GRAPH_EXPLORER = 'https://developers.facebook.com/tools/explorer/';
 
 export interface SetupLink {
   label: string;
@@ -47,8 +47,8 @@ export const PLATFORM_SETUP: Record<Platform, PlatformSetup> = {
       body: 'Get a Meta access token to securely connect your account.',
       steps: [
         'Sign in and open the Graph API Explorer.',
-        'Select the Meta app linked to your Instagram professional account.',
-        'Add instagram_basic, instagram_manage_insights and pages_show_list, then generate the token.',
+        'In the Meta App menu, choose the app you use for this connection and check its dashboard for access restrictions.',
+        'Add instagram_basic, instagram_manage_insights, pages_show_list and pages_read_engagement, then generate the token and select the Facebook Page linked to your Instagram account when Meta asks.',
         'Copy the token and return to Media Navigator.',
       ],
       links: [{ label: 'Get token from Meta', url: META_GRAPH_EXPLORER }],
@@ -58,9 +58,9 @@ export const PLATFORM_SETUP: Record<Platform, PlatformSetup> = {
         id: 'token',
         tab: 'Access token',
         field: 'accessToken',
-        label: 'Meta Graph API Token',
+        label: 'Meta Graph API token',
         placeholder: 'Paste your access token',
-        hint: 'Paste your User Access Token from Meta Graph API Explorer',
+        hint: 'A User access token from Graph API Explorer, for the Facebook Page linked to your Instagram professional account.',
         extra: { key: 'accountId', label: 'Instagram account ID (optional)', placeholder: 'e.g. 17841400000000000', hint: 'Only needed when the token covers more than one Instagram account.' },
       },
     ],
@@ -74,8 +74,8 @@ export const PLATFORM_SETUP: Record<Platform, PlatformSetup> = {
       body: 'Generate a token with access to the Page you want to analyze.',
       steps: [
         'Sign in and open the Graph API Explorer.',
-        'Select your Meta app and the Page you manage.',
-        'Add pages_show_list, pages_read_engagement and read_insights, then generate the token.',
+        'In the Meta App menu, choose the app you use for this connection and check its dashboard for access restrictions.',
+        'Add pages_show_list, pages_read_engagement, pages_read_user_content and read_insights, generate the token, and select the Page when Meta asks which Pages to share.',
         'Copy the token and return to Media Navigator.',
       ],
       links: [{ label: 'Open Meta Developer Tools', url: META_GRAPH_EXPLORER }],

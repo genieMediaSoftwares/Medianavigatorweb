@@ -47,6 +47,7 @@ function useNav(platform?: Platform) {
 
 /** Option 1: every synced post, page by page from GET /media, for one handle or all of them. Action: Deep Analysis. */
 function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountScope; connections: Connection[]; reloadKey: number; onSynced?: () => void }) {
+  const router = useRouter();
   const platform = scope === 'all' ? undefined : scope;
   const nav = useNav(platform);
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -106,6 +107,8 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
   const reported = live.length === 1 ? live[0].accountInfo?.mediaCount : undefined;
   const syncing = platform ? sync.active.includes(platform) : sync.active.length > 0;
   const lastSynced = live.map((c) => c.lastSyncedAt).filter(Boolean).sort()[0] ?? null;
+  // Permissions the last sync reported missing for metrics: the posts were read, but those numbers are unavailable.
+  const metricGaps = [...new Set(live.flatMap((c) => (c.status === 'permission_required' ? [] : c.missingPermissions ?? [])))];
   return (
     <View>
       <View className="mb-sm rounded-[12px] bg-neutral-50 p-md">
@@ -122,6 +125,14 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
         </View>
         {reported !== undefined && total < reported && !syncing ? (
           <Text className="mt-xs text-[11px] text-warning">{`${(reported - total).toLocaleString()} posts on the profile aren’t synced yet. Sync now to fetch them; posts the platform doesn’t share through its API (for example some stories or deleted posts) can’t be imported.`}</Text>
+        ) : null}
+        {metricGaps.length && !syncing ? (
+          <View className="mt-xs" style={{ gap: 6 }}>
+            <Text className="text-[11px] text-warning">{`Meta denied access requiring ${metricGaps.join(' and ')} during the last sync. Reconnect to grant access, then sync again. Some metrics may also be unavailable for the post’s format.`}</Text>
+            {live.filter((c) => c.missingPermissions?.length).map((c) => (
+              <Button key={c.platform} title={`Reconnect ${c.name}`} size="sm" variant="secondary" onPress={() => router.push({ pathname: '/connect/[platform]', params: { platform: c.platform, reconnect: '1' } })} />
+            ))}
+          </View>
         ) : null}
         {sync.error ? <Text className="mt-xs text-[11px] text-danger">{sync.error}</Text> : null}
       </View>
@@ -143,6 +154,7 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
               metric('chatbubble-outline', 'comments', 'comments'),
               metric('arrow-redo-outline', 'shares', 'shares'),
               metric('people-outline', 'reach', 'reach'),
+              ...(m.platform === 'facebook' && video ? [{ icon: 'time-outline' as const, label: 'watch time in minutes', decimals: 2, suffix: ' min', value: [...m.unavailableMetrics, ...(m.missingMetrics ?? [])].includes('watchTimeMinutes') ? null : m.watchTimeMinutes ?? null }] : []),
               // Engagement needs measured reach or views; the sync marks it unavailable otherwise.
               { icon: 'pulse-outline', label: 'eng.', value: [...m.unavailableMetrics, ...(m.missingMetrics ?? [])].includes('engagementRate') ? null : m.engagementRate, percent: true },
             ]}

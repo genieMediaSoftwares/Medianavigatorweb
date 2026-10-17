@@ -25,12 +25,14 @@ export const fake = {
   fetchError: null as Error | null,
   failTimes: 0,
   partialReason: undefined as string | undefined,
+  authoritative: false,
   permissionError: undefined as { message: string; missing: string[] } | undefined,
+  metricPermissionsMissing: undefined as string[] | undefined,
   validateResult: { isValid: true } as { isValid: boolean; error?: string; kind?: 'expired' | 'permission' | 'invalid' },
   accountId: 'acct-1',
   fetchCalls: 0,
   reset() {
-    this.items = []; this.fetchError = null; this.failTimes = 0; this.partialReason = undefined; this.permissionError = undefined;
+    this.items = []; this.fetchError = null; this.failTimes = 0; this.partialReason = undefined; this.authoritative = false; this.permissionError = undefined; this.metricPermissionsMissing = undefined;
     this.validateResult = { isValid: true }; this.accountId = 'acct-1'; this.fetchCalls = 0;
   },
 };
@@ -48,7 +50,7 @@ export function fakeAdapter(platform: PlatformType): ProviderAdapter {
       fake.fetchCalls++;
       if (fake.failTimes > 0) { fake.failTimes--; throw new Error('Provider temporarily unavailable (503)'); }
       if (fake.fetchError) throw fake.fetchError;
-      return { items: fake.items.filter((i) => i.platform === platform), partialReason: fake.partialReason, permissionError: fake.permissionError };
+      return { items: fake.items.filter((i) => i.platform === platform), partialReason: fake.partialReason, permissionError: fake.permissionError, metricPermissionsMissing: fake.metricPermissionsMissing, authoritative: fake.authoritative };
     }),
   };
 }

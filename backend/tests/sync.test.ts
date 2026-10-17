@@ -20,6 +20,8 @@ import { enqueueDueSyncs } from '../src/jobs/sync/scheduler.js';
 import { ConnectedAccount } from '../src/models/ConnectedAccount.js';
 import { ContentItem } from '../src/models/ContentItem.js';
 import { SyncRun } from '../src/models/SyncRun.js';
+import { ContentAnalysis } from '../src/models/ContentAnalysis.js';
+import { toObjectId } from '../src/lib/ids.js';
 import { Analytics } from '../src/models/Analytics.js';
 import { Notification } from '../src/models/Notification.js';
 import { syncRunRepository } from '../src/repositories/syncRun.repository.js';
@@ -197,6 +199,34 @@ describe('sync engine', () => {
     expect(await ContentItem.countDocuments()).toBe(12);
   });
 
+  it('a complete provider list removes stored items no longer on the account, with their saved analyses', async () => {
+    const u = await registerUser('s7b@test.example');
+    await connect(u);
+    await drain();
+    expect(await ContentItem.countDocuments()).toBe(12);
+    const gone = fake.items.slice(10);
+    await ContentAnalysis.create(gone.map((m) => ({ userId: toObjectId(u.id), mediaId: m.id, analysisType: 'deep', analysisVersion: 'v', platform: m.platform, contentType: m.contentType })));
+    fake.items = fake.items.slice(0, 10);
+    fake.authoritative = true;
+    await api().post('/api/v1/connections/instagram/sync').set(u.auth);
+    await drain();
+    expect(await ContentItem.countDocuments()).toBe(10);
+    expect(await ContentAnalysis.countDocuments()).toBe(0);
+    const acc = await ConnectedAccount.findOne().lean();
+    expect(acc).toMatchObject({ dataPointsCount: 10 });
+    expect(acc!.statusMessage).toMatch(/Removed 2 no longer on the account/);
+  });
+
+  it('an incomplete provider list never removes stored history', async () => {
+    const u = await registerUser('s7c@test.example');
+    await connect(u);
+    await drain();
+    fake.items = fake.items.slice(0, 3);
+    await api().post('/api/v1/connections/instagram/sync').set(u.auth);
+    await drain();
+    expect(await ContentItem.countDocuments()).toBe(12);
+  });
+
   it('flags missing permissions truthfully and stops scheduling', async () => {
     const u = await registerUser('s8@test.example');
     await connect(u, 'linkedin');
@@ -328,6 +358,45 @@ describe('data lifecycle and ownership', () => {
     expect((await api().get('/api/v1/auth/me').set(a.auth)).status).toBe(401);
     expect((await api().post('/api/v1/auth/login').send({ email: 'del-a@test.example', password: 'Sup3rSecret99' })).status).toBe(401);
     expect((await api().get('/api/v1/media').set(b.auth)).body.data).toHaveLength(12);
+  });
+});
+describe('Facebook metrics end to end (provider result → database → API)', () => {
+  it('stores exact numbers and real zeros, keeps unavailable metrics N/A, reports missing permissions, and never duplicates posts', async () => {
+    const u = await registerUser('fb-metrics@test.example');
+    const [measured, zero, unread] = makeMedia(3, 'facebook');
+    fake.items = [
+      { ...measured, views: 5400, reach: 4100, likes: 120, comments: 15, shares: 7, engagementRate: 2.63, missingMetrics: [] },
+      { ...zero, views: 0, reach: 0, likes: 0, comments: 0, shares: 0, engagementRate: 0, missingMetrics: ['engagementRate'] },
+      { ...unread, views: 0, reach: 0, likes: 0, comments: 0, shares: 3, engagementRate: 0, missingMetrics: ['views', 'reach', 'likes', 'comments', 'engagementRate'] },
+    ];
+    fake.partialReason = 'Some numbers are unavailable because the token was generated without pages_read_user_content (reactions, comments).';
+    fake.metricPermissionsMissing = ['pages_read_user_content'];
+    await connect(u, 'facebook');
+    await drain();
+
+    const media = (await api().get('/api/v1/media?platform=facebook&limit=10').set(u.auth)).body.data as any[];
+    const byId = (id: string) => media.find((m) => m.id === id);
+    expect(byId(measured.id)).toMatchObject({ views: 5400, reach: 4100, likes: 120, comments: 15, shares: 7 });
+    expect(byId(measured.id).unavailableMetrics).not.toEqual(expect.arrayContaining(['views', 'reach', 'likes', 'comments']));
+    // Real zeros reach the client as 0 and are not flagged; unread metrics are flagged so the app shows N/A, not 0.
+    expect(byId(zero.id)).toMatchObject({ views: 0, reach: 0, likes: 0, comments: 0 });
+    expect(byId(zero.id).unavailableMetrics).not.toEqual(expect.arrayContaining(['views', 'reach']));
+    expect(byId(unread.id).unavailableMetrics).toEqual(expect.arrayContaining(['views', 'reach', 'likes', 'comments']));
+    expect(byId(unread.id).shares).toBe(3);
+
+    const fb = (await api().get('/api/v1/connections').set(u.auth)).body.data.find((c: any) => c.platform === 'facebook');
+    expect(fb.missingPermissions).toEqual(['pages_read_user_content']);
+    expect(fb.statusMessage).toMatch(/pages_read_user_content/);
+    expect((await SyncRun.findOne({ platform: 'facebook' }).sort({ queuedAt: -1 }).lean())!.status).toBe('partial');
+    expect(await Notification.exists({ title: /synced, some data unavailable/ })).toBeTruthy();
+    // The dashboard snapshot counts only posts that had the number: the unread post adds nothing and is not a 0.
+    const snap = (await Analytics.findOne({ platform: 'facebook' }).lean())!;
+    expect(snap).toMatchObject({ contentCount: 3, totalViews: 5400, viewsMeasured: 2, engagementMeasured: 1, totalShares: 10 });
+
+    // A second sync updates the same posts in place.
+    await api().post('/api/v1/connections/facebook/sync').set(u.auth);
+    await drain();
+    expect(await ContentItem.countDocuments({ platform: 'facebook' })).toBe(3);
   });
 });
 void fakeAdapter;

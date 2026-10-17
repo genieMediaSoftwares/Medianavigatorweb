@@ -9,7 +9,7 @@ vi.mock('../src/integrations/registry.js', async () => {
   return { PLATFORMS: ['instagram', 'facebook', 'youtube', 'linkedin'], getAdapter: (p: string) => (adapters[p] ??= fakeAdapter(p as any)) };
 });
 
-const net = vi.hoisted(() => ({ calls: [] as string[], imageFails: false, mediaMode: 'image' as 'image' | 'reel_withheld' | 'reel' | 'carousel' }));
+const net = vi.hoisted(() => ({ calls: [] as string[], imageFails: false, mediaMode: 'image' as 'image' | 'reel_withheld' | 'reel' | 'carousel' | 'expired' }));
 /** Fixture: an MP4 header whose mvhd box says 24 seconds (timescale 1000, duration 24000). Not a real video. */
 const MP4_24S = vi.hoisted(() => {
   const b = new Uint8Array(64);
@@ -19,10 +19,6 @@ const MP4_24S = vi.hoisted(() => {
   b.set([0, 0, 0x03, 0xe8], 44); // timescale 1000
   b.set([0, 0, 0x5d, 0xc0], 48); // duration 24000
   return b;
-});
-vi.mock('../src/services/ai/videoInput.js', async (original) => {
-  const real: any = await original();
-  return { ...real, loadVideoInput: vi.fn(async () => { throw new Error('Public video unavailable in fixture'); }) };
 });
 vi.mock('../src/lib/http.js', async (orig) => {
   const real: any = await orig();
@@ -36,6 +32,7 @@ vi.mock('../src/lib/http.js', async (orig) => {
       if (u.includes('/insights?metric=views')) return json({ data: [{ name: 'views', total_value: { value: 1800 } }] });
       if (u.includes('/insights?metric=saved')) return json({ data: [{ name: 'saved', total_value: { value: 0 } }] });
       if (u.includes('/insights')) return json({ error: { message: 'metric not supported for this media' } }, 400);
+      if (net.mediaMode === 'expired') return json({ error: { code: 190, message: 'Error validating access token: Session has expired.' } }, 400);
       if (u.includes('fields=media_type')) {
         if (net.mediaMode === 'reel_withheld') return json({ media_type: 'VIDEO', media_product_type: 'REELS', thumbnail_url: 'https://cdn.example/cover.jpg', like_count: 61, comments_count: 4 });
         if (net.mediaMode === 'reel') return json({ media_type: 'VIDEO', media_product_type: 'REELS', media_url: 'https://cdn.example/reel.mp4', thumbnail_url: 'https://cdn.example/cover.jpg', like_count: 61, comments_count: 4 });
@@ -72,10 +69,19 @@ vi.mock('../src/services/ai/geminiClient.js', async () => {
 });
 
 import { loadVideoInput, instagramPermalink } from '../src/services/ai/videoInput.js';
+// The web's Deep Video Analysis loader, which content analysis falls back to for Instagram videos. The real one is
+// covered by the web video tests; here it only reports what it would return.
+const loader = vi.hoisted(() => ({ calls: [] as string[], impl: null as null | (() => Promise<unknown>) }));
+vi.mock('../src/services/ai/videoInput.js', async (orig) => ({
+  ...(await orig<Record<string, unknown>>()),
+  loadVideoInput: vi.fn(async (_uid: unknown, mediaId: string) => { loader.calls.push(mediaId); return loader.impl!(); }),
+}));
 import { syncService } from '../src/services/sync.service.js';
 import { AiFailedError } from '../src/services/ai/geminiClient.js';
 import { ContentAnalysis } from '../src/models/ContentAnalysis.js';
-import { compare, derivedMetrics, evidenceHash, mp4DurationSeconds } from '../src/services/ai/contentEvidence.js';
+import { ConnectedAccount } from '../src/models/ConnectedAccount.js';
+import { INSTAGRAM_LOGIN_EXPIRED } from '../src/services/ai/videoInput.js';
+import { collectMedia, compare, derivedMetrics, evidenceHash, mp4DurationSeconds } from '../src/services/ai/contentEvidence.js';
 
 const point = (n: number, extra: Record<string, unknown> = {}) => ({
   number: n, title: `model title ${n}`, observations: [`finding ${n}`], evidence: [], metricKeys: [], interpretation: `meaning ${n}`, confidence: 'medium', ...extra,
@@ -93,6 +99,8 @@ let user: Awaited<ReturnType<typeof registerUser>>;
 let postId: string;
 beforeEach(async () => {
   await clearDb(); fake.reset(); gem.calls = []; net.calls = []; net.imageFails = false; net.mediaMode = 'image';
+  loader.calls = [];
+  loader.impl = async () => { throw new AiFailedError('Instagram returned no video URL for this post (it can be withheld for Reels with licensed music). Reconnect Instagram and sync again.', 'provider_error'); };
   gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints()), model: 'test-model', latencyMs: 5 });
   user = await registerUser('content@test.example');
   fake.items = makeMedia(15, 'instagram');
@@ -259,16 +267,6 @@ describe('video analysis (automatic, no upload)', () => {
     expect(gem.calls).toHaveLength(0);
   });
 
-  it('retrieves the public video automatically before falling back to a cover', async () => {
-    net.mediaMode = 'reel_withheld';
-    vi.mocked(loadVideoInput).mockResolvedValueOnce({ blob: new Blob([MP4_24S], { type: 'video/mp4' }) });
-    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints(frames)), model: 'test-model', latencyMs: 5 });
-    const res = await analyze({ type: 'why_top' });
-    expect(res.status).toBe(200);
-    expect(res.body.data.mediaBasis).toBe('full_video');
-    expect(res.body.data.result.evidence.coversTimeline).toBe(true);
-  });
-
   it('automatically produces a labelled cover review when the reel file is unavailable', async () => {
     net.mediaMode = 'reel_withheld';
     gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints(frames)), model: 'test-model', latencyMs: 5 });
@@ -279,6 +277,48 @@ describe('video analysis (automatic, no upload)', () => {
     expect(res.body.data.result.evidence.momentsCited).toBe(0);
     expect(res.body.data.result.limitations.join(' ')).toMatch(/limited review/);
     expect(res.body.data.result.points[0].title).toBe('Available evidence');
+  });
+
+  it('when the live media URL is withheld, falls back to the web video loader (file saved at sync) and watches the full video', async () => {
+    net.mediaMode = 'reel_withheld';
+    loader.impl = async () => ({ blob: new Blob([MP4_24S], { type: 'video/mp4' }) });
+    gem.impl = ({ schema }: any) => ({ data: schema.parse({ ...sixPoints(frames), audio: 'music' }), model: 'test-model', latencyMs: 5 });
+    const res = await analyze({ type: 'why_top' });
+    expect(res.status).toBe(200);
+    const d = res.body.data;
+    expect(d.mediaBasis).toBe('full_video');
+    expect(gem.calls[0].parts.some((p: any) => p.fileData?.mimeType === 'video/mp4')).toBe(true);
+    expect(d.result.evidence).toMatchObject({ visual: 'full_video', videos: 1, durationSeconds: 24 });
+    // Live Instagram metrics are still used even though the file came from the fallback.
+    expect(d.metrics.items.find((m: any) => m.key === 'reach')).toMatchObject({ value: 1200, source: 'instagram_live' });
+  });
+
+  it('does not use the fallback loader when the live video downloads fine', async () => {
+    net.mediaMode = 'reel';
+    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints(frames)), model: 'test-model', latencyMs: 5 });
+    expect((await analyze({ type: 'deep' })).status).toBe(200);
+    expect(loader.calls).toHaveLength(0);
+  });
+
+  it('an expired Instagram login is reported as such and flags the connection for reconnect (image post)', async () => {
+    const list = (await api().get('/api/v1/media?limit=24').set(user.auth)).body.data as Array<{ id: string; contentType: string }>;
+    const image = list.find((m) => m.contentType === 'post')!;
+    net.mediaMode = 'expired';
+    const res = await api().post('/api/v1/intelligence/content-analysis').set(user.auth).send({ mediaId: image.id, type: 'deep' });
+    expect(res.status).toBe(422);
+    expect(res.body.error.message).toBe(INSTAGRAM_LOGIN_EXPIRED);
+    expect(loader.calls).toHaveLength(0);
+    expect((await ConnectedAccount.findOne({ platform: 'instagram' }).lean())?.status).toBe('connection_expired');
+  });
+
+  it('a withheld reel keeps a previous valid analysis and reports why the refresh failed', async () => {
+    net.mediaMode = 'reel';
+    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints(frames)), model: 'test-model', latencyMs: 5 });
+    await analyze({ type: 'deep' });
+    net.mediaMode = 'reel_withheld';
+    const re = (await analyze({ type: 'deep', reanalyze: true })).body.data;
+    expect(re.mediaBasis).toBe('full_video');
+    expect(re.refreshError).toMatch(/returned no video URL/);
   });
 
   it('analyzes every carousel slide in order (images and video) and discloses slides it could not load', async () => {
@@ -294,6 +334,24 @@ describe('video analysis (automatic, no upload)', () => {
   it('requires a video on the upload endpoint', async () => {
     const res = await api().post('/api/v1/intelligence/content-analysis/upload').set(user.auth).field('mediaId', postId).field('type', 'deep');
     expect(res.status).toBe(400);
+  });
+});
+
+describe('Facebook video evidence', () => {
+  const fbVideo = { ...makeMedia(1, 'facebook')[0], contentType: 'video', platformContentId: '111_9', thumbnailUrl: 'https://img.example/cover.jpg' } as any;
+  const mp4 = new Uint8Array([0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d, 0, 0, 0, 0]);
+
+  it('analyzes a Facebook Page video from its own file, not its cover image', async () => {
+    const ev = await collectMedia(fbVideo, null, null, { loadVideo: async () => new Blob([mp4], { type: 'video/mp4' }) });
+    expect(ev.basis).toBe('full_video');
+    expect(ev.videos).toHaveLength(1);
+    expect(ev.images).toHaveLength(0);
+  });
+
+  it('when Facebook withholds the file, says why and does not fall back to the cover image', async () => {
+    const ev = await collectMedia(fbVideo, null, null, { loadVideo: async () => { throw new Error('Facebook did not provide the video file for this post.'); } });
+    expect(ev).toMatchObject({ basis: 'none', failure: 'Facebook did not provide the video file for this post.' });
+    expect(ev.images).toHaveLength(0);
   });
 });
 

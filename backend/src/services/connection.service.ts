@@ -1,6 +1,9 @@
 import type { PlatformType } from '../../../shared/types.js';
 import { YouTubeApiError } from '../integrations/youtube/errors.js';
-import { badRequest, conflict, providerError, notFound } from '../lib/errors.js';
+import { AppError, badRequest, conflict, ConnectError, notFound, type ConnectFailureReason, type ConnectStage } from '../lib/errors.js';
+import { logger } from '../lib/logger.js';
+import { sha256 } from '../lib/crypto.js';
+import { MetaApiError, logMetaError } from '../integrations/meta/metaErrors.js';
 import { toObjectId } from '../lib/ids.js';
 import { ProviderHttpError } from '../lib/http.js';
 import { getAdapter, PLATFORMS } from '../integrations/registry.js';
@@ -21,6 +24,41 @@ export const syncRunView = (r: { _id: unknown; status: string; type: string; pla
   attempts: r.attempts, errorKind: r.errorKind ?? null, errorSummary: r.errorSummary ?? null,
 });
 
+const REASON_FOR_KIND: Record<'expired' | 'permission' | 'invalid', ConnectFailureReason> = { expired: 'token_expired', permission: 'permission_missing', invalid: 'token_invalid' };
+const REASON_FOR_YOUTUBE: Record<YouTubeApiError['kind'], ConnectFailureReason> = {
+  invalid: 'token_invalid', expired: 'token_expired', permission: 'permission_missing', quota: 'provider_unavailable', not_found: 'account_not_found', unavailable: 'provider_unavailable',
+};
+
+/**
+ * One error shape for every failed connection: a stable `reason`, the right status and a message with the next step.
+ * What the provider actually answered is logged (without credentials) for diagnosis.
+ */
+function connectFailure(platform: PlatformType, err: unknown, stage: ConnectStage, requestId?: string): unknown {
+  let out: unknown = err;
+  if (err instanceof MetaApiError) { logMetaError(`connect:${platform}`, err, requestId); out = err.toConnectError(); }
+  else if (err instanceof ProviderHttpError) out = new ConnectError('provider_unavailable', `${platform[0].toUpperCase()}${platform.slice(1)} isn’t reachable right now (${err.message}). Please try again in a few minutes.`);
+  // Plain-language provider errors (invalid key, API not enabled, channel not found, quota) are the user's to fix.
+  else if (err instanceof YouTubeApiError) out = new ConnectError(REASON_FOR_YOUTUBE[err.kind], err.message);
+  if (out instanceof ConnectError) {
+    out = out.atStage(stage);
+    logger.warn('connect refused', { operation: 'connect', provider: platform, requestId, stage, reason: (out as ConnectError).reason, status: (out as ConnectError).status });
+  }
+  else if (!(out instanceof AppError)) logger.error('connect failed unexpectedly', { operation: 'connect', provider: platform, requestId, error: err });
+  return out;
+}
+
+/**
+ * Safe description of a pasted credential: its kind (from the public prefix), length and a short one-way hash. Two
+ * attempts with the same fingerprint used the same token; nothing here can be turned back into the token.
+ */
+export function credentialFingerprint(c: ProviderCredentials): { kind: string; length: number; sha256: string } | null {
+  const value = (c.accessToken || c.apiKey || '').trim();
+  if (!value) return null;
+  const kind = /^EAA/.test(value) ? 'meta_user_or_page_token' : /^IG/.test(value) ? 'instagram_login_token'
+    : /^AIza/.test(value) ? 'google_api_key' : /^ya29\./.test(value) ? 'google_oauth_token' : /^AQ/.test(value) ? 'linkedin_token' : 'unrecognised';
+  return { kind, length: value.length, sha256: sha256(value).slice(0, 10) };
+}
+
 export const connectionService = {
   async list(userId: string) {
     const accounts = await connectionRepository.listForUser(userId);
@@ -32,17 +70,24 @@ export const connectionService = {
    * Credentials are encrypted before they touch the database and are never returned.
    * The first sync is queued; the HTTP request does not wait for provider pagination.
    */
-  async connectWithCredentials(userId: string, platform: PlatformType, input: ProviderCredentials, requestId?: string) {
+  async connectWithCredentials(userId: string, platform: PlatformType, input: ProviderCredentials, requestId?: string, client = 'unknown') {
     const adapter = getAdapter(platform);
+    // Lets two attempts (e.g. from the web app and the mobile app) be compared without ever logging the credential.
+    logger.info('connect attempt', { operation: 'connect', provider: platform, requestId, client, credential: credentialFingerprint(input) });
     return connectionService.finishConnect(userId, platform, input, adapter, requestId);
   },
 
   async finishConnect(userId: string, platform: PlatformType, creds: ProviderCredentials, adapter = getAdapter(platform), requestId?: string) {
     const uid = toObjectId(userId);
     let resolvedCreds = creds;
+    let stage: ConnectStage = 'token';
     try {
       const v = await adapter.validate(creds);
-      if (!v.isValid) throw badRequest(v.error || `${platform} authorization failed`);
+      if (!v.isValid) {
+        const reason = v.reason ?? REASON_FOR_KIND[v.kind ?? 'invalid'];
+        throw new ConnectError(reason, v.error || `${platform} authorization failed`, { stage: reason === 'permission_missing' ? 'permissions' : 'token' });
+      }
+      stage = 'account';
       const account = await adapter.resolveAccount(creds);
 
       const owner = await ConnectedAccount.findOne({ platform, providerAccountId: account.providerAccountId, active: true }).select('userId').lean<{ userId: unknown }>();
@@ -74,10 +119,7 @@ export const connectionService = {
       await auditRepository.record({ actorId: uid, action: 'connection.connect', targetType: 'connected_account', targetId: String(doc._id), requestId, meta: { platform } });
       return { connection: toPlatformConnection(platform, doc), syncRun: syncRunView(run) };
     } catch (err) {
-      if (err instanceof ProviderHttpError) throw providerError(`${platform} is not reachable right now: ${err.message}`);
-      // Plain-language provider errors (invalid key, API not enabled, channel not found, quota) are the user's to fix.
-      if (err instanceof YouTubeApiError) throw err.kind === 'unavailable' ? providerError(err.message) : badRequest(err.message);
-      throw err;
+      throw connectFailure(platform, err, stage, requestId);
     }
   },
 

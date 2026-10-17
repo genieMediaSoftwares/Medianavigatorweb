@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { config } from '../../config/env.js';
 import { httpFetch } from '../../lib/http.js';
+import { ConnectError } from '../../lib/errors.js';
+import { logger } from '../../lib/logger.js';
 import { NormalizedMedia, PerformanceTier } from '../../../../shared/types.js';
 
 export interface LinkedInOrgInfo {
@@ -8,6 +10,29 @@ export interface LinkedInOrgInfo {
   name: string;
   vanityName?: string;
   logoUrl?: string;
+}
+
+/** Organization roles that may read a Company Page's posts and statistics. */
+const ALLOWED_ROLES = new Set(['ADMINISTRATOR', 'CONTENT_ADMINISTRATOR', 'ANALYST', 'CURATOR']);
+
+/** LinkedIn REST errors as a reason and a next step. The raw provider response stays out of user-facing text. */
+export function describeLinkedInError(status: number, body: any, action: string): ConnectError {
+  const code = String(body?.code ?? body?.serviceErrorCode ?? '');
+  logger.warn('linkedin request refused', { operation: 'linkedin', status, providerCode: code, providerMessage: String(body?.message ?? '').slice(0, 300) });
+  if (status === 401) {
+    return /EXPIRED/i.test(code) || /expired/i.test(String(body?.message ?? ''))
+      ? new ConnectError('token_expired', 'This LinkedIn access token has expired (they last 60 days). Generate a new one and connect again.')
+      : new ConnectError('token_invalid', 'LinkedIn didn’t accept this access token. Copy the whole token again from the LinkedIn Developer Portal’s token generator.');
+  }
+  if (status === 403) {
+    return new ConnectError('permission_missing', `LinkedIn refused to ${action}. The token needs the rw_organization_admin (or r_organization_admin) and r_organization_social scopes, which LinkedIn only grants after it approves the Community Management API for your app in the Developer Portal.`);
+  }
+  if (status === 426 || /VERSION/i.test(code)) {
+    return new ConnectError('provider_unavailable', `LinkedIn no longer supports the API version this server is configured with (LINKEDIN_API_VERSION=${config.providers.linkedinApiVersion}). Set LINKEDIN_API_VERSION to a current YYYYMM version in the server configuration.`);
+  }
+  if (status === 429) return new ConnectError('provider_unavailable', 'LinkedIn is rate-limiting this app. Wait a few minutes and try again.');
+  if (status === 404) return new ConnectError('account_not_found', `LinkedIn couldn’t find what was needed to ${action}.`);
+  return new ConnectError('provider_unavailable', `LinkedIn couldn’t ${action} right now (HTTP ${status}). Please try again in a few minutes.`);
 }
 
 export class LinkedInClient {
@@ -24,54 +49,50 @@ export class LinkedInClient {
   }
 
   /**
-   * Resolves target organization or personal profile
+   * The LinkedIn Company Page (organization) to connect. Only an organization on which the signed-in member holds an
+   * approved role is accepted, as reported by LinkedIn's organizationAcls; a typed ID is never connected unchecked, and a
+   * personal profile is never used (member analytics are not available to this integration).
    */
   async resolveAccount(accessToken: string, organizationId?: string): Promise<LinkedInOrgInfo> {
-    if (organizationId && organizationId.trim().length > 0) {
-      const cleanId = organizationId.replace('urn:li:organization:', '');
-      try {
-        const res = await httpFetch(`${this.restBase}/organizations/${cleanId}`, {
-          headers: this.getHeaders(accessToken),
-        });
-        const data = await res.json();
-        if (res.ok && data) {
-          return {
-            id: `urn:li:organization:${cleanId}`,
-            name: data.localizedName || data.vanityName || `Organization ${cleanId}`,
-            vanityName: data.vanityName,
-          };
-        }
-      } catch {
-        // Fallback to basic struct
-      }
-      return {
-        id: `urn:li:organization:${cleanId}`,
-        name: `Organization (${cleanId})`,
-      };
+    const wanted = (organizationId || '').trim().replace(/^urn:li:organization:/, '').replace(/^https?:\/\/(www\.)?linkedin\.com\/company\/([^/]+).*$/i, '$2');
+    const res = await httpFetch(`${this.restBase}/organizationAcls?q=roleAssignee&state=APPROVED&count=100`, { headers: this.getHeaders(accessToken) });
+    const body: any = await res.json().catch(() => null);
+    if (!res.ok) throw describeLinkedInError(res.status, body, 'list the Company Pages you manage');
+
+    const roles = new Map<string, string[]>();
+    for (const e of Array.isArray(body?.elements) ? body.elements : []) {
+      const urn: string | undefined = e.organization ?? e.organizationalTarget;
+      const id = urn?.match(/^urn:li:organization:(\d+)$/)?.[1];
+      if (id && ALLOWED_ROLES.has(e.role)) roles.set(id, [...(roles.get(id) ?? []), e.role]);
+    }
+    if (!roles.size) {
+      throw new ConnectError('account_not_found', 'This LinkedIn account has no approved Administrator or Analyst role on any Company Page. Ask a Page admin to give you one, then generate a new token. Personal profiles can’t be connected.');
     }
 
-    // Try finding organizationalEntityAcls to find organizations user manages
+    const ids = [...roles.keys()];
+    const named = await Promise.all(ids.slice(0, 10).map(async (id) => ({ id, ...(await this.organization(accessToken, id)) })));
+    let pick: string | undefined;
+    if (wanted) {
+      pick = ids.find((id) => id === wanted) ?? named.find((o) => o.vanityName?.toLowerCase() === wanted.toLowerCase())?.id;
+      if (!pick) {
+        throw new ConnectError('account_not_authorized', `You don’t have an approved admin or analyst role on Company Page “${wanted}”. Pages you can connect: ${named.map((o) => `${o.name} (${o.id})`).join(', ')}.`);
+      }
+    } else if (ids.length === 1) pick = ids[0];
+    else {
+      throw new ConnectError('account_selection_required', `You manage ${ids.length} Company Pages. Enter the ID of the one to connect: ${named.map((o) => `${o.name} (${o.id})`).join(', ')}.`, { field: 'organizationId' });
+    }
+    const org = named.find((o) => o.id === pick) ?? { id: pick, ...(await this.organization(accessToken, pick)) };
+    return { id: `urn:li:organization:${pick}`, name: org.name, vanityName: org.vanityName };
+  }
+
+  /** Name of an organization the member has a role on (best effort: the ACL already proved access). */
+  private async organization(accessToken: string, id: string): Promise<{ name: string; vanityName?: string }> {
     try {
-      const aclRes = await httpFetch(`${this.v2Base}/organizationalEntityAcls?q=roleAssignee`, {
-        headers: this.getHeaders(accessToken),
-      });
-      const aclData = await aclRes.json();
-      if (aclRes.ok && aclData.elements && aclData.elements.length > 0) {
-        const firstOrg = aclData.elements[0].organizationalTarget;
-        return {
-          id: firstOrg,
-          name: 'Connected LinkedIn Page',
-        };
-      }
-    } catch {
-      // ignore
-    }
-
-    // Default to user's member account
-    return {
-      id: 'urn:li:person:me',
-      name: 'LinkedIn Member Profile',
-    };
+      const res = await httpFetch(`${this.restBase}/organizations/${encodeURIComponent(id)}`, { headers: this.getHeaders(accessToken) });
+      const data: any = await res.json().catch(() => null);
+      if (res.ok && data) return { name: data.localizedName || data.vanityName || `Company Page ${id}`, vanityName: data.vanityName };
+    } catch { /* name only */ }
+    return { name: `Company Page ${id}` };
   }
 
   /**
@@ -98,13 +119,7 @@ export class LinkedInClient {
         });
         postsData = await v2Res.json();
 
-        if (!v2Res.ok) {
-          const errorMsg = postsData.message || postsData.errorDetails?.message || `HTTP ${v2Res.status}`;
-          if (v2Res.status === 403 || res.status === 403) {
-            throw new Error(`LinkedIn returned an authorization error. Please verify that your LinkedIn account has the required organization permissions (r_organization_social or Community Management access). [Detail: ${errorMsg}]`);
-          }
-          throw new Error(`LinkedIn post retrieval error: ${errorMsg}`);
-        }
+        if (!v2Res.ok) throw describeLinkedInError(res.status === 403 ? 403 : v2Res.status, postsData, 'read this Company Page’s posts');
       }
     } catch (err: any) {
       throw err;
@@ -158,7 +173,8 @@ export class LinkedInClient {
         reach: impressions,
         engagementRate,
         // Without impressions the rate has no denominator: unknown, not 0%.
-        missingMetrics: impressions > 0 ? [] : ['engagementRate', 'views'],
+        // /rest/posts carries no statistics: counts LinkedIn didn't return are unknown, not 0.
+        missingMetrics: [...(impressions > 0 ? [] : ['engagementRate', 'views']), ...(post.totalShareStatistics ? [] : ['likes', 'comments', 'shares'])],
         shares,
         likes,
         comments,

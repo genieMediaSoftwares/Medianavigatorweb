@@ -1,4 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useRouter } from 'expo-router';
 import { ComponentProps, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -172,6 +173,7 @@ export function ContentAnalysisView({ mediaId, type, rank }: { mediaId: string; 
   const [retryKey, setRetryKey] = useState(0);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const current = useRef(mediaId);
+  const router = useRouter();
 
   useEffect(() => {
     current.current = mediaId;
@@ -250,6 +252,8 @@ export function ContentAnalysisView({ mediaId, type, rank }: { mediaId: string; 
               : (error ?? 'Please try again.')
           }
           onRetry={() => { setLoading(true); setError(null); setErrorCode(null); setRetryKey((k) => k + 1); }}
+          // Same as the web: a failure caused by the account's access offers the reconnect flow.
+          secondaryAction={item && /reconnect/i.test(error ?? '') ? { label: `Reconnect ${PLATFORM_META[item.platform].name}`, onPress: () => router.push({ pathname: '/connect/[platform]', params: { platform: item.platform } }) } : undefined}
         />
       </ScrollView>
     );

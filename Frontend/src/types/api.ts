@@ -206,6 +206,9 @@ export interface HistorySnapshot {
   totalShares: number;
   meanEngagementRate: number;
   medianEngagementRate: number;
+  /** Posts that had views / an engagement rate from the platform; null on older snapshots. */
+  viewsMeasured?: number | null;
+  engagementMeasured?: number | null;
   followersCount: number | null;
 }
 

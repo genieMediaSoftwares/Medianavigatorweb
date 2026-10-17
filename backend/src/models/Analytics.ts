@@ -16,6 +16,9 @@ export interface AnalyticsDoc {
   totalShares: number;
   meanEngagementRate: number;
   medianEngagementRate: number;
+  /** Posts that had views / an engagement rate from the platform (null on snapshots written before this was recorded). */
+  viewsMeasured?: number | null;
+  engagementMeasured?: number | null;
   followersCount?: number | null;
   createdAt: Date;
   updatedAt: Date;
@@ -35,6 +38,8 @@ const schema = new Schema<AnalyticsDoc>(
     totalShares: { type: Number, default: 0 },
     meanEngagementRate: { type: Number, default: 0 },
     medianEngagementRate: { type: Number, default: 0 },
+    viewsMeasured: { type: Number, default: null },
+    engagementMeasured: { type: Number, default: null },
     followersCount: { type: Number, default: null },
   },
   { timestamps: true },

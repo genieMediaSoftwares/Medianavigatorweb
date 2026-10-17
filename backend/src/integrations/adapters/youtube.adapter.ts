@@ -46,7 +46,7 @@ export const youtubeAdapter: ProviderAdapter = {
     const partialReason = reported && result.media.length < reported * 0.9
       ? `Fetched ${result.media.length} of ${reported} videos reported by YouTube (private/unlisted videos are not returned).`
       : undefined;
-    return { items: result.media, partialReason };
+    return { items: result.media, partialReason, authoritative: result.complete && !partialReason };
   },
 
   async refreshCredentials(creds: ProviderCredentials) {

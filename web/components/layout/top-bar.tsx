@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { LogoMark } from '@/components/brand/logo';
 import { Button } from '@/components/ui/button';
 import { useChannel } from '@/lib/hooks/useChannel';
-import { useConnections, useMe } from '@/lib/hooks/useQueries';
+import { useConnections } from '@/lib/hooks/useQueries';
 import { useSync } from '@/lib/hooks/useSync';
 import { titleFor } from '@/lib/nav';
 import { platformName } from '@/lib/platforms';
@@ -18,7 +18,7 @@ export function TopBar({ collapsed }: { collapsed: boolean }) {
   const { channel, setChannel } = useChannel();
   const { data: connections } = useConnections();
   const sync = useSync();
-  const me = useMe();
+
   const live = (connections ?? []).filter((c) => c.connected);
   const syncing = sync.active.length > 0;
   const hasLive = live.length > 0;
@@ -47,7 +47,6 @@ export function TopBar({ collapsed }: { collapsed: boolean }) {
               <span className="sr-only sm:hidden">{syncing ? 'Updating' : 'Sync'}</span>
             </Button>
           )}
-          <span className="hidden rounded-full border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-bold text-brand-700 sm:inline">{me.data?.user.credits ?? 0} Insight Credits</span>
           <NotificationBell />
           <AccountMenu />
         </div>

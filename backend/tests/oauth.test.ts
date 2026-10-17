@@ -73,7 +73,7 @@ describe('OAuth connection flow', () => {
     const start = await api().post('/api/v1/connections/facebook/oauth/start').set(u.auth);
     const url = new URL(start.body.data.authorizeUrl);
     expect(url.hostname).toBe('www.facebook.com');
-    expect(url.searchParams.get('scope')).toBe('pages_show_list,pages_read_engagement,read_insights');
+    expect(url.searchParams.get('scope')).toBe('pages_show_list,pages_read_engagement,pages_read_user_content,read_insights');
     expect(url.searchParams.get('redirect_uri')).toBe('https://api.test.example/api/v1/connections/oauth/facebook/callback');
     const calls = stubTokenEndpoint();
     const result = await api().get('/api/v1/connections/oauth/facebook/callback').query({ code: 'fb-code', state: url.searchParams.get('state') });

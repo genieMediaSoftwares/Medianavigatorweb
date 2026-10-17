@@ -38,7 +38,7 @@ describe('Instagram Login data access', () => {
   });
   it('does not turn rejected media permissions into an empty successful import', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ error: { code: 10, message: 'permission denied' } }), { status: 403 })));
-    await expect(new InstagramClient(true).fetchMedia('token', '123')).rejects.toThrow('permissions');
+    await expect(new InstagramClient(true).fetchMedia('token', '123')).rejects.toMatchObject({ reason: 'permission_missing' });
   });
 });
 

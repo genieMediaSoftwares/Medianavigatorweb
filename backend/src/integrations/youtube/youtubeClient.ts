@@ -9,6 +9,8 @@ export interface YouTubeSyncResult {
   analytics: YouTubeAnalyticsReport;
   /** Why per-video watch time is missing (no analytics permission), or undefined when it was measured. */
   watchTimeUnavailable?: string;
+  /** true when `media` is the channel's complete video list (at least as many videos as YouTube reports for it). */
+  complete: boolean;
 }
 
 export class YouTubeClient {
@@ -46,6 +48,8 @@ export class YouTubeClient {
       media,
       analytics,
       watchTimeUnavailable: watch.available ? undefined : watch.reason,
+      // A list cut short (a failed page, the page limit, the search fallback) has fewer videos than the channel reports.
+      complete: typeof channel.videoCount === 'number' && media.length >= channel.videoCount,
     };
   }
 }

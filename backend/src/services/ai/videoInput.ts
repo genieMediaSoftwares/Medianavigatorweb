@@ -10,6 +10,7 @@ import { badRequest } from '../../lib/errors.js';
 /** `fps` is how many frames per second Gemini samples; omitted = provider default. */
 export type VideoInput = ({ blob: Blob } | { youtubeUrl: string }) & { fps?: number };
 const failure = (message: string) => new AiFailedError(message, 'provider_error');
+export const INSTAGRAM_LOGIN_EXPIRED = 'Your Instagram login has expired. Reconnect Instagram from Connections, then run the analysis again.';
 const MAX_BYTES = 100 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT_MS = 120_000;
 
@@ -62,6 +63,35 @@ export async function downloadVideo(source: string): Promise<Blob> {
     return new Blob([bytes], { type: 'video/mp4' });
   }
   throw failure('The video download redirected too many times. Sync the account and retry.');
+}
+
+/**
+ * A Facebook Page video's file, through the connected Page token: the post's video attachment → the video's `source`
+ * (a signed fbcdn.net MP4, fetched fresh because it expires). Only the Page that owns the post can be used.
+ */
+export async function loadFacebookVideo(userId: Types.ObjectId, mediaId: string): Promise<Blob> {
+  const doc = await mediaRepository.findByLegacyId(userId, mediaId);
+  if (!doc || doc.platform !== 'facebook') throw failure('Video not found.');
+  const account = await connectionRepository.findForUserWithCredentials(userId, 'facebook');
+  if (!account?.active || String(account._id) !== String(doc.connectedAccountId) || !account.credentialsEnc) throw failure('Reconnect the Facebook Page that owns this video.');
+  const credentials = JSON.parse(decryptSecret(account.credentialsEnc)) as ProviderCredentials;
+  const token = credentials.pageAccessToken || credentials.accessToken;
+  if (!token) throw failure('Reconnect Facebook to grant access to the video.');
+  const graph = async (path: string, fields: string): Promise<any> => {
+    const url = new URL(`https://graph.facebook.com/${config.providers.metaApiVersion}/${encodeURIComponent(path)}`);
+    url.searchParams.set('fields', fields);
+    url.searchParams.set('access_token', token);
+    const response = await fetch(url, { redirect: 'error', signal: AbortSignal.timeout(10_000) });
+    const body = await response.json().catch(() => ({})) as any;
+    if (!response.ok) throw failure(`Facebook did not return this video (${describeGraphError(body.error)})`);
+    return body;
+  };
+  const post = await graph(doc.providerMediaId, 'attachments{media_type,target{id}}');
+  const attachment = (post.attachments?.data ?? []).find((a: any) => a.media_type === 'video');
+  if (!attachment?.target?.id) throw failure('This Facebook post has no video attachment.');
+  const video = await graph(attachment.target.id, 'source');
+  if (!video.source) throw failure('Facebook did not provide the video file for this post (it can be withheld for some videos, e.g. with licensed music).');
+  return downloadVideo(video.source);
 }
 
 export async function loadVideoInput(userId: Types.ObjectId, mediaId: string, options: { allowThirdParty?: boolean } = {}): Promise<VideoInput> {
@@ -175,7 +205,7 @@ export async function loadVideoInput(userId: Types.ObjectId, mediaId: string, op
   if (!source && loginExpired) {
     // The token is dead: record it so the Connections page asks for a reconnect instead of failing again later.
     await connectionRepository.setStatus(account._id, 'connection_expired', 'Instagram login expired; reconnect required').catch(() => undefined);
-    throw failure('Your Instagram login has expired. Reconnect Instagram from Connections, then run the analysis again.');
+    throw failure(INSTAGRAM_LOGIN_EXPIRED);
   }
   if (!source) throw failure(`${[...new Set(problems)].join(' ') || 'Instagram did not grant access to the video file.'} Reconnect Instagram (Instagram Business/Creator account with media permissions), make sure the reel is public, and sync again.`);
   return { blob: await downloadVideo(source) };

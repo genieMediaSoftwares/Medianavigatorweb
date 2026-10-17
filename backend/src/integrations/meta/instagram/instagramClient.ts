@@ -1,6 +1,12 @@
 import { config } from '../../../config/env.js';
 import { httpFetch } from '../../../lib/http.js';
+import { ConnectError, type ConnectFailureReason } from '../../../lib/errors.js';
 import { MetaClient } from '../metaClient.js';
+import { describeMetaError, MetaApiError } from '../metaErrors.js';
+
+const IG_FIELDS = 'id,username,name,profile_picture_url,followers_count,follows_count,media_count';
+/** Refusals no other lookup can get around. */
+const FINAL = new Set<ConnectFailureReason>(['token_invalid', 'token_expired', 'app_restricted', 'provider_unavailable']);
 import { NormalizedMedia, PerformanceTier } from '../../../../../shared/types.js';
 
 export interface InstagramAccountInfo {
@@ -12,14 +18,12 @@ export interface InstagramAccountInfo {
   followsCount?: number;
   mediaCount?: number;
   pageAccessToken?: string;
-  isBusinessDiscovery?: boolean;
-  authorizedIgId?: string;
 }
 
 export class InstagramClient extends MetaClient {
   protected override readonly baseUrl: string;
   constructor(private readonly instagramLogin = false) {
-    super();
+    super('instagram');
     this.baseUrl = `https://${instagramLogin ? 'graph.instagram.com' : 'graph.facebook.com'}/${config.providers.metaApiVersion}`;
   }
 
@@ -45,11 +49,16 @@ export class InstagramClient extends MetaClient {
   /**
    * Discovers the Instagram Account connected to the user/page token
    */
+  /**
+   * The Instagram professional account this token is authorized for. A handle or ID the user typed is only accepted when
+   * it is one of the token's own accounts; it never relabels another account and never "connects" someone else's public
+   * profile. Also called on every sync with the stored account ID.
+   */
   async resolveAccount(accessToken: string, providedAccountId?: string): Promise<InstagramAccountInfo> {
     if (this.instagramLogin) {
       const me = await this.get<any>('me', accessToken, { fields: 'user_id,username,name,profile_picture_url,followers_count,follows_count,media_count' });
-      if (!me.user_id || !me.username) throw new Error('Instagram did not return a professional account. Please reconnect with a Business or Creator account.');
-      if (providedAccountId && String(me.user_id) !== providedAccountId) throw new Error('Instagram returned a different account. Please reconnect.');
+      if (!me.user_id || !me.username) throw new ConnectError('account_not_found', 'Instagram did not return a professional account. Please reconnect with a Business or Creator account.');
+      if (providedAccountId && String(me.user_id) !== providedAccountId) throw new ConnectError('account_not_authorized', 'Instagram returned a different account. Please reconnect.');
       return { id: String(me.user_id), username: me.username, name: me.name, profilePictureUrl: me.profile_picture_url, followersCount: me.followers_count, followsCount: me.follows_count, mediaCount: me.media_count };
     }
     const cleanHandle = (providedAccountId || '')
@@ -58,197 +67,79 @@ export class InstagramClient extends MetaClient {
       .replace(/https?:\/\/(www\.)?instagram\.com\//i, '')
       .replace(/\/.*$/, '')
       .trim();
+    const matches = (...ids: Array<string | undefined>) => ids.some((v) => v && v.toLowerCase() === cleanHandle.toLowerCase());
+    // The first refusal that no other lookup can get around (bad, expired or blocked token); reported if nothing works.
+    let finalError: MetaApiError | null = null;
+    const note = (err: unknown) => { if (err instanceof MetaApiError && FINAL.has(err.reason)) finalError ??= err; };
+    const info = (ig: any, pageToken: string | undefined, fallbackName?: string): InstagramAccountInfo => ({
+      id: ig.id,
+      username: ig.username || fallbackName || ig.id,
+      name: ig.name || ig.username || fallbackName || ig.id,
+      profilePictureUrl: ig.profile_picture_url,
+      followersCount: ig.followers_count,
+      followsCount: ig.follows_count,
+      mediaCount: ig.media_count,
+      pageAccessToken: pageToken,
+    });
 
-    let authorizedIgId: string | null = null;
-    let pageAccessToken: string | null = null;
-
-    // 1. First, check /me directly (Works for Page Access Tokens and direct User tokens)
+    // 1. A Page access token: /me is the Page, with its linked Instagram account.
     try {
-      const meData = await this.get<any>('me', accessToken, {
-        fields: 'id,name,username,access_token,instagram_business_account{id,username,name,profile_picture_url,followers_count,follows_count,media_count}',
-      });
+      const meData = await this.get<any>('me', accessToken, { fields: `id,name,access_token,instagram_business_account{${IG_FIELDS}}` });
+      const ig = meData?.instagram_business_account;
+      if (ig?.id && (!cleanHandle || matches(ig.username, ig.id))) return info(ig, meData.access_token || accessToken, meData.name);
+    } catch (err) { note(err); }
 
-      if (meData?.instagram_business_account?.id) {
-        const ig = meData.instagram_business_account;
-        authorizedIgId = ig.id;
-        if (meData.access_token) pageAccessToken = meData.access_token;
-
-        // If no handle provided or handle matches this page's IG account
-        if (!cleanHandle || (ig.username && ig.username.toLowerCase() === cleanHandle.toLowerCase()) || ig.id === cleanHandle) {
-          return {
-            id: ig.id,
-            username: ig.username || meData.name || cleanHandle,
-            name: ig.name || meData.name || cleanHandle,
-            profilePictureUrl: ig.profile_picture_url,
-            followersCount: ig.followers_count,
-            followsCount: ig.follows_count,
-            mediaCount: ig.media_count,
-            pageAccessToken: pageAccessToken || accessToken,
-          };
-        }
-      }
-    } catch {
-      // Continue to next strategies
-    }
-
-    // 2. Query /me/accounts for Facebook Pages linked to Instagram Business Accounts
-    try {
-      const accountsData = await this.get<any>('me/accounts', accessToken, {
-        fields: 'id,name,access_token,instagram_business_account{id,username,name,profile_picture_url,followers_count,follows_count,media_count}',
-      });
-
-      if (accountsData.data && Array.isArray(accountsData.data) && accountsData.data.length > 0) {
-        // Collect authorized IG account ID for business discovery
-        for (const page of accountsData.data) {
-          if (page.instagram_business_account?.id) {
-            if (!authorizedIgId) authorizedIgId = page.instagram_business_account.id;
-            if (!pageAccessToken && page.access_token) pageAccessToken = page.access_token;
-            break;
-          }
-        }
-
-        // If cleanHandle is provided, look for exact or close match in managed pages
-        if (cleanHandle) {
-          for (const page of accountsData.data) {
-            const ig = page.instagram_business_account;
-            if (ig && (ig.username?.toLowerCase() === cleanHandle.toLowerCase() || ig.id === cleanHandle)) {
-              return {
-                id: ig.id,
-                username: ig.username || cleanHandle,
-                name: ig.name || cleanHandle,
-                profilePictureUrl: ig.profile_picture_url,
-                followersCount: ig.followers_count,
-                followsCount: ig.follows_count,
-                mediaCount: ig.media_count,
-                pageAccessToken: page.access_token || accessToken,
-              };
-            }
-          }
-        } else {
-          // If no handle provided, return the first linked Instagram account
-          for (const page of accountsData.data) {
-            if (page.instagram_business_account?.id) {
-              const ig = page.instagram_business_account;
-              return {
-                id: ig.id,
-                username: ig.username || page.name,
-                name: ig.name || page.name,
-                profilePictureUrl: ig.profile_picture_url,
-                followersCount: ig.followers_count,
-                followsCount: ig.follows_count,
-                mediaCount: ig.media_count,
-                pageAccessToken: page.access_token || accessToken,
-              };
-            }
-          }
-        }
-      }
-    } catch {
-      // Continue to next strategies
-    }
-
-    // 3. Try Instagram Graph API direct endpoint (graph.instagram.com/v21.0/me or graph.instagram.com/me)
-    try {
-      const igRes = await httpFetch(
-        `https://graph.instagram.com/${config.providers.metaApiVersion}/me?fields=id,user_id,username,name,account_type,media_count&access_token=${encodeURIComponent(accessToken)}`
-      );
-      if (igRes.ok) {
-        const igData = await igRes.json();
-        if (igData && (igData.id || igData.user_id)) {
-          const igId = igData.user_id || igData.id;
-          return {
-            id: igId,
-            username: cleanHandle || igData.username,
-            name: igData.name || cleanHandle || igData.username,
-            mediaCount: igData.media_count,
-          };
-        }
-      }
-    } catch {
-      // Continue
-    }
-
-    // 4. Try Instagram Basic Display endpoint (graph.instagram.com/me)
-    try {
-      const igRes = await httpFetch(
-        `https://graph.instagram.com/me?fields=id,username,account_type,media_count&access_token=${encodeURIComponent(accessToken)}`
-      );
-      if (igRes.ok) {
-        const igData = await igRes.json();
-        if (igData && igData.id) {
-          return {
-            id: igData.id,
-            username: cleanHandle || igData.username,
-            name: cleanHandle || igData.username,
-            mediaCount: igData.media_count,
-          };
-        }
-      }
-    } catch {
-      // Continue
-    }
-
-    // 5. If handle was provided and we have an authorized business account, execute Business Discovery
-    if (cleanHandle && authorizedIgId) {
+    // 2. A User token: the Instagram accounts linked to the Facebook Pages it manages.
+    let linked: Array<{ ig: any; page: any }> = [];
+    if (!finalError) {
       try {
-        const bdToken = pageAccessToken || accessToken;
-        const bdRes = await httpFetch(
-          `https://graph.facebook.com/${config.providers.metaApiVersion}/${authorizedIgId}?fields=business_discovery.username(${cleanHandle}){id,username,name,profile_picture_url,followers_count,follows_count,media_count}&access_token=${encodeURIComponent(bdToken)}`
-        );
-        if (bdRes.ok) {
-          const bdData = await bdRes.json();
-          const target = bdData.business_discovery;
-          if (target && target.username) {
-            return {
-              id: target.id || cleanHandle,
-              username: target.username,
-              name: target.name || target.username,
-              profilePictureUrl: target.profile_picture_url,
-              followersCount: target.followers_count,
-              followsCount: target.follows_count,
-              mediaCount: target.media_count,
-              isBusinessDiscovery: true,
-              authorizedIgId,
-              pageAccessToken: bdToken,
-            };
-          }
-        }
-      } catch {
-        // Fall through
-      }
+        const accountsData = await this.get<any>('me/accounts', accessToken, { fields: `id,name,access_token,instagram_business_account{${IG_FIELDS}}`, limit: '100' });
+        linked = (Array.isArray(accountsData.data) ? accountsData.data : []).filter((p: any) => p.instagram_business_account?.id).map((page: any) => ({ ig: page.instagram_business_account, page }));
+      } catch (err) { note(err); }
+    }
+    if (linked.length) {
+      const pick = cleanHandle ? linked.find((l) => matches(l.ig.username, l.ig.id)) : linked.length === 1 ? linked[0] : undefined;
+      if (pick) return info(pick.ig, pick.page.access_token || accessToken, pick.page.name);
+      const list = linked.slice(0, 10).map((l) => `@${l.ig.username ?? '?'} (${l.ig.id})`).join(', ');
+      if (!cleanHandle) throw new ConnectError('account_selection_required', `This token covers ${linked.length} Instagram accounts. Enter the ID of the one to connect: ${list}.`, { field: 'accountId' });
     }
 
-    // 6. Direct numeric ID check (if cleanHandle is a numeric Instagram Account ID)
-    if (cleanHandle && /^\d+$/.test(cleanHandle)) {
+    // 3. An Instagram Login token (graph.instagram.com). Its `user_id` is the professional account ID.
+    // Skipped once the token is known to be a Facebook token (it listed Pages).
+    if (!linked.length && (!finalError || accessToken.startsWith('IG'))) {
       try {
-        const directRes = await httpFetch(
-          `https://graph.facebook.com/${config.providers.metaApiVersion}/${cleanHandle}?fields=id,username,name,profile_picture_url,followers_count,follows_count,media_count&access_token=${encodeURIComponent(accessToken)}`
-        );
-        if (directRes.ok) {
-          const directData = await directRes.json();
-          if (directData && directData.id) {
-            return {
-              id: directData.id,
-              username: directData.username || cleanHandle,
-              name: directData.name || directData.username || cleanHandle,
-              profilePictureUrl: directData.profile_picture_url,
-              followersCount: directData.followers_count,
-              followsCount: directData.follows_count,
-              mediaCount: directData.media_count,
-            };
+        const igRes = await httpFetch(`https://graph.instagram.com/${config.providers.metaApiVersion}/me?fields=id,user_id,username,name,account_type,profile_picture_url,followers_count,follows_count,media_count&access_token=${encodeURIComponent(accessToken)}`);
+        const igData = await igRes.json().catch(() => null);
+        if (igRes.ok && igData?.username && (igData.user_id || igData.id)) {
+          const id = igData.user_id || igData.id;
+          if (!cleanHandle || matches(igData.username, id, igData.id)) {
+            return { ...info({ ...igData, id }, undefined), username: igData.username || id };
           }
+          throw new ConnectError('account_not_authorized', `This token is for @${igData.username}, not for “${cleanHandle}”. Leave the account field empty, or generate a token while signed in to “${cleanHandle}”.`);
         }
-      } catch {
-        // Fall through
+        if (accessToken.startsWith('IG')) finalError = describeMetaError('instagram', igData, igRes.status);
+      } catch (err) {
+        if (err instanceof ConnectError) throw err;
+        note(err);
       }
     }
 
-    // Clear error message directing user to proper configuration
-    throw new Error(
-      `Could not find an Instagram Professional account for ${cleanHandle ? `@${cleanHandle}` : 'this token'}. ` +
-      `Please ensure: 1) Your Instagram account is switched to a Creator or Business account, ` +
-      `2) It is linked to your Facebook Page, and 3) Your token has 'instagram_basic' and 'pages_show_list' permissions.`
-    );
+    // 4. A numeric account ID the token can read (Graph only answers for accounts the token has access to).
+    if (cleanHandle && /^\d+$/.test(cleanHandle) && !finalError) {
+      try {
+        const direct = await this.get<any>(cleanHandle, accessToken, { fields: IG_FIELDS });
+        if (direct?.id && direct.username) return info(direct, undefined);
+      } catch (err) { note(err); }
+    }
+
+    if (finalError) throw finalError;
+    if (cleanHandle && linked.length) {
+      const list = linked.slice(0, 10).map((l) => `@${l.ig.username ?? '?'} (${l.ig.id})`).join(', ');
+      throw new ConnectError('account_not_authorized', `“${cleanHandle}” isn’t one of the Instagram accounts this token is authorized for (${list}). Media Navigator only connects accounts you authorize.`);
+    }
+    throw new ConnectError('account_not_found',
+      `Could not find an Instagram professional account for ${cleanHandle ? `“${cleanHandle}”` : 'this token'}. Check that: 1) the Instagram account is a Business or Creator account, ` +
+      `2) it is linked to a Facebook Page you manage (or use an Instagram Login token), and 3) the token has instagram_basic, instagram_manage_insights and pages_show_list, with that Page selected when Meta asks which Pages to share.`);
   }
 
   /**
@@ -309,38 +200,6 @@ export class InstagramClient extends MetaClient {
       } while (after && pages < config.providers.maxPages);
       if (after) throw new Error('Instagram sync reached the configured page limit. Ask the administrator to increase PROVIDER_MAX_PAGES.');
     } else {
-    // Strategy 1: Business Discovery if resolved as business discovery
-    if (accountInfo?.isBusinessDiscovery && accountInfo.authorizedIgId && accountInfo.username) {
-      try {
-        let afterCursor: string | null = null;
-        let hasMore = true;
-        let pageCount = 0;
-
-        while (hasMore && pageCount < config.providers.maxPages) {
-          pageCount++;
-          const afterParam: string = afterCursor ? `.after(${afterCursor})` : '';
-          const bdUrl: string = `https://graph.facebook.com/${config.providers.metaApiVersion}/${accountInfo.authorizedIgId}?fields=business_discovery.username(${accountInfo.username}){media.limit(100)${afterParam}{id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}}}&access_token=${encodeURIComponent(effectiveToken)}`;
-          
-          const bdRes: Response = await httpFetch(bdUrl);
-          if (!bdRes.ok) break;
-
-          const bdData: any = await bdRes.json();
-          const mediaObj: any = bdData.business_discovery?.media;
-          if (mediaObj?.data && Array.isArray(mediaObj.data)) {
-            rawItems.push(...mediaObj.data);
-          }
-
-          if (mediaObj?.paging?.cursors?.after) {
-            afterCursor = mediaObj.paging.cursors.after;
-          } else {
-            hasMore = false;
-          }
-        }
-      } catch {
-        // Fall through
-      }
-    }
-
     // Strategy 2: Fetch from graph.facebook.com /{id}/media (All Reels, Posts, Carousels)
     if (rawItems.length === 0 && /^\d+$/.test(instagramAccountId)) {
       try {

@@ -109,13 +109,16 @@ export async function generateMultimodalJson<T>(opts: { system: string; parts: P
   let text: string | undefined;
   try {
     const res = await Promise.race([
-      ai.models.generateContent({ model, contents: [{ role: 'user', parts: opts.parts }], config: { systemInstruction: opts.system, responseMimeType: 'application/json', temperature: 0.2 } }),
+      // The per-request timeout is also sent to Gemini as its server-side deadline; without it the client default
+      // (AI_TIMEOUT_MS) applies and a full video is cut off with 504 DEADLINE_EXCEEDED.
+      ai.models.generateContent({ model, contents: [{ role: 'user', parts: opts.parts }], config: { systemInstruction: opts.system, responseMimeType: 'application/json', temperature: 0.2, httpOptions: { timeout: opts.timeoutMs } } }),
       new Promise<never>((_, rej) => setTimeout(() => rej(new AiFailedError('The analysis request timed out.', 'timeout')), opts.timeoutMs)),
     ]);
     text = res.text;
   } catch (err) {
     if (err instanceof AiFailedError) throw err;
     logger.warn('gemini multimodal request failed', { operation: 'ai', provider: 'gemini', error: err });
+    if (/DEADLINE_EXCEEDED|"code":\s*504/.test(String((err as Error)?.message))) throw new AiFailedError('The analysis request timed out.', 'timeout');
     throw new AiFailedError('The analysis request failed.', 'provider_error');
   }
   if (!text) throw new AiFailedError('The analysis service returned an empty result.', 'invalid_response');

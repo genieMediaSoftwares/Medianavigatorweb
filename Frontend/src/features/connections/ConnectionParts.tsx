@@ -144,6 +144,27 @@ export function ConnectionSuccess({ platformName, noun, connection, onDone }: { 
 }
 
 /** Plain-language message for a failed connect, built from the server's error. */
+const STAGE: Record<string, string> = { token: 'Checking the token', permissions: 'Checking permissions', account: 'Finding your account' };
+
+/** Short heading for a failed connection: which step failed and what kind of problem it is. */
+export function connectErrorTitle(error: unknown, platformName: string): string | undefined {
+  if (!(error instanceof ApiError)) return undefined;
+  if (error.code === 'NETWORK_ERROR') return 'Can’t reach Media Navigator';
+  const titles: Record<string, string> = {
+    token_invalid: `${platformName} didn’t accept this token`,
+    token_expired: 'This token has expired',
+    permission_missing: 'A permission is missing',
+    app_restricted: 'Meta blocked API access',
+    account_not_found: `No ${platformName} account found`,
+    account_not_authorized: 'Not an account this token manages',
+    account_selection_required: 'Choose which account to connect',
+    provider_unavailable: `${platformName} isn’t responding`,
+  };
+  const title = error.reason ? titles[error.reason] : undefined;
+  if (!title) return undefined;
+  return error.stage && STAGE[error.stage] ? `${STAGE[error.stage]}: ${title}` : title;
+}
+
 export function connectErrorMessage(error: unknown, platformName: string): string {
   if (!(error instanceof ApiError)) return `We couldn’t connect ${platformName}. Please try again.`;
   switch (error.code) {
@@ -153,14 +174,12 @@ export function connectErrorMessage(error: unknown, platformName: string): strin
       return `That ${platformName} account is already connected to another Media Navigator account.`;
     case 'RATE_LIMITED':
       return 'Too many attempts. Please wait a moment and try again.';
-    case 'PROVIDER_ERROR':
-      return `${platformName} isn’t responding right now. Please try again in a few minutes.`;
-    case 'SERVICE_UNAVAILABLE':
-      return `${platformName} connections aren’t configured on the server yet.`;
-    case 'BAD_REQUEST':
-      // The server explains in plain words what the provider rejected (invalid key or token, API not enabled, channel not found…).
-      return error.message;
+    case 'VALIDATION_ERROR':
+      // The field-level messages say what to fix (for example which Page or account to choose); the summary alone doesn't.
+      return error.fields ? Object.values(error.fields).join(' ') : error.message;
     default:
-      return error.message;
+      // The server explains in plain words what the provider refused and what to do next (token invalid or expired,
+      // permission missing, Meta app restricted, Page not managed by this token, provider unavailable…).
+      return error.message || `We couldn’t connect ${platformName}. Please try again.`;
   }
 }

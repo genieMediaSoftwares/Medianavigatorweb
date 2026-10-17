@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { startTestDb, stopTestDb, clearDb, api, registerUser } from './helpers.js';
 import { fake, makeMedia } from './fakes.js';
-import { baselineFor, buildSummary, classify, median, mean, percentile, extractTopics, MIN_HISTORY_FOR_CLASSIFICATION } from '../src/services/analytics.stats.js';
+import { baselineFor, buildSummary, classify, median, mean, percentile, extractTopics, periodStats, MIN_HISTORY_FOR_CLASSIFICATION } from '../src/services/analytics.stats.js';
 import { AnalyticsEngine } from '../src/services/analytics.engine.js';
 import type { NormalizedMedia, PlatformConnection } from '../../shared/types.js';
 
@@ -183,5 +183,25 @@ describe('analytics API', () => {
     expect((await api().post(`/api/v1/notifications/${mine[0].id}/read`).set(b.auth)).status).toBe(404);
     expect((await api().post(`/api/v1/notifications/${mine[0].id}/read`).set(a.auth)).body.data.read).toBe(true);
     expect((await api().get('/api/v1/notifications/unread-count').set(a.auth)).body.data.unread).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('period stats count only measured numbers', () => {
+  const at = (views: number, engagementRate: number, unavailableMetrics: string[] = []) =>
+    ({ views, engagementRate, unavailableMetrics, publishedAt: '2026-10-10T10:00:00Z' }) as any;
+  const range = [new Date('2026-10-01T00:00:00Z'), new Date('2026-10-31T00:00:00Z')] as const;
+
+  it('a post without views or engagement from the platform is left out, not counted as 0', () => {
+    const s = periodStats([at(1000, 4), at(0, 0, ['views', 'engagementRate']), at(3000, 6)], ...range);
+    expect(s).toMatchObject({ count: 3, totalViews: 4000, medianViews: 2000, medianEngagementRate: 5, viewsMeasured: 2, engagementMeasured: 2 });
+  });
+
+  it('when no post has views (e.g. Facebook without read_insights) the measured counts are 0, so the UI shows N/A', () => {
+    const s = periodStats([at(0, 0, ['views', 'engagementRate']), at(0, 0, ['views', 'engagementRate'])], ...range);
+    expect(s).toMatchObject({ count: 2, viewsMeasured: 0, engagementMeasured: 0 });
+  });
+
+  it('a real 0 views is still measured', () => {
+    expect(periodStats([at(0, 0)], ...range)).toMatchObject({ totalViews: 0, viewsMeasured: 1, engagementMeasured: 1 });
   });
 });

@@ -1,4 +1,5 @@
 import type { NormalizedMedia, PlatformType } from '../../../shared/types.js';
+import type { ConnectFailureReason } from '../lib/errors.js';
 
 /** Decrypted provider credentials. Exists only in memory inside sync/connection services. */
 export interface ProviderCredentials {
@@ -45,12 +46,21 @@ export interface FetchContentResult {
   permissionError?: { message: string; missing: string[] };
   /** Set when the result is known to be incomplete (so the sync is recorded as partial, not succeeded). */
   partialReason?: string;
+  /** Permissions the token lacks for some metrics (items were still read; those metrics are unavailable, not 0). */
+  metricPermissionsMissing?: string[];
+  /**
+   * true when `items` is everything the account currently has, so stored items that are not in it are no longer on the
+   * account (deleted, made private, or synced by mistake) and are removed. Only set when the provider proves completeness.
+   */
+  authoritative?: boolean;
 }
 
 export interface ValidationResult {
   isValid: boolean;
   error?: string;
   kind?: 'expired' | 'permission' | 'invalid';
+  /** Precise cause when the provider said it; otherwise derived from `kind`. */
+  reason?: ConnectFailureReason;
 }
 
 export interface ProviderAdapter {

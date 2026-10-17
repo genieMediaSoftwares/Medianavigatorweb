@@ -1,7 +1,11 @@
 import { config } from '../../config/env.js';
 import { httpFetch } from '../../lib/http.js';
+import { describeMetaError } from './metaErrors.js';
+
 export class MetaClient {
   protected readonly baseUrl = `https://graph.facebook.com/${config.providers.metaApiVersion}`;
+
+  constructor(protected readonly platform: 'instagram' | 'facebook') {}
 
   protected async get<T>(endpoint: string, accessToken: string, params: Record<string, string> = {}): Promise<T> {
     const url = new URL(`${this.baseUrl}/${endpoint.replace(/^\//, '')}`);
@@ -19,21 +23,11 @@ export class MetaClient {
       },
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => null);
 
-    if (!response.ok || data.error) {
-      const msg = data.error?.message || `Meta Graph API request to ${endpoint} failed with HTTP ${response.status}`;
-      const code = data.error?.code;
-      const subcode = data.error?.error_subcode;
-
-      if (code === 190) {
-        throw new Error('Your Meta connection has expired. Reconnect to continue analyzing your media.');
-      }
-      if (code === 200 || code === 10) {
-        throw new Error(`Additional platform permissions are required: ${msg}`);
-      }
-
-      throw new Error(msg);
+    if (!response.ok || !data || data.error) {
+      // Translated to a reason and a next step; sync classifies it by `reason`, connect turns it into a ConnectError.
+      throw describeMetaError(this.platform, data, response.status);
     }
 
     return data as T;

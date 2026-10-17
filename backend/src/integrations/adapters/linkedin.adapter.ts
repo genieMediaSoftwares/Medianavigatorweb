@@ -1,3 +1,4 @@
+import { ConnectError } from '../../lib/errors.js';
 import { LinkedInAuth } from '../linkedin/linkedinAuth.js';
 import { LinkedInClient } from '../linkedin/linkedinClient.js';
 import type { ProviderAdapter, ProviderCredentials, ResolvedAccount } from '../types.js';
@@ -20,8 +21,12 @@ export const linkedinAdapter: ProviderAdapter = {
   async validate(creds) {
     const v = await LinkedInAuth.validateToken(token(creds));
     if (v.isValid) return { isValid: true };
-    const error = v.error || 'LinkedIn authorization failed.';
-    return { isValid: false, error, kind: /expired|revoked|401/i.test(error) ? 'expired' : /permission|403/i.test(error) ? 'permission' : 'invalid' };
+    const raw = v.error || 'LinkedIn authorization failed.';
+    const kind = /expired|revoked/i.test(raw) ? 'expired' : /permission|403/i.test(raw) ? 'permission' : 'invalid';
+    const error = kind === 'expired' ? 'This LinkedIn access token has expired (they last 60 days). Generate a new one and connect again.'
+      : kind === 'invalid' && /invalid access token|401/i.test(raw) ? 'LinkedIn didn’t accept this access token. Copy the whole token again from the LinkedIn Developer Portal’s token generator.'
+        : raw;
+    return { isValid: false, error, kind };
   },
 
   async resolveAccount(creds): Promise<ResolvedAccount> {
@@ -39,8 +44,12 @@ export const linkedinAdapter: ProviderAdapter = {
     try {
       const items = await client.fetchPosts(token(creds), account.providerAccountId);
       return { items };
-    } catch (err: any) {
-      return { items: [], permissionError: { message: err?.message || 'Additional LinkedIn Community Management permissions required.', missing: ['r_organization_social'] } };
+    } catch (err) {
+      // Only a missing permission is reported as such; an expired token or an outage is a real sync failure.
+      if (err instanceof ConnectError && err.reason === 'permission_missing') {
+        return { items: [], permissionError: { message: err.message, missing: ['r_organization_social'] } };
+      }
+      throw err;
     }
   },
 };

@@ -103,6 +103,9 @@ export function StatRow({ summary }: { summary: Summary }) {
   const { current, previous } = summary.dataPeriod;
   const comparable = summary.periodComparison.comparable;
   const none = current.count === 0;
+  // No post in the period had views / engagement from the platform (e.g. Facebook without read_insights): N/A, not 0.
+  const noViews = none || current.viewsMeasured === 0;
+  const noEng = none || current.engagementMeasured === 0;
   const postsDelta = comparable ? pctChange(current.count, previous.count) : null;
   const viewsDelta = comparable ? pctChange(current.totalViews, previous.totalViews) : null;
   const engDelta = comparable ? summary.periodComparison.engagementRateMedianChangePct : null;
@@ -110,9 +113,9 @@ export function StatRow({ summary }: { summary: Summary }) {
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <StatCard label="Posts published" icon={<FileText className="h-5 w-5" />} value={whole(current.count)} delta={postsDelta}
         meaning={none ? "You didn't publish any posts in the last 30 days." : `Posts you shared in the last 30 days. ${deltaText(postsDelta, comparable)}`} />
-      <StatCard label="Total views" icon={<Eye className="h-5 w-5" />} value={none ? 'N/A' : compact(current.totalViews)} delta={none ? null : viewsDelta}
-        meaning={none ? 'There are no posts in this period to count.' : `A typical post got ${compact(current.medianViews)} views. ${deltaText(viewsDelta, comparable)}`} />
-      <StatCard label="Typical engagement" icon={<Activity className="h-5 w-5" />} value={none ? 'N/A' : percent(current.medianEngagementRate)} delta={none ? null : engDelta}
+      <StatCard label="Total views" icon={<Eye className="h-5 w-5" />} value={noViews ? 'N/A' : compact(current.totalViews)} delta={noViews ? null : viewsDelta}
+        meaning={none ? 'There are no posts in this period to count.' : noViews ? 'The platform did not provide views for these posts.' : `A typical post got ${compact(current.medianViews)} views. ${deltaText(viewsDelta, comparable)}`} />
+      <StatCard label="Typical engagement" icon={<Activity className="h-5 w-5" />} value={noEng ? 'N/A' : percent(current.medianEngagementRate)} delta={noEng ? null : engDelta}
         meaning={none ? 'There are no posts in this period to measure.' : `How much people react to a typical post of yours. ${deltaText(engDelta, comparable)}`} />
     </div>
   );

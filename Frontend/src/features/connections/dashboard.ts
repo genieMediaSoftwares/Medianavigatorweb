@@ -28,11 +28,14 @@ export async function fetchDashboard(): Promise<DashboardData> {
   const metrics: DashboardData['metrics'] = {};
   connected.forEach((connection, index) => {
     const snapshot = snapshots[index];
-    const viewsUnavailable = connection.capabilities?.unavailableMetrics.includes('views') ?? false;
+    // Not available when the platform never provides views, or when no synced post had them (e.g. Facebook without
+    // read_insights). Snapshots older than the measured counts (null) fall back to the post count.
+    const viewsUnavailable = (connection.capabilities?.unavailableMetrics.includes('views') ?? false) || snapshot?.viewsMeasured === 0;
+    const engagementMeasured = snapshot ? snapshot.engagementMeasured ?? snapshot.contentCount : 0;
     metrics[connection.platform] = {
       totalPosts: connection.dataPointsCount,
       totalViews: snapshot && !viewsUnavailable ? snapshot.totalViews : null,
-      engagementRate: snapshot && snapshot.contentCount > 0 ? snapshot.medianEngagementRate : null,
+      engagementRate: snapshot && engagementMeasured > 0 ? snapshot.medianEngagementRate : null,
     };
   });
   return { connections, metrics };

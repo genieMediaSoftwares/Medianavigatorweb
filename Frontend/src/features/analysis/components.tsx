@@ -19,6 +19,8 @@ export interface CardMetric {
   /** null = not provided by the platform (shown as N/A, never 0). */
   value: number | null;
   percent?: boolean;
+  decimals?: number;
+  suffix?: string;
 }
 
 export interface CardAction {
@@ -113,7 +115,7 @@ export function AnalysisPostCard({
             <View key={m.label} className="w-1/2 flex-row items-center py-[2px]" accessible accessibilityLabel={`${m.label}: ${m.value === null ? 'not available' : m.percent ? formatPercent(m.value) : m.value}`}>
               <Ionicons name={m.icon} size={11} color={colors.neutral500} />
               <Text className={`ml-[3px] text-[11px] ${m.value === null ? 'text-neutral-400' : 'font-semibold text-navy'}`} numberOfLines={1}>
-                {m.value === null ? 'N/A' : m.percent ? formatPercent(m.value) : formatCompactNumber(m.value)}
+                {m.value === null ? 'N/A' : `${m.percent ? formatPercent(m.value) : m.decimals !== undefined ? m.value.toLocaleString(undefined, { maximumFractionDigits: m.decimals }) : formatCompactNumber(m.value)}${m.suffix ?? ''}`}
               </Text>
             </View>
           ))}

@@ -46,6 +46,10 @@ export class LinkedInAuth {
 
       const meData = await meRes.json();
 
+      // 403 here only means the token has no profile scope (openid/profile). Tokens made just for the Community Management
+      // API are like that and are still valid; whether they may read a Company Page is checked when the account is resolved.
+      if (meRes.status === 403 && userinfoRes.status === 403) return { isValid: true };
+
       if (!meRes.ok || meData.status >= 400) {
         const msg = meData.message || 'LinkedIn authorization failed. Access token is invalid or has expired.';
         return {
