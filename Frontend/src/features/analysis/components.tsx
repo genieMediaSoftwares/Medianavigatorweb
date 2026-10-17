@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
 import { ComponentProps, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 
@@ -7,9 +6,11 @@ import { PlatformLogo } from '@/components/PlatformLogo';
 import { colors } from '@/constants/colors';
 import { elevation } from '@/constants/theme';
 import { formatCompactNumber, formatDate, formatPercent } from '@/lib/format';
+import { releaseNavigationFocus } from '@/lib/navigation/release-focus';
 import type { Platform } from '@/types/api';
 
 import { typeLabel } from './wording';
+import { PostImage } from './PostImage';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -33,11 +34,11 @@ export interface CardAction {
 
 /** Real thumbnail, or the platform logo when the platform gave no image. Never an invented picture. */
 export function PostThumb({ uri, platform, type, size }: { uri?: string; platform: Platform; type: string; size: number }) {
-  const [failed, setFailed] = useState(false);
+  const [failedUri, setFailedUri] = useState<string | null>(null);
   return (
     <View className="overflow-hidden rounded-[12px] bg-sky" style={{ width: size, height: size }}>
-      {uri && !failed ? (
-        <Image source={{ uri }} style={{ width: '100%', height: '100%' }} contentFit="cover" onError={() => setFailed(true)} accessibilityIgnoresInvertColors />
+      {uri && uri !== failedUri ? (
+        <PostImage key={uri} uri={uri} onError={() => setFailedUri(uri)} />
       ) : (
         <View className="flex-1 items-center justify-center">
           <PlatformLogo platform={platform} size={size * 0.34} />
@@ -75,7 +76,7 @@ export function AnalysisPostCard({
   actions: CardAction[];
   footnote?: string;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [failedUri, setFailedUri] = useState<string | null>(null);
   const video = ['reel', 'short', 'video'].includes(contentType);
   return (
     <View
@@ -83,8 +84,8 @@ export function AnalysisPostCard({
       style={{ width: '48.5%', ...elevation.card }}
     >
       <View className="w-full bg-sky" style={{ aspectRatio: platform === 'youtube' ? 16 / 10 : 4 / 5 }}>
-        {thumbnailUrl && !failed ? (
-          <Image source={{ uri: thumbnailUrl }} style={{ width: '100%', height: '100%' }} contentFit="cover" onError={() => setFailed(true)} accessibilityIgnoresInvertColors />
+        {thumbnailUrl && thumbnailUrl !== failedUri ? (
+          <PostImage key={thumbnailUrl} uri={thumbnailUrl} onError={() => setFailedUri(thumbnailUrl)} />
         ) : (
           <View className="flex-1 items-center justify-center">
             <PlatformLogo platform={platform} size={34} />
@@ -125,7 +126,10 @@ export function AnalysisPostCard({
           {actions.map((a) => (
             <Pressable
               key={a.label}
-              onPress={a.onPress}
+              onPress={() => {
+                releaseNavigationFocus();
+                a.onPress();
+              }}
               disabled={a.disabled}
               accessibilityRole="button"
               accessibilityState={{ disabled: a.disabled }}

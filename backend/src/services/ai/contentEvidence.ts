@@ -41,7 +41,7 @@ export interface Comparison {
   rows: Array<{ key: string; label: string; post: number | null; median: number | null; differencePct: number | null }>;
 }
 
-export type MediaBasis = 'full_video' | 'youtube_video' | 'image' | 'carousel' | 'thumbnail' | 'none';
+export type MediaBasis = 'full_video' | 'youtube_video' | 'image' | 'carousel' | 'thumbnail' | 'none' | 'text' | 'document';
 
 export interface VideoInput {
   bytes: Uint8Array;
@@ -57,6 +57,7 @@ export interface MediaEvidence {
   images: Array<{ data: string; mimeType: string; label: string }>;
   /** Video files to upload to the model's file store, in order. */
   videos: VideoInput[];
+  documents?: Array<{ bytes: Uint8Array; mimeType: string; label: string }>;
   /** Public YouTube URL the model can read directly. */
   youtubeUrl: string | null;
   /** Length of the main video, when known. */
@@ -257,6 +258,22 @@ async function download(url: string, maxBytes: number): Promise<{ bytes: Uint8Ar
 
 const toImage = (d: { bytes: Uint8Array; mimeType: string }, label: string) => ({ data: Buffer.from(d.bytes).toString('base64'), mimeType: d.mimeType.startsWith('image/') ? d.mimeType : 'image/jpeg', label });
 
+/** Actual image attachments supplied by the provider, rather than a video's cover or link preview. */
+export async function collectImageAttachments(urls: string[]): Promise<MediaEvidence> {
+  const images: MediaEvidence['images'] = [];
+  const notes: string[] = [];
+  let budget = config.ai.contentAnalysis.maxMediaBytes;
+  for (const [i, url] of urls.slice(0, 20).entries()) {
+    const downloaded = await download(url, Math.max(1, budget));
+    if ('bytes' in downloaded && downloaded.mimeType.startsWith('image/')) {
+      budget -= downloaded.bytes.byteLength;
+      images.push(toImage(downloaded, `image ${i + 1} of ${urls.length}`));
+    } else notes.push(`Image ${i + 1} could not be loaded and was not reviewed.`);
+  }
+  if (urls.length > 20) notes.push('Only the first 20 image attachments were reviewed.');
+  return { basis: images.length ? urls.length > 1 ? 'carousel' : 'image' : 'none', images, videos: [], youtubeUrl: null, durationSeconds: null, notes, failure: images.length ? null : 'The original post images could not be loaded.' };
+}
+
 /** Duration from an MP4/MOV `mvhd` box (timescale + duration), or null when it can't be read. */
 export function mp4DurationSeconds(bytes: Uint8Array): number | null {
   const at = (i: number) => ((bytes[i] << 24) >>> 0) + (bytes[i + 1] << 16) + (bytes[i + 2] << 8) + bytes[i + 3];
@@ -271,6 +288,20 @@ export function mp4DurationSeconds(bytes: Uint8Array): number | null {
     return null;
   }
   return null;
+}
+
+/** Original video URL returned by an authenticated provider media lookup, never a cover image. */
+export async function collectVideoAttachment(url: string): Promise<MediaEvidence> {
+  const file = await download(url, config.ai.contentAnalysis.maxMediaBytes);
+  if (!('bytes' in file) || !file.mimeType.startsWith('video/')) throw new Error('The original video could not be loaded. Reconnect and sync again.');
+  const durationSeconds = mp4DurationSeconds(file.bytes);
+  return { basis: 'full_video', images: [], videos: [{ bytes: file.bytes, mimeType: file.mimeType, label: 'original video', durationSeconds }], youtubeUrl: null, durationSeconds, notes: [], failure: null };
+}
+
+export async function collectDocumentAttachment(url: string): Promise<MediaEvidence> {
+  const file = await download(url, config.ai.contentAnalysis.maxMediaBytes);
+  if (!('bytes' in file) || Buffer.from(file.bytes.subarray(0, 5)).toString() !== '%PDF-') throw new Error('This document is not an accessible PDF. Its original pages cannot be reviewed.');
+  return { basis: 'document', images: [], videos: [], documents: [{ bytes: file.bytes, mimeType: 'application/pdf', label: 'Original document' }], youtubeUrl: null, durationSeconds: null, notes: ['The original PDF was supplied for multimodal review. Page count and exhaustive page coverage could not be independently verified.'], failure: null };
 }
 
 const asVideo = (d: { bytes: Uint8Array; mimeType: string }, label: string): VideoInput => ({

@@ -2,6 +2,7 @@ import { config } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { enqueueDueSyncs, schedulerIntervalMs } from './sync/scheduler.js';
 import { startWorker } from './sync/worker.js';
+import { startDeepV2Worker } from '../services/ai/deepV2.jobs.js';
 
 /**
  * Starts the in-process scheduler/worker according to configuration. Both only coordinate through MongoDB
@@ -10,6 +11,7 @@ import { startWorker } from './sync/worker.js';
  */
 export function startJobs(): () => void {
   const stops: Array<() => void> = [];
+  stops.push(startDeepV2Worker());
   if (config.sync.schedulerEnabled) {
     const t = setInterval(() => { enqueueDueSyncs().catch((err) => logger.error('scheduler tick failed', { error: err })); }, schedulerIntervalMs());
     stops.push(() => clearInterval(t));

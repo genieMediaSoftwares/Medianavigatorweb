@@ -14,7 +14,8 @@ import { PlannedContentModel } from './PlannedContent.js';
 import { AuditLog } from './AuditLog.js';
 import { RateLimit } from './RateLimit.js';
 import { ContentAnalysis } from './ContentAnalysis.js';
+import { DeepAnalysisJob, SavedDeepAction } from './DeepAnalysisJob.js';
 
-export const allModels = [User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis];
+export const allModels = [User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis, DeepAnalysisJob, SavedDeepAction];
 
 export { User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis };

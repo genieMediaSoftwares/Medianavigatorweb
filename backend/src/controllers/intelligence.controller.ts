@@ -5,6 +5,9 @@ import { ok } from '../lib/response.js';
 import { analyticsService } from '../services/analytics.service.js';
 import { aiAnalysisService } from '../services/ai/aiAnalysis.service.js';
 import { contentAnalysisService } from '../services/ai/contentAnalysis.service.js';
+import { creativeReportService } from '../services/ai/creativeReport.service.js';
+import { deepReportService } from '../services/ai/deepReport.service.js';
+import { deepV2Jobs } from '../services/ai/deepV2.jobs.js';
 import { oauthEnabled } from '../services/oauth.service.js';
 import { PLATFORMS, getAdapter } from '../integrations/registry.js';
 import { storageEnabled } from '../lib/storage.js';
@@ -13,6 +16,25 @@ import { emailEnabled } from '../services/email.service.js';
 const uid = (req: any) => req.auth!.userId as string;
 
 export const intelligenceController = {
+  startDeepV2: asyncHandler(async (req, res) => {
+    const b = req.body as { postId: string; reanalyze?: boolean; goal?: string };
+    const state = await deepV2Jobs.start(uid(req), b.postId, b.reanalyze, b.goal);
+    ok(res, state, state.status === 'queued' || state.status === 'processing' ? 202 : 200);
+  }),
+  getDeepV2: asyncHandler(async (req, res) => ok(res, await deepV2Jobs.get(uid(req), req.params.jobId as string))),
+  refreshDeepAudience: asyncHandler(async (req, res) => ok(res, await deepV2Jobs.refreshAudience(uid(req), req.params.jobId as string))),
+  cancelDeepV2: asyncHandler(async (req, res) => ok(res, await deepV2Jobs.cancel(uid(req), req.params.jobId as string))),
+  savedDeepV2: asyncHandler(async (req, res) => ok(res, await deepV2Jobs.saved(uid(req), req.params.jobId as string))),
+  saveDeepV2: asyncHandler(async (req, res) => ok(res, await deepV2Jobs.save(uid(req), req.params.jobId as string, req.params.actionId as string))),
+  unsaveDeepV2: asyncHandler(async (req, res) => ok(res, await deepV2Jobs.unsave(uid(req), req.params.jobId as string, req.params.actionId as string))),
+  deepReport: asyncHandler(async (req, res) => {
+    const b = req.body as { mediaId: string; reanalyze?: boolean };
+    ok(res, await deepReportService.analyze(uid(req), b.mediaId, b.reanalyze));
+  }),
+  creativeReport: asyncHandler(async (req, res) => {
+    const b = req.body as { mediaId: string; type: 'why_top' | 'why_bottom'; reanalyze?: boolean };
+    ok(res, await creativeReportService.analyze(uid(req), b.mediaId, b.type, b.reanalyze));
+  }),
   contentAnalysis: asyncHandler(async (req, res) => {
     const b = req.body as { mediaId: string; type: 'deep' | 'why_top' | 'why_bottom'; reanalyze?: boolean; rank?: string };
     ok(res, await contentAnalysisService.analyze(uid(req), b.mediaId, b.type, { reanalyze: b.reanalyze, rank: b.rank ?? null }));

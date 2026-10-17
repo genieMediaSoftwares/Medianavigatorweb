@@ -76,6 +76,7 @@ export const PLATFORM_SETUP: Record<Platform, PlatformSetup> = {
         'Sign in and open the Graph API Explorer.',
         'In the Meta App menu, choose the app you use for this connection and check its dashboard for access restrictions.',
         'Add pages_show_list, pages_read_engagement, pages_read_user_content and read_insights, generate the token, and select the Page when Meta asks which Pages to share.',
+        'If Meta does not offer or grant a permission, check access and restrictions in that Meta app’s dashboard first. Generating another token with the same permissions will not unlock the missing metrics. This applies to local testing too.',
         'Copy the token and return to Media Navigator.',
       ],
       links: [{ label: 'Open Meta Developer Tools', url: META_GRAPH_EXPLORER }],

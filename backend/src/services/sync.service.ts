@@ -15,6 +15,7 @@ import { mediaRepository } from '../repositories/media.repository.js';
 import { syncRunRepository } from '../repositories/syncRun.repository.js';
 import { ContentItem } from '../models/ContentItem.js';
 import { ContentAnalysis } from '../models/ContentAnalysis.js';
+import { DeepAnalysisJob, SavedDeepAction } from '../models/DeepAnalysisJob.js';
 import type { ConnectedAccountDoc } from '../models/ConnectedAccount.js';
 import type { SyncRunDoc, SyncType } from '../models/SyncRun.js';
 import { analyticsService } from './analytics.service.js';
@@ -115,7 +116,11 @@ export const syncService = {
       let removed = 0;
       if (fetched.authoritative && !fetched.permissionError) {
         const gone = await mediaRepository.deleteMissing(account._id, docs.map((d) => d.providerMediaId));
-        if (gone.length) await ContentAnalysis.deleteMany({ userId: account.userId, mediaId: { $in: gone } });
+        if (gone.length) await Promise.all([
+          ContentAnalysis.deleteMany({ userId: account.userId, mediaId: { $in: gone } }),
+          DeepAnalysisJob.deleteMany({ userId: account.userId, postId: { $in: gone } }),
+          SavedDeepAction.deleteMany({ userId: account.userId, postId: { $in: gone } }),
+        ]);
         removed = gone.length;
       }
       const total = await mediaRepository.countForAccount(account._id);

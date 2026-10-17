@@ -1,4 +1,5 @@
 import type { PlatformType } from '../../../shared/types.js';
+import { DeepAnalysisJob } from '../models/DeepAnalysisJob.js';
 import { YouTubeApiError } from '../integrations/youtube/errors.js';
 import { AppError, badRequest, conflict, ConnectError, notFound, type ConnectFailureReason, type ConnectStage } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
@@ -150,6 +151,7 @@ export const connectionService = {
     const acc = await connectionRepository.findForUser(uid, platform);
     if (!acc) throw notFound(`${platform} is not connected`);
     const updated = await connectionRepository.markDisconnected(uid, platform);
+    await DeepAnalysisJob.updateMany({ userId: uid, accountId: acc._id, status: { $in: ['queued', 'processing'] } }, { $set: { status: 'cancelled', error: 'The connected account was disconnected.', leaseOwner: null, leaseExpiresAt: null } });
     await auditRepository.record({ actorId: uid, action: 'connection.disconnect', targetType: 'connected_account', targetId: String(acc._id), requestId, meta: { platform } });
     return toPlatformConnection(platform, updated ?? undefined);
   },

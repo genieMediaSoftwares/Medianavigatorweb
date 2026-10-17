@@ -54,6 +54,11 @@ export const intelligence = {
   item: z.object({ mediaId: z.string().min(1).max(200) }).strict(),
   diagnose: z.object({ mediaId: z.string().min(1).max(200), forcedStatus: z.enum(['working', 'underperforming', 'average']).optional() }).strict(),
   compare: z.object({ mediaIdA: z.string().min(1).max(200), mediaIdB: z.string().min(1).max(200) }).strict(),
+  creativeReport: z.object({ mediaId: z.string().min(1).max(200), type: z.enum(['why_top', 'why_bottom']), reanalyze: z.boolean().optional() }).strict(),
+  deepReport: z.object({ mediaId: z.string().min(1).max(200), reanalyze: z.boolean().optional() }).strict(),
+  deepV2: z.object({ postId: z.string().min(1).max(200), goal: z.string().trim().min(1).max(300).optional(), reanalyze: z.boolean().optional() }).strict(),
+  deepV2Job: z.object({ jobId: z.string().regex(/^[a-f\d]{24}$/i) }),
+  deepV2Action: z.object({ jobId: z.string().regex(/^[a-f\d]{24}$/i), actionId: z.enum(['action_repeat', 'action_change', 'action_idea']) }),
   contentAnalysis: z.object({
     mediaId: z.string().min(1).max(200),
     type: z.enum(['deep', 'why_top', 'why_bottom']),

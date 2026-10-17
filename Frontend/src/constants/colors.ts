@@ -32,7 +32,7 @@ export const palette = {
   },
 
   // Semantic
-  success: { DEFAULT: '#067647', light: '#ECFDF3', border: '#ABEFC6' },
+  success: { DEFAULT: '#067647', light: '#ECFDF3', mid: '#84D7A3', border: '#ABEFC6' },
   warning: { DEFAULT: '#B54708', light: '#FFFAEB', border: '#FEDF89' },
   danger: { DEFAULT: '#B42318', light: '#FEF3F2', border: '#FECDCA' },
   info: { DEFAULT: '#1D5FD1', light: '#EAF1FD', border: '#C9DAF7' },
@@ -64,6 +64,7 @@ export const colors = {
   warning: palette.warning.DEFAULT,
   warningLight: palette.warning.light,
   successLight: palette.success.light,
+  successMid: palette.success.mid,
   danger: palette.danger.DEFAULT,
   dangerLight: palette.danger.light,
   info: palette.info.DEFAULT,

@@ -50,6 +50,9 @@ export function statusView(connection: Connection, syncing = false): StatusView 
   if (syncing || connection.status === 'syncing' || connection.status === 'connecting') {
     return { label: 'Importing…', color: colors.primary, icon: 'sync-outline', needsReconnect: false };
   }
+  if (connection.status === 'sync_complete' && connection.missingPermissions?.length) {
+    return { label: 'Limited metrics', color: colors.warning, icon: 'warning-outline', needsReconnect: true };
+  }
   switch (connection.status) {
     case 'permission_required':
       return { label: 'Needs permission', color: colors.warning, icon: 'warning-outline', needsReconnect: true };
