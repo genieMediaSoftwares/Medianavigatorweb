@@ -61,7 +61,7 @@ function Metric({ value, label, divider }: { value: string | null; label: string
         numberOfLines={1}
         adjustsFontSizeToFit
       >
-        {value ?? NOT_AVAILABLE}
+        {value ?? 'N/A'}
       </Text>
       <Text className="mt-[2px] text-[10px] text-neutral-500" numberOfLines={1} adjustsFontSizeToFit>
         {label}
@@ -105,6 +105,8 @@ export function PlatformDashboardCard({ platform, connection, metrics, onConnect
   const tint = platformColors[platform];
   const connected = connection.connected;
   const needsReconnect = connected && statusView(connection).needsReconnect;
+  // Synced, but the platform refused some metrics (e.g. Facebook without read_insights): say why the numbers are N/A.
+  const missingPermissions = connected ? connection.missingPermissions ?? [] : [];
 
   return (
     <View
@@ -139,7 +141,16 @@ export function PlatformDashboardCard({ platform, connection, metrics, onConnect
               <Metric label="Total Views" value={metrics?.totalViews != null ? formatCompactNumber(metrics.totalViews) : null} divider />
               <Metric label="Eng. Rate" value={metrics?.engagementRate != null ? formatPercent(metrics.engagementRate, 1) : null} divider />
             </View>
-          ) : (
+          ) : null}
+          {connected && missingPermissions.length ? (
+            <View className="mt-sm flex-row items-start" accessible accessibilityLabel={`${meta.name} didn't share some numbers. Reconnect and allow ${missingPermissions.join(', ')}.`}>
+              <Ionicons name="alert-circle" size={12} color={colors.warning} style={{ marginTop: 1 }} />
+              <Text className="ml-[4px] flex-1 text-[10px] leading-[14px] text-neutral-500" numberOfLines={3}>
+                {`${meta.name} didn't share views or engagement. Reconnect and allow ${missingPermissions.join(', ')}.`}
+              </Text>
+            </View>
+          ) : null}
+          {connected ? null : (
             <View className="mt-md items-center">
               <View className="h-9 w-9 items-center justify-center rounded-[10px]" style={{ backgroundColor: 'rgba(59, 108, 246, 0.08)' }}>
                 <Ionicons name="bar-chart" size={18} color={colors.primaryBright} style={{ opacity: 0.55 }} />
@@ -154,7 +165,7 @@ export function PlatformDashboardCard({ platform, connection, metrics, onConnect
         <View className="mt-md flex-row" style={{ gap: 6 }}>
           {!connected ? (
             <CardButton title="Connect" variant="outline" onPress={onConnect} />
-          ) : needsReconnect ? (
+          ) : needsReconnect || missingPermissions.length ? (
             <CardButton title="Reconnect" variant="outline" onPress={onConnect} />
           ) : (
             <CardButton title="Manage" variant="neutral" onPress={onManage} />

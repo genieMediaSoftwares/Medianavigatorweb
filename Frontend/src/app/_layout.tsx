@@ -66,6 +66,10 @@ function RootNavigator() {
         <Stack.Screen name="analysis/[platform]" options={{ headerShown: false }} />
         <Stack.Screen name="analysis/why/[id]" options={{ ...pushedScreenOptions, title: 'Why?' }} />
         <Stack.Screen name="analysis/deep/[id]" options={{ ...pushedScreenOptions, title: 'Deep Analysis' }} />
+        <Stack.Screen name="planner/new" options={{ ...pushedScreenOptions, title: 'New plan' }} />
+        <Stack.Screen name="planner/[id]" options={{ ...pushedScreenOptions, title: 'Plan' }} />
+        <Stack.Screen name="planner/edit/[id]" options={{ ...pushedScreenOptions, title: 'Edit plan' }} />
+        <Stack.Screen name="planner/insights" options={{ ...pushedScreenOptions, title: 'Posting insights' }} />
       </Stack.Protected>
       <Stack.Protected guard={!isAuthenticated}>
         <Stack.Screen name="auth" />

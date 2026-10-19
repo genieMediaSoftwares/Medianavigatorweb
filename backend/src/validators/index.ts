@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { pageQuery } from '../lib/pagination.js';
 import { isObjectId } from '../lib/ids.js';
+import { isValidLocalDate } from '../lib/zonedTime.js';
+import { ALL_PLAN_FORMATS, REMINDER_OFFSETS } from '../services/planner/plans.js';
 
 const email = z.string().trim().toLowerCase().email().max(254);
 export const password = z.string().min(8, 'Password must be at least 8 characters').max(128)
@@ -69,10 +71,41 @@ export const intelligence = {
   contentAnalysisQuery: z.object({ mediaId: z.string().min(1).max(200), type: z.enum(['deep', 'why_top', 'why_bottom']) }).strict(),
 };
 
+const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').refine(isValidLocalDate, 'Not a real calendar date');
+const localTime = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use 24-hour HH:mm');
+const optionalText = (max: number) => z.string().trim().max(max).optional();
+const reminders = z.array(z.number().int().refine((o) => (REMINDER_OFFSETS as readonly number[]).includes(o), `Use one of ${REMINDER_OFFSETS.join(', ')} minutes`)).max(REMINDER_OFFSETS.length);
+const checklist = z.array(z.object({ id: z.string().max(40).optional(), label: text(120), done: z.boolean().optional() }).strict()).max(20);
+const referenceUrl = z.string().trim().max(1000).refine((u) => u === '' || /^https?:\/\/\S+$/i.test(u), 'Use a full http(s) link').optional();
+const goal = z.enum(['reach', 'engagement', 'followers', 'traffic', 'sales', 'community', 'other']);
+const legacyCreate = z.object({
+  day: z.enum(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']), time: text(20), platform, contentType: text(30).optional(), title: text(300),
+}).strict();
+const planTarget = z.object({
+  platform, format: z.enum(ALL_PLAN_FORMATS as [string, ...string[]]), localDate: localDate.optional(), localTime: localTime.optional(),
+  caption: optionalText(5000), reminders: reminders.optional(), checklist: checklist.optional(),
+}).strict();
+const planCreate = z.object({
+  title: text(300), description: optionalText(2000), caption: optionalText(5000), cta: optionalText(300), referenceUrl, notes: optionalText(2000), goal: goal.optional(),
+  status: z.enum(['idea', 'draft', 'planned', 'ready']).optional(), timezone,
+  targets: z.array(planTarget).min(1).max(4),
+  source: z.object({ mediaId: text(200), analysisType: z.enum(['deep', 'why_top', 'why_bottom']), recommendationIndex: z.number().int().min(0).max(9) }).strict().optional(),
+}).strict();
+
 export const planner = {
-  create: z.object({
-    day: z.enum(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']), time: text(20), platform, contentType: text(30).optional(), title: text(300),
-  }).strict(),
+  /** The original weekday/time body (web planner) or a Planner V2 body with real dates and one or more platforms. */
+  create: z.union([legacyCreate, planCreate]),
+  list: z.union([
+    z.object({ from: z.string().datetime({ offset: true }), to: z.string().datetime({ offset: true }) }).strict(),
+    z.object({ undated: z.literal('true').transform(() => true) }).strict(),
+  ]),
+  update: z.object({
+    title: text(300).optional(), description: optionalText(2000), caption: optionalText(5000), cta: optionalText(300), referenceUrl, notes: optionalText(2000), goal: goal.nullable().optional(),
+    format: z.enum(ALL_PLAN_FORMATS as [string, ...string[]]).optional(), localDate: localDate.optional(), localTime: localTime.optional(), timezone: timezone.optional(),
+    clearDate: z.literal(true).optional(), reminders: reminders.optional(), checklist: checklist.optional(),
+  }).strict().refine((v) => Object.keys(v).length > 0, 'Provide at least one field'),
+  status: z.object({ status: z.enum(['idea', 'draft', 'planned', 'ready', 'cancelled']), localDate: localDate.optional(), localTime: localTime.optional(), timezone: timezone.optional() }).strict(),
+  publish: z.object({ mediaId: text(200).optional(), url: z.string().trim().max(1000).regex(/^https?:\/\/\S+$/i, 'Use a full http(s) link').optional(), publishedAt: z.string().datetime({ offset: true }).optional() }).strict(),
   idParams: z.object({ id: objectId }).strict(),
   recParams: z.object({ id: z.string().min(1).max(200) }).strict(),
   plan: z.object({ day: z.enum(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']).optional(), time: text(20).optional() }).strict().default({}),

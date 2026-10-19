@@ -4,9 +4,9 @@ import { Text, useWindowDimensions, View } from 'react-native';
 import { Button } from '@/components/ui/Button';
 import { colors } from '@/constants/colors';
 import { elevation } from '@/constants/theme';
-import type { BestTimes, BestTimeRecommendation, EvidenceLevel } from '@/types/api';
+import type { BestTimes, BestTimeRecommendation, EvidenceLevel, Platform } from '@/types/api';
 
-import { describeLift, EVIDENCE, formatMetric, metricOf, NO_RECOMMENDATION } from '../presentation';
+import { ABOVE_EXPECTED_LABEL, blockedByPermissions, describeLift, EVIDENCE, formatMetric, metricOf, NO_RECOMMENDATION, permissionGaps } from '../presentation';
 
 export function EvidenceBadge({ level }: { level: EvidenceLevel }) {
   const e = EVIDENCE[level];
@@ -71,7 +71,7 @@ function Recommendation({ rec, data, onPlan }: { rec: BestTimeRecommendation; da
       <View className="mt-xs flex-row flex-wrap">
         {!aggregate ? <Stat label={`Median ${metric.label.toLowerCase()} here`} value={formatMetric(rec.median, metric.unit)} /> : null}
         {!aggregate ? <Stat label="Your typical post" value={formatMetric(data.analysis!.baseline.median, metric.unit)} /> : <Stat label="Performance score" value={`${rec.score} / 100`} />}
-        <Stat label={reachGoal ? 'Beat expected reach' : 'Beat expected result'} value={`${Math.round(rec.shareAboveTypical * 100)}% of posts`} />
+        <Stat label={ABOVE_EXPECTED_LABEL} value={`${Math.round(rec.shareAboveTypical * 100)}%`} />
       </View>
       {lift ? <Text className="mt-sm text-label font-semibold text-navy">{lift}</Text> : null}
 
@@ -93,9 +93,13 @@ function Recommendation({ rec, data, onPlan }: { rec: BestTimeRecommendation; da
 }
 
 /** The headline card: the best slot with its evidence, or an honest explanation of why there isn't one. */
-export function BestTimeCard({ data, onPlan }: { data: BestTimes; onPlan: () => void }) {
+export function BestTimeCard({ data, onPlan, onReconnect }: { data: BestTimes; onPlan: () => void; onReconnect: (p: Platform) => void }) {
   const analysis = data.analysis!;
-  const empty = analysis.noRecommendationReason ? NO_RECOMMENDATION[analysis.noRecommendationReason](data) : null;
+  // Posts the platform didn't measure (missing permissions) are not "too few posts": say what is actually wrong.
+  const gap = blockedByPermissions(data) ? permissionGaps(data)[0] : null;
+  const empty = gap
+    ? { title: `${gap.name} hasn’t shared the insights needed`, message: `${gap.name} hasn’t shared the insights needed to calculate your best posting times. Reconnect and allow ${gap.missing.join(', ')}.` }
+    : analysis.noRecommendationReason ? NO_RECOMMENDATION[analysis.noRecommendationReason](data) : null;
   return (
     <View className="mb-lg rounded-2xl border border-neutral-200 bg-white p-lg" style={elevation.card}>
       {analysis.recommendation ? (
@@ -109,7 +113,11 @@ export function BestTimeCard({ data, onPlan }: { data: BestTimes; onPlan: () => 
           <Text className="mt-sm text-title text-navy" accessibilityRole="header">{empty?.title}</Text>
           <Text className="mt-xs text-label font-normal text-neutral-500">{empty?.message}</Text>
           <View className="mt-lg">
-            <Button title="Plan a post anyway" icon="add-circle-outline" variant="secondary" onPress={onPlan} />
+            {gap ? (
+              <Button title={`Reconnect ${gap.name}`} icon="link-outline" onPress={() => onReconnect(gap.platform)} />
+            ) : (
+              <Button title="Plan a post anyway" icon="add-circle-outline" variant="secondary" onPress={onPlan} />
+            )}
           </View>
         </>
       )}

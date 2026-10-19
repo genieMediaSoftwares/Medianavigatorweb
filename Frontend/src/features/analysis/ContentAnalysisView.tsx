@@ -299,8 +299,20 @@ export function ContentAnalysisView({ mediaId, type, rank }: { mediaId: string; 
       {r.recommendations.length ? (
         <View className="mb-md rounded-[16px] border border-neutral-100 bg-white p-md">
           <Text className="mb-xs text-[14px] font-bold text-navy">Recommendations</Text>
-          {r.recommendations.map((x) => (
-            <Text key={x} className="mb-[4px] text-[13px] leading-[19px] text-navy">{`• ${x}`}</Text>
+          {r.recommendations.map((x, index) => (
+            <View key={x} className="mb-sm">
+              <Text className="text-[13px] leading-[19px] text-navy">{`• ${x}`}</Text>
+              {/* Opens the planner with this idea pre-filled; nothing is saved until the user picks a date and saves. */}
+              <Pressable
+                onPress={() => router.push({ pathname: '/planner/new', params: { sourceMediaId: analysis.mediaId, sourceType: type, recIndex: String(index), recText: x, ...(item ? { platform: item.platform, format: item.contentType } : {}) } })}
+                accessibilityRole="button"
+                accessibilityLabel={`Plan this idea: ${x}`}
+                className="mt-[2px] min-h-10 flex-row items-center self-start"
+              >
+                <Ionicons name="add-circle-outline" size={16} color={colors.primary} />
+                <Text className="ml-[4px] text-[13px] font-semibold text-primary">Plan this idea</Text>
+              </Pressable>
+            </View>
           ))}
         </View>
       ) : null}

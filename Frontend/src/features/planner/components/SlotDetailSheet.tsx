@@ -5,14 +5,14 @@ import { KeyValue } from '@/components/Card';
 import { Button } from '@/components/ui/Button';
 import type { BestTimes, PlannerSlot } from '@/types/api';
 
-import { describeLift, EVIDENCE, formatMetric, metricOf, suggestion } from '../presentation';
+import { ABOVE_EXPECTED_LABEL, describeLift, EVIDENCE, formatMetric, metricOf, suggestion } from '../presentation';
 import { EvidenceBadge } from './BestTimeCard';
 
 /** Everything known about one weekday × time slot, plus a suggested next step. */
 export function SlotDetailSheet({ slot, data, onClose, onPlan }: { slot: PlannerSlot | null; data: BestTimes; onClose: () => void; onPlan: (slot: PlannerSlot) => void }) {
   if (!slot) return null;
   const metric = metricOf(data);
-  const window = data.windows.find((w) => w.key === slot.window)!;
+  const window = data.windows.find((w) => w.key === slot.window) ?? { key: slot.window, label: slot.window, range: '' };
   const aggregate = data.analysis?.aggregate;
   const minSlot = data.method.thresholds.minSlotPosts;
   const baseline = data.analysis?.baseline;
@@ -35,7 +35,7 @@ export function SlotDetailSheet({ slot, data, onClose, onPlan }: { slot: Planner
               </>
             ) : null}
             <KeyValue label="Performance score" value={`${slot.score} / 100 (50 = typical)`} />
-            <KeyValue label="Beat your typical post" value={`${Math.round((slot.shareAboveTypical ?? 0) * 100)}% of posts`} />
+            <KeyValue label={ABOVE_EXPECTED_LABEL} value={slot.shareAboveTypical === null ? '—' : `${Math.round(slot.shareAboveTypical * 100)}%`} />
             {describeLift(slot.liftPct) && slot.posts >= minSlot ? <KeyValue label="Compared with baseline" value={describeLift(slot.liftPct)!} /> : null}
           </>
         ) : null}

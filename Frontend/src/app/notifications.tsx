@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 
@@ -16,6 +17,7 @@ type ListState = { status: 'loading' } | { status: 'error'; message: string } | 
 const SEVERITY_COLOR: Record<string, string> = { high: colors.danger, medium: colors.warning };
 
 export default function NotificationsScreen() {
+  const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [state, setState] = useState<ListState>({ status: 'loading' });
@@ -64,6 +66,9 @@ export default function NotificationsScreen() {
   };
 
   const markRead = async (item: NotificationItem) => {
+    // A plan reminder opens its plan.
+    const planId = typeof item.data?.planId === 'string' ? item.data.planId : null;
+    if (planId) router.push({ pathname: '/planner/[id]', params: { id: planId } });
     if (item.read) return;
     setActionError(null);
     try {

@@ -110,6 +110,8 @@ export async function bestTimes(
   const connections = toPlatformConnections(accounts).map((c) => ({
     platform: c.platform, name: c.name, connected: c.connected, status: c.status, handle: c.connected ? c.accountHandle : null,
     lastSyncedAt: c.sync.lastSyncedAt as string | null, syncState: c.sync.state as string,
+    // A synced account can still be missing the permissions that measure posts (e.g. Facebook without read_insights).
+    missingPermissions: c.missingPermissions ?? [],
   }));
 
   const metrics = METRICS[q.platform];

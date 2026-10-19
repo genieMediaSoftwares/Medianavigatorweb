@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AccessibilityInfo, Animated, Platform, View } from 'react-native';
 
 // The native animation driver doesn't exist on web; requesting it there only logs a warning.
@@ -9,7 +9,7 @@ const useNativeDriver = Platform.OS !== 'web';
  * Pulses gently unless the user has enabled Reduce Motion.
  */
 export function Skeleton({ className }: { className: string }) {
-  const opacity = useRef(new Animated.Value(1)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {

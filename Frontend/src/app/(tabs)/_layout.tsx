@@ -1,23 +1,27 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Tabs } from 'expo-router';
-import { ComponentProps } from 'react';
+import { Tabs, useRouter } from 'expo-router';
+import { ComponentProps, useEffect } from 'react';
 import { ColorValue } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors } from '@/constants/colors';
 import { typography } from '@/constants/theme';
+import { listenForReminderTaps } from '@/features/planner/deviceReminders';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
 // Filled icon when active, outline when inactive, so selection is not conveyed by color alone.
 function tabIcon(active: IconName, inactive: IconName) {
-  return ({ color, size, focused }: { color: ColorValue; size: number; focused: boolean }) => (
+  return function TabIcon({ color, size, focused }: { color: ColorValue; size: number; focused: boolean }) { return (
     <Ionicons name={focused ? active : inactive} color={color} size={size} />
-  );
+  ); };
 }
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  // Tapping a plan reminder opens that plan. The tabs only mount for a signed-in user.
+  useEffect(() => listenForReminderTaps((planId) => router.push({ pathname: '/planner/[id]', params: { id: planId } })), [router]);
   return (
     <Tabs
       screenOptions={{

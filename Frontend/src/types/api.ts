@@ -425,36 +425,111 @@ export interface ContentAnalysis {
 
 export type Weekday = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
 
-export interface PlannedItem {
+export type PlanFormat = 'reel' | 'image' | 'carousel' | 'story' | 'video' | 'text' | 'short' | 'document';
+export type StoredPlanStatus = 'idea' | 'draft' | 'planned' | 'ready' | 'published' | 'cancelled';
+/** `missed` is derived by the server: a dated plan whose time passed without being published. */
+export type PlanStatus = StoredPlanStatus | 'missed';
+export type PlanGoal = 'reach' | 'engagement' | 'followers' | 'traffic' | 'sales' | 'community' | 'other';
+
+export interface ChecklistItem {
   id: string;
-  day: Weekday;
-  time: string;
+  label: string;
+  done: boolean;
+}
+
+/** A content plan (GET /planner/plans, /planner/:id). Media Navigator never publishes: plans are for the user to act on. */
+export interface Plan {
+  id: string;
+  title: string;
   platform: Platform;
+  format: PlanFormat | null;
   contentType: string;
-  title: string;
-  isRecommended?: boolean;
-  recommendationReason?: string;
-  /** Plans are reminders: Media Navigator never publishes to a platform. */
-  status: 'planned' | 'draft' | 'published';
+  status: PlanStatus;
+  storedStatus: StoredPlanStatus;
+  /** Made before plans had dates: has a weekday and time (see `legacy`) but no calendar date yet. */
+  needsDate: boolean;
+  scheduledAt: string | null;
+  timezone: string | null;
+  localDate: string | null;
+  localTime: string | null;
+  legacy: { day: string; time: string } | null;
+  description: string;
+  caption: string;
+  cta: string;
+  referenceUrl: string;
+  notes: string;
+  goal: PlanGoal | null;
+  checklist: ChecklistItem[];
+  checklistDone: number;
+  /** Minutes before the planned time. */
+  reminders: number[];
+  remindersSentCount: number;
+  groupId: string | null;
+  source: null | { mediaId: string; analysisType: ContentAnalysisType; recommendationIndex: number; recommendationText: string; analysisSummary: string; platform: Platform };
+  publication: null | { verification: 'matched' | 'manual'; mediaId: string | null; url: string | null; publishedAt: string; confirmedAt: string };
+  isRecommended: boolean;
+  recommendationReason: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export interface NewPlannedItem {
-  day: Weekday;
-  time: string;
+export interface PlanTargetInput {
   platform: Platform;
-  contentType?: string;
-  title: string;
+  format: PlanFormat;
+  localDate?: string;
+  localTime?: string;
+  caption?: string;
+  reminders?: number[];
+  checklist?: { id?: string; label: string; done?: boolean }[];
 }
 
-/** GET /planner/insights */
-export interface PlannerInsights {
+export interface NewPlansInput {
+  title: string;
+  description?: string;
+  caption?: string;
+  cta?: string;
+  referenceUrl?: string;
+  notes?: string;
+  goal?: PlanGoal;
+  status?: 'idea' | 'draft' | 'planned' | 'ready';
   timezone: string;
-  hasEnoughData: boolean;
-  bestWindows: { day: string; timeOfDay: string; timeSlot: string; meanEngagementRate: number; sampleCount: number; timezone: string }[];
-  recommendedFormats: ContentTypePerformance[];
-  topTopics: TopicPerformance[];
-  basedOn: { posts: number; platforms: Platform[]; method: string };
+  targets: PlanTargetInput[];
+  source?: { mediaId: string; analysisType: ContentAnalysisType; recommendationIndex: number };
 }
+
+export type PlanUpdate = Partial<Pick<NewPlansInput, 'title' | 'description' | 'caption' | 'cta' | 'referenceUrl' | 'notes'>> & {
+  goal?: PlanGoal | null;
+  format?: PlanFormat;
+  localDate?: string;
+  localTime?: string;
+  timezone?: string;
+  clearDate?: true;
+  reminders?: number[];
+  checklist?: { id?: string; label: string; done?: boolean }[];
+};
+
+/** GET /planner/:id/matches: synced posts that could be this plan's published post. Nothing is linked until confirmed. */
+export interface PlanMatches {
+  state: 'possible' | 'none' | 'unavailable';
+  reason: null | 'not_connected' | 'format_not_synced' | 'no_date' | 'expired' | 'permission_required';
+  lastSyncedAt: string | null;
+  candidates: { mediaId: string; title: string; thumbnailUrl: string | null; url: string | null; publishedAt: string; contentType: string; minutesFromPlan: number }[];
+}
+
+/** GET /planner/:id/review */
+export type PlanReview =
+  | { state: 'not_published' | 'not_linked' | 'post_unavailable' }
+  | {
+      state: 'ready';
+      post: { mediaId: string; title: string; platform: Platform; contentType: string; publishedAt: string; url: string | null; thumbnailUrl: string | null; syncedAt: string };
+      /** value null = the platform didn't report it (never shown as 0). */
+      metrics: { key: string; label: string; value: number | null; comparison: null | { median: number; posts: number; diffPct: number | null } }[];
+      insightsAvailable: boolean;
+      maturing: boolean;
+      comparedWith: { contentType: string; days: number; posts: number };
+      analyses: ContentAnalysisType[];
+      nextIdeas: { index: number; text: string; analysisType: ContentAnalysisType }[];
+    };
 
 /** One platform's connected account, or every connected account combined. */
 export type AccountScope = Platform | 'all';
@@ -505,7 +580,7 @@ export interface BestTimes {
   range: { from: string; to: string };
   timezone: string;
   timezoneSource: 'profile' | 'default';
-  accounts: { platform: Platform; name: string; connected: boolean; status: ConnectionStatus; handle: string | null; lastSyncedAt: string | null; syncState: string }[];
+  accounts: { platform: Platform; name: string; connected: boolean; status: ConnectionStatus; handle: string | null; lastSyncedAt: string | null; syncState: string; missingPermissions?: string[] }[];
   scope: { platform: Platform; handle: string }[];
   state: 'ready' | 'not_connected';
   metric: PlannerMetricKey;
@@ -547,4 +622,6 @@ export interface NotificationItem {
   timestamp?: string;
   createdAt?: string;
   read: boolean;
+  /** e.g. { planId } for a plan reminder. */
+  data?: Record<string, unknown> | null;
 }

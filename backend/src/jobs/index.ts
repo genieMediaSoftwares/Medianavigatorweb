@@ -3,6 +3,7 @@ import { logger } from '../lib/logger.js';
 import { enqueueDueSyncs, schedulerIntervalMs } from './sync/scheduler.js';
 import { startWorker } from './sync/worker.js';
 import { startDeepV2Worker } from '../services/ai/deepV2.jobs.js';
+import { sendDueReminders } from './planner/reminders.js';
 
 /**
  * Starts the in-process scheduler/worker according to configuration. Both only coordinate through MongoDB
@@ -16,6 +17,10 @@ export function startJobs(): () => void {
     const t = setInterval(() => { enqueueDueSyncs().catch((err) => logger.error('scheduler tick failed', { error: err })); }, schedulerIntervalMs());
     stops.push(() => clearInterval(t));
     logger.info('sync scheduler enabled');
+    // Plan reminders ride on the same scheduler switch: one instance with the scheduler on delivers them.
+    const r = setInterval(() => { sendDueReminders().catch((err) => logger.error('plan reminder tick failed', { error: err })); }, 60_000);
+    stops.push(() => clearInterval(r));
+    logger.info('plan reminders enabled');
   }
   if (config.sync.workerEnabled) {
     stops.push(startWorker());

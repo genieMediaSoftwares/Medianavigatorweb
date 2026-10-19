@@ -3,7 +3,7 @@ import { Text, View } from 'react-native';
 import { elevation } from '@/constants/theme';
 import type { BestTimes } from '@/types/api';
 
-import { metricOf } from '../presentation';
+import { hourCenter, metricOf } from '../presentation';
 
 const BAR_AREA = 96;
 const HEAT_BG = ['bg-heat-0', 'bg-heat-1', 'bg-heat-2', 'bg-heat-3', 'bg-heat-4'] as const;
@@ -51,9 +51,10 @@ export function HourlyChart({ data }: { data: BestTimes }) {
           );
         })}
       </View>
-      <View className="mt-xs flex-row justify-between">
+      {/* Each label is centred under its own bar (24 equal bars), not spread evenly across the width. */}
+      <View className="mt-xs h-[14px]" importantForAccessibility="no-hide-descendants">
         {[0, 3, 6, 9, 12, 15, 18, 21].map((h) => (
-          <Text key={h} className="text-[10px] text-neutral-500">
+          <Text key={h} className="absolute w-[24px] text-center text-[10px] text-neutral-500" style={{ left: `${hourCenter(h) * 100}%`, marginLeft: -12 }}>
             {hourShort(h)}
           </Text>
         ))}
