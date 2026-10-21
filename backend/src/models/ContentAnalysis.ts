@@ -1,6 +1,6 @@
 import { Schema, model, type Types } from 'mongoose';
 
-export type ContentAnalysisType = 'deep' | 'why_top' | 'why_bottom';
+export type ContentAnalysisType = 'deep' | 'why_top' | 'why_bottom' | 'diagnosis';
 
 /**
  * One saved six-point analysis per (user, post, analysis type, analysis version).
@@ -40,7 +40,7 @@ const schema = new Schema<ContentAnalysisDoc>(
     mediaId: { type: String, required: true },
     platform: { type: String, required: true },
     contentType: { type: String, default: null },
-    analysisType: { type: String, enum: ['deep', 'why_top', 'why_bottom'], required: true },
+    analysisType: { type: String, enum: ['deep', 'why_top', 'why_bottom', 'diagnosis'], required: true },
     analysisVersion: { type: String, required: true },
     evidenceHash: { type: String, default: null },
     result: { type: Schema.Types.Mixed, default: null },

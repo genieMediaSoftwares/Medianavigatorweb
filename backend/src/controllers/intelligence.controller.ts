@@ -5,6 +5,7 @@ import { ok } from '../lib/response.js';
 import { analyticsService } from '../services/analytics.service.js';
 import { aiAnalysisService } from '../services/ai/aiAnalysis.service.js';
 import { contentAnalysisService } from '../services/ai/contentAnalysis.service.js';
+import { diagnosisService } from '../services/ai/diagnosis.service.js';
 import { creativeReportService } from '../services/ai/creativeReport.service.js';
 import { deepReportService } from '../services/ai/deepReport.service.js';
 import { deepV2Jobs } from '../services/ai/deepV2.jobs.js';
@@ -47,6 +48,15 @@ export const intelligenceController = {
   savedContentAnalysis: asyncHandler(async (req, res) => {
     const q = req.query as { mediaId: string; type: 'deep' | 'why_top' | 'why_bottom' };
     ok(res, await contentAnalysisService.get(uid(req), q.mediaId, q.type));
+  }),
+  /** The post's own diagnosis: classified against the account's baseline, then analysed to match. */
+  diagnosis: asyncHandler(async (req, res) => {
+    const b = req.body as { mediaId: string; reanalyze?: boolean };
+    ok(res, await diagnosisService.analyze(uid(req), b.mediaId, { reanalyze: b.reanalyze }));
+  }),
+  savedDiagnosis: asyncHandler(async (req, res) => {
+    const q = req.query as { mediaId: string };
+    ok(res, await diagnosisService.get(uid(req), q.mediaId));
   }),
   overview: asyncHandler(async (req, res) => ok(res, await analyticsService.overview(uid(req)))),
   timing: asyncHandler(async (req, res) => ok(res, await analyticsService.timing(uid(req)))),
