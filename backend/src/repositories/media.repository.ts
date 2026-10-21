@@ -38,6 +38,12 @@ export const mediaRepository = {
 
   findByLegacyId: (userId: Types.ObjectId, legacyId: string) =>
     ContentItem.findOne({ userId, legacyId }).lean<ContentItemDoc>(),
+  findByIdOrLegacy: (userId: Types.ObjectId, id: string) => {
+    const filter: Record<string, unknown> = { userId };
+    if (isObjectId(id)) filter.$or = [{ _id: toObjectId(id) }, { legacyId: id }];
+    else filter.legacyId = id;
+    return ContentItem.findOne(filter).lean<ContentItemDoc>();
+  },
 
   async page(userId: Types.ObjectId, accountIds: Types.ObjectId[], params: { limit: number; cursor?: { t: number; id: string }; platform?: string }) {
     const filter: Record<string, unknown> = {

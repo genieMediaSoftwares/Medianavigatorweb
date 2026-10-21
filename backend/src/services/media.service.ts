@@ -28,8 +28,8 @@ export const mediaService = {
     };
   },
 
-  async get(userId: string, legacyId: string) {
-    const doc = await mediaRepository.findByLegacyId(toObjectId(userId), legacyId);
+  async get(userId: string, id: string) {
+    const doc = await mediaRepository.findByIdOrLegacy(toObjectId(userId), id);
     if (!doc) throw notFound('Media item not found');
     return toNormalized(doc);
   },
