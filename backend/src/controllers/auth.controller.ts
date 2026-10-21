@@ -3,8 +3,10 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { ok } from '../lib/response.js';
 import { authService } from '../services/auth.service.js';
 import { userService } from '../services/user.service.js';
+import { mfaService } from '../services/mfa.service.js';
 
 const client = (req: Request) => ({ userAgent: req.header('user-agent') ?? undefined, ip: req.ip });
+const actor = (req: Request) => ({ userId: req.auth!.userId, requestId: req.requestId, ip: req.ip });
 
 export const authController = {
   register: asyncHandler(async (req, res) => ok(res, await authService.register(req.body, client(req)), 201)),
@@ -22,4 +24,10 @@ export const authController = {
     ok(res, { message: 'If an account exists for that email, a reset link has been sent.' }, 202);
   }),
   resetPassword: asyncHandler(async (req, res) => { await authService.resetPassword(req.body.token, req.body.newPassword); ok(res, { reset: true }); }),
+  reauth: asyncHandler(async (req, res) => ok(res, await authService.reauth(req.auth!.userId, req.auth!.sessionId, req.body, { ...client(req), requestId: req.requestId }))),
+  mfaStatus: asyncHandler(async (req, res) => ok(res, await mfaService.status(req.auth!.userId))),
+  mfaSetup: asyncHandler(async (req, res) => ok(res, await mfaService.setup(actor(req), req.body.password))),
+  mfaEnable: asyncHandler(async (req, res) => ok(res, await mfaService.enable({ ...actor(req), sessionId: req.auth!.sessionId }, req.body.mfaCode))),
+  mfaDisable: asyncHandler(async (req, res) => ok(res, await mfaService.disable(actor(req), req.body.password, req.body))),
+  mfaRecoveryCodes: asyncHandler(async (req, res) => ok(res, await mfaService.regenerateRecoveryCodes(actor(req), req.body.password, req.body))),
 };

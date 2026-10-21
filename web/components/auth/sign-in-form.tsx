@@ -33,7 +33,9 @@ export function SignInForm() {
       // Admins land directly on the admin dashboard.
       router.replace(auth.user.role === 'admin' ? '/admin' : safeNext(params.get('next')));
     } catch (e) {
-      setFormError(e instanceof ApiError && e.status === 429
+      setFormError(e instanceof ApiError && e.code === 'MFA_REQUIRED'
+        ? 'This staff account uses two-step sign-in, which the website doesn’t support yet. Please sign in through the administration app.'
+        : e instanceof ApiError && e.status === 429
         ? 'Too many attempts. Please wait a few minutes and try again.'
         : e instanceof ApiError && (e.status === 401 || e.status === 403) ? 'That email and password don’t match. Please check them and try again.'
         : e instanceof ApiError ? e.message : 'We couldn’t sign you in. Please try again.');

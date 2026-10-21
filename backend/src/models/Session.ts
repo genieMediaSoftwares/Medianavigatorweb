@@ -11,6 +11,8 @@ export interface SessionDoc {
   revokedAt?: Date | null;
   revokedReason?: string;
   lastUsedAt: Date;
+  /** Last time this session re-confirmed the password (and MFA code when enabled), for step-up on high-risk actions. */
+  reauthAt?: Date | null;
   createdAt: Date;
 }
 
@@ -25,6 +27,7 @@ const schema = new Schema<SessionDoc>(
     revokedAt: { type: Date, default: null },
     revokedReason: { type: String, maxlength: 60 },
     lastUsedAt: { type: Date, required: true },
+    reauthAt: { type: Date, default: null },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

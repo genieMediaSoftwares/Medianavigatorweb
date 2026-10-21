@@ -57,11 +57,19 @@ const schema = z.object({
   LOGIN_LOCKOUT_MINUTES: int('LOGIN_LOCKOUT_MINUTES', 1),
   PASSWORD_RESET_TOKEN_TTL_MINUTES: int('PASSWORD_RESET_TOKEN_TTL_MINUTES', 1),
   MAX_SESSIONS_PER_USER: int('MAX_SESSIONS_PER_USER', 1),
+  // Optional: "true" blocks admin endpoints for staff who have not enrolled in MFA. Off unless set, so existing
+  // administrators can enrol before it is enforced.
+  STAFF_MFA_REQUIRED: optionalText.refine((v) => v === undefined || v === 'true' || v === 'false', 'STAFF_MFA_REQUIRED must be "true" or "false"'),
 
   // --- credentials encryption (AES-256-GCM key, base64 of 32 random bytes) ---
   CREDENTIAL_ENCRYPTION_KEY: required('CREDENTIAL_ENCRYPTION_KEY').refine(
     (v) => Buffer.from(v, 'base64').length === 32,
     'CREDENTIAL_ENCRYPTION_KEY must be base64 of exactly 32 bytes (openssl rand -base64 32)',
+  ),
+  // Optional, only during a key rotation: the old key, so values encrypted with it stay readable until re-encrypted.
+  CREDENTIAL_ENCRYPTION_KEY_PREVIOUS: optionalText.refine(
+    (v) => v === undefined || Buffer.from(v, 'base64').length === 32,
+    'CREDENTIAL_ENCRYPTION_KEY_PREVIOUS must be base64 of exactly 32 bytes',
   ),
 
   // --- rate limits (requests per window, per client) ---
@@ -204,8 +212,14 @@ export function buildConfig(source: Record<string, string | undefined>) {
       lockoutMinutes: raw.LOGIN_LOCKOUT_MINUTES,
       resetTokenTtlMinutes: raw.PASSWORD_RESET_TOKEN_TTL_MINUTES,
       maxSessionsPerUser: raw.MAX_SESSIONS_PER_USER,
+      staffMfaRequired: raw.STAFF_MFA_REQUIRED === 'true',
+      /** How recently a session must have re-confirmed credentials for high-risk admin actions. */
+      stepUpMaxAgeSeconds: 300,
     },
-    crypto: { credentialKey: Buffer.from(raw.CREDENTIAL_ENCRYPTION_KEY, 'base64') },
+    crypto: {
+      credentialKey: Buffer.from(raw.CREDENTIAL_ENCRYPTION_KEY, 'base64'),
+      previousCredentialKey: raw.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS ? Buffer.from(raw.CREDENTIAL_ENCRYPTION_KEY_PREVIOUS, 'base64') : null,
+    },
     rateLimit: {
       windowMs: raw.RATE_LIMIT_WINDOW_MS,
       general: raw.RATE_LIMIT_GENERAL_MAX,

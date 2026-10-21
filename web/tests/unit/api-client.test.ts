@@ -36,6 +36,16 @@ describe('api client', () => {
     window.removeEventListener(SIGNED_OUT_EVENT, seen);
   });
 
+  it.each([['/auth/change-password', 'POST'], ['/users/me', 'DELETE']] as const)('keeps the session on password confirmation failure at %s', async (path, method) => {
+    const seen = vi.fn();
+    window.addEventListener(SIGNED_OUT_EVENT, seen);
+    vi.stubGlobal('fetch', vi.fn(async () => reply(400, { success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Password is incorrect' } })));
+    try {
+      await expect(apiRequest(path, { method, body: { password: 'wrong' } })).rejects.toMatchObject({ status: 400, code: 'INVALID_CREDENTIALS', message: 'Password is incorrect' });
+      expect(seen).not.toHaveBeenCalled();
+    } finally { window.removeEventListener(SIGNED_OUT_EVENT, seen); }
+  });
+
   it('explains an unreachable API instead of throwing a raw network error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch'); }));
     const err = (await apiGet('/x').catch((e: unknown) => e)) as ApiError;

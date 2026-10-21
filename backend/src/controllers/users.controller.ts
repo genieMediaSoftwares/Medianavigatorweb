@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { asyncHandler } from '../lib/asyncHandler.js';
 import { ok } from '../lib/response.js';
-import { unauthorized } from '../lib/errors.js';
+import { invalidCredentials, unauthorized } from '../lib/errors.js';
 import { userService } from '../services/user.service.js';
 import { sessionRepository } from '../repositories/session.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -20,7 +20,8 @@ export const usersController = {
   }),
   deleteAccount: asyncHandler(async (req, res) => {
     const user = await userRepository.findByIdWithPassword(req.auth!.userId);
-    if (!user || !(await bcrypt.compare(req.body.password, user.passwordHash))) throw unauthorized('Password is incorrect');
+    if (!user) throw unauthorized('Account is no longer available');
+    if (!(await bcrypt.compare(req.body.password, user.passwordHash))) throw invalidCredentials('Password is incorrect');
     await userService.deleteAccount(req.auth!.userId);
     ok(res, { deleted: true });
   }),

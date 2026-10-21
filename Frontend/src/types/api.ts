@@ -127,7 +127,18 @@ export interface Connection {
   primaryStrength: string;
   dataPointsCount: number;
   missingPermissions?: string[];
-  accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number };
+  accountInfo?: {
+    id: string; name?: string; username?: string; followersCount?: number;
+    /** Accounts this profile follows (Instagram `follows_count`). */
+    followsCount?: number;
+    /** Post count the platform reports for the profile. */
+    mediaCount?: number;
+    /** Posts the platform's API returned on the last sync; null when that listing was not read to the end. */
+    accessibleMediaCount?: number | null;
+    /** false when the last sync could not read the platform's whole media listing. */
+    mediaListComplete?: boolean;
+    mediaListCheckedAt?: string;
+  };
   sync?: { state: string; lastSyncedAt: string | null; nextSyncAt: string | null; lastError: string | null };
   capabilities?: ProviderCapabilities;
   oauthAvailable?: boolean;

@@ -1,12 +1,15 @@
 export type ErrorCode =
-  | 'BAD_REQUEST' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT'
+  | 'BAD_REQUEST' | 'INVALID_CREDENTIALS' | 'UNAUTHORIZED' | 'FORBIDDEN' | 'NOT_FOUND' | 'CONFLICT'
   | 'PAYLOAD_TOO_LARGE' | 'VALIDATION_ERROR' | 'RATE_LIMITED'
-  | 'INTERNAL_ERROR' | 'PROVIDER_ERROR' | 'SERVICE_UNAVAILABLE' | 'MEDIA_UNAVAILABLE';
+  | 'INTERNAL_ERROR' | 'PROVIDER_ERROR' | 'SERVICE_UNAVAILABLE' | 'MEDIA_UNAVAILABLE'
+  | 'MFA_REQUIRED' | 'REAUTH_REQUIRED' | 'MFA_ENROLLMENT_REQUIRED';
 
 const STATUS: Record<ErrorCode, number> = {
-  BAD_REQUEST: 400, UNAUTHORIZED: 401, FORBIDDEN: 403, NOT_FOUND: 404, CONFLICT: 409,
+  BAD_REQUEST: 400, INVALID_CREDENTIALS: 400, UNAUTHORIZED: 401, FORBIDDEN: 403, NOT_FOUND: 404, CONFLICT: 409,
   PAYLOAD_TOO_LARGE: 413, VALIDATION_ERROR: 422, RATE_LIMITED: 429,
   INTERNAL_ERROR: 500, PROVIDER_ERROR: 502, SERVICE_UNAVAILABLE: 503, MEDIA_UNAVAILABLE: 422,
+  // 403, never 401: these ask for more proof from a valid session or sign-in; they must not end the session.
+  MFA_REQUIRED: 403, REAUTH_REQUIRED: 403, MFA_ENROLLMENT_REQUIRED: 403,
 };
 
 export class AppError extends Error {
@@ -19,6 +22,8 @@ export class AppError extends Error {
 }
 
 export const badRequest = (m: string, d?: unknown) => new AppError('BAD_REQUEST', m, d);
+// Password confirmation within an authenticated workflow must not expire the client's session.
+export const invalidCredentials = (m: string) => new AppError('INVALID_CREDENTIALS', m);
 export const unauthorized = (m = 'Authentication required') => new AppError('UNAUTHORIZED', m);
 export const forbidden = (m = 'You do not have permission to perform this action') => new AppError('FORBIDDEN', m);
 export const notFound = (m = 'Resource not found') => new AppError('NOT_FOUND', m);

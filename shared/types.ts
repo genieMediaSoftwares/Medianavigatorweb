@@ -75,8 +75,14 @@ export interface PlatformConnection {
     name?: string;
     username?: string;
     followersCount?: number;
-    followingCount?: number;
+    /** Accounts this profile follows, as the platform reports it (Instagram `follows_count`). */
+    followsCount?: number;
+    /** Post count the platform reports for the profile. */
     mediaCount?: number;
+    /** Posts the platform's API returned on the last sync; null when that listing was not read to the end. */
+    accessibleMediaCount?: number | null;
+    mediaListComplete?: boolean;
+    mediaListCheckedAt?: string;
   };
 }
 

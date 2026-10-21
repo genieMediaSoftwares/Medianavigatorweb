@@ -21,11 +21,14 @@ export interface ApiErrorDetail {
 }
 
 // ── Auth & profile ────────────────────────────────────────────────────────
-export type Role = 'user' | 'admin';
+import type { Role, Permission } from '../../shared/admin';
+export type { Role, Permission };
 export interface User {
   id: string;
   email: string;
   role: Role;
+  permissions: Permission[];
+  mfaEnabled?: boolean;
   status: 'active' | 'disabled';
   createdAt: string;
   lastLoginAt: string | null;
@@ -634,6 +637,39 @@ export interface AdminConnection {
   nextSyncAt: string | null;
   lastSyncError: string | null;
   dataPointsCount: number;
+  ownerEmail?: string | null;
+  authMethod: 'oauth' | 'token' | 'api_key' | null;
+  credentialsExpiresAt: string | null;
+  missingPermissions: string[];
+  statusMessage: string | null;
+  /** Counts the last sync recorded; null = the platform did not report it. */
+  coverage: { profileCount: number | null; accessibleCount: number | null; syncedCount: number; listingComplete: boolean | null; checkedAt: string | null; followersCount: number | null; followsCount: number | null };
+  lastRun: { status: string; type: string; queuedAt: string; completedAt: string | null; errorKind: string | null } | null;
+}
+export interface CreditLedgerEntry {
+  id: string;
+  kind: 'admin_adjustment';
+  delta: number;
+  balanceAfter: number;
+  reason: string | null;
+  actorId: string | null;
+  actorEmail: string | null;
+  createdAt: string;
+}
+export interface AdminUserDetail {
+  user: User;
+  profile: Profile | null;
+  connections: AdminConnection[];
+  activeSessions: number;
+  lockedUntil: string | null;
+  failedLoginCount: number;
+}
+export interface AdminSyncRun extends SyncRun {
+  userId: string;
+  ownerEmail: string | null;
+  connectedAccountId: string;
+  requestedBy: string | null;
+  requestedByEmail: string | null;
 }
 export interface AdminAuditEntry {
   id: string;

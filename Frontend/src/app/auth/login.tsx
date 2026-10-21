@@ -36,7 +36,9 @@ export default function LoginScreen() {
       await signIn({ email: email.trim(), password });
     } catch (error) {
       if (error instanceof ApiError && error.fields) setFieldErrors(error.fields);
-      setFormError(error instanceof Error ? error.message : 'Sign in failed. Please try again.');
+      setFormError(error instanceof ApiError && error.code === 'MFA_REQUIRED'
+        ? 'This staff account uses two-step sign-in, which the app doesn’t support yet. Please sign in through the administration app.'
+        : error instanceof Error ? error.message : 'Sign in failed. Please try again.');
       setSubmitting(false);
     }
   }

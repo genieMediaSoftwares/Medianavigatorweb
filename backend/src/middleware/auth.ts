@@ -28,7 +28,7 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
     if (!user || user.status !== 'active' || user.deletedAt) throw unauthorized('Account is not active');
 
     // Role is read from the database, so a demoted admin loses access immediately even with an old token.
-    req.auth = { userId: claims.sub, sessionId: claims.sessionId, role: user.role };
+    req.auth = { userId: claims.sub, sessionId: claims.sessionId, role: user.role, mfaEnabled: Boolean(user.mfa?.enabled), reauthAt: session.reauthAt ?? null };
     next();
   } catch (err) {
     next(err);

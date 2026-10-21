@@ -1,5 +1,6 @@
 import { Schema, model, type Types } from 'mongoose';
 import type { PlatformType } from '../../../shared/types.js';
+import type { ResolvedAccount } from '../integrations/types.js';
 
 export type ConnectionState =
   | 'connecting' | 'syncing' | 'sync_complete' | 'sync_failed'
@@ -21,7 +22,7 @@ export interface ConnectedAccountDoc {
   /** How the account was connected: Google/Meta/LinkedIn sign-in, a pasted token, or an API key (public data only). */
   authMethod?: 'oauth' | 'token' | 'api_key';
   missingPermissions: string[];
-  accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number; insights?: { since: string; until: string; fetchedAt: string; metrics: Record<string, number>; unavailable: string[] } };
+  accountInfo?: ResolvedAccount['accountInfo'];
   /** true while the connection is live. Used by the partial unique index so a provider account has at most one live owner. */
   active: boolean;
   dataPointsCount: number;

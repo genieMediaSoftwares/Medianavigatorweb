@@ -35,7 +35,16 @@ export interface ResolvedAccount {
   handle: string;
   displayName?: string;
   avatarUrl?: string;
-  accountInfo: { id: string; name?: string; username?: string; followersCount?: number; mediaCount?: number; insights?: { since: string; until: string; fetchedAt: string; metrics: Record<string, number>; unavailable: string[] } };
+  accountInfo: {
+    id: string; name?: string; username?: string; followersCount?: number; followsCount?: number;
+    /** Post count the platform reports for the profile. */
+    mediaCount?: number;
+    /** Posts the platform's API returned on the last sync; null when that listing was not read to the end. */
+    accessibleMediaCount?: number | null;
+    /** Whether the last sync read the platform's media listing to its last page, and when. */
+    mediaListComplete?: boolean;
+    mediaListCheckedAt?: string;
+    insights?: { since: string; until: string; fetchedAt: string; metrics: Record<string, number>; unavailable: string[] } };
   credentialsPatch?: Partial<ProviderCredentials>;
 }
 

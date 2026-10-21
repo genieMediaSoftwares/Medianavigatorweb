@@ -146,23 +146,30 @@ export class InstagramClient extends MetaClient {
    * Fetches real media and real insights from Instagram Graph API across ALL pages
    */
   async fetchMedia(
-    accessToken: string, 
-    instagramAccountId: string, 
+    accessToken: string,
+    instagramAccountId: string,
     accountInfo?: InstagramAccountInfo,
-    existingMediaMap?: Map<string, NormalizedMedia>
+    existingMediaMap?: Map<string, NormalizedMedia>,
+    /** Filled in by this call: whether the media listing was read to its last page. */
+    listing: { complete: boolean } = { complete: false },
   ): Promise<NormalizedMedia[]> {
     let rawItems: any[] = [];
+    listing.complete = false;
     const fields = 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}';
 
     const effectiveToken = accountInfo?.pageAccessToken || accessToken;
 
-    // Helper to fetch all pages following paging.next recursively without partial cutoff
-    const fetchAllPages = async (initialUrl: string, maxPages: number = config.providers.maxPages): Promise<any[]> => {
+    // Follows paging.next to the end. `complete` is true only when Instagram returned a page without a next link, so a
+    // page that fails after its retries, a repeated cursor or the page limit is reported instead of passing as success.
+    const fetchAllPages = async (initialUrl: string, maxPages: number = config.providers.maxPages): Promise<{ items: any[]; complete: boolean }> => {
       const items: any[] = [];
       let currentUrl: string | null = initialUrl;
       let page = 0;
+      const visited = new Set<string>();
 
       while (currentUrl && page < maxPages) {
+        if (visited.has(currentUrl)) return { items, complete: false };
+        visited.add(currentUrl);
         page++;
         // A failed page used to end the listing silently, dropping every later post. Retry it, and with smaller pages
         // (Instagram rejects large nested-field pages with "reduce the amount of data") before giving up.
@@ -180,88 +187,61 @@ export class InstagramClient extends MetaClient {
           } catch { /* network blip: retry */ }
           await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         }
-        if (!json) break;
+        if (!json) return { items, complete: false };
         if (json.data && Array.isArray(json.data)) items.push(...json.data);
         currentUrl = json.paging?.next ?? null;
       }
-      return items;
+      return { items, complete: currentUrl === null };
+    };
+    // The first strategy that returns posts wins; its completeness is what the sync reports.
+    const tryStrategy = async (initialUrl: string, maxPages: number) => {
+      const result = await fetchAllPages(initialUrl, maxPages);
+      if (result.items.length > 0 || result.complete) { rawItems = result.items; listing.complete = result.complete; return true; }
+      return false;
     };
 
     if (this.instagramLogin) {
       // Stay on the Instagram host for every page; never send an Instagram token to a Facebook endpoint.
       let after: string | undefined;
       let pages = 0;
+      const seenCursors = new Set<string>();
       do {
         const page: any = await this.get<any>(`${instagramAccountId}/media`, effectiveToken, { fields, limit: '50', ...(after ? { after } : {}) });
         rawItems.push(...(page.data ?? []));
         after = page.paging?.next ? page.paging?.cursors?.after : undefined;
         if (page.paging?.next && !after) throw new Error('Instagram returned an incomplete pagination cursor. Please retry syncing.');
+        if (after && seenCursors.has(after)) throw new Error('Instagram returned the same page twice. Please retry syncing.');
+        if (after) seenCursors.add(after);
         pages++;
       } while (after && pages < config.providers.maxPages);
       if (after) throw new Error('Instagram sync reached the configured page limit. Ask the administrator to increase PROVIDER_MAX_PAGES.');
+      listing.complete = true;
     } else {
     // Strategy 2: Fetch from graph.facebook.com /{id}/media (All Reels, Posts, Carousels)
-    if (rawItems.length === 0 && /^\d+$/.test(instagramAccountId)) {
-      try {
-        const initialUrl = `https://graph.facebook.com/${config.providers.metaApiVersion}/${instagramAccountId}/media?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
-        const pagedItems = await fetchAllPages(initialUrl, 100);
-        if (pagedItems.length > 0) {
-          rawItems = pagedItems;
-        }
-      } catch {
-        // Continue to next strategy
-      }
+    let found = false;
+    if (/^\d+$/.test(instagramAccountId)) {
+      found = await tryStrategy(`https://graph.facebook.com/${config.providers.metaApiVersion}/${instagramAccountId}/media?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`, 100);
     }
 
     // Strategy 3: Check /me/media on graph.facebook.com
-    if (rawItems.length === 0) {
-      try {
-        const initialUrl = `https://graph.facebook.com/${config.providers.metaApiVersion}/me/media?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
-        const pagedItems = await fetchAllPages(initialUrl, 50);
-        if (pagedItems.length > 0) {
-          rawItems = pagedItems;
-        }
-      } catch {
-        // Fall through
-      }
+    if (!found) {
+      found = await tryStrategy(`https://graph.facebook.com/${config.providers.metaApiVersion}/me/media?fields=${encodeURIComponent(fields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`, 50);
     }
 
     // Strategy 4: Check graph.instagram.com/v21.0/me/media (Instagram Graph API for Creators)
-    if (rawItems.length === 0) {
-      try {
-        const igFields = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}';
-        const initialUrl = `https://graph.instagram.com/${config.providers.metaApiVersion}/me/media?fields=${encodeURIComponent(igFields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
-        const pagedItems = await fetchAllPages(initialUrl, 50);
-        if (pagedItems.length > 0) {
-          rawItems = pagedItems;
-        }
-      } catch {
-        // Fall through
-      }
+    if (!found) {
+      const igFields = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}';
+      found = await tryStrategy(`https://graph.instagram.com/${config.providers.metaApiVersion}/me/media?fields=${encodeURIComponent(igFields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`, 50);
     }
 
-    // Strategy 5: Fetch from graph.instagram.com /me/media with like_count, comments_count fallback
-    if (rawItems.length === 0) {
-      try {
-        const basicWithStats = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}';
-        const initialUrl = `https://graph.instagram.com/me/media?fields=${encodeURIComponent(basicWithStats)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
-        const pagedItems = await fetchAllPages(initialUrl, 50);
-        if (pagedItems.length > 0) {
-          rawItems = pagedItems;
-        }
-      } catch {
-        // Try without like_count/comments_count if endpoint is older basic display
-        try {
-          const basicFields = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,children{id,media_type,media_url,thumbnail_url}';
-          const initialUrl = `https://graph.instagram.com/me/media?fields=${encodeURIComponent(basicFields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`;
-          const pagedItems = await fetchAllPages(initialUrl, 50);
-          if (pagedItems.length > 0) {
-            rawItems = pagedItems;
-          }
-        } catch {
-          // Fall through
-        }
-      }
+    // Strategy 5: graph.instagram.com /me/media without a version, then without like/comment counts (older basic display)
+    if (!found) {
+      const basicWithStats = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type,media_url,thumbnail_url}';
+      found = await tryStrategy(`https://graph.instagram.com/me/media?fields=${encodeURIComponent(basicWithStats)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`, 50);
+    }
+    if (!found) {
+      const basicFields = 'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp,children{id,media_type,media_url,thumbnail_url}';
+      await tryStrategy(`https://graph.instagram.com/me/media?fields=${encodeURIComponent(basicFields)}&limit=100&access_token=${encodeURIComponent(effectiveToken)}`, 50);
     }
 
     }

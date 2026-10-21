@@ -38,4 +38,5 @@ export const sessionRepository = {
     if (excess.length) await Session.updateMany({ _id: { $in: excess.map((s) => s._id) } }, { $set: { revokedAt: new Date(), revokedReason: 'session_limit' } });
   },
   countActive: () => Session.countDocuments(live()),
+  markReauthenticated: (id: string) => Session.updateOne({ _id: toObjectId(id, 'session id'), ...live() }, { $set: { reauthAt: new Date() } }),
 };

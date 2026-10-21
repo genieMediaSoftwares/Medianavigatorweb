@@ -27,9 +27,39 @@ describe('isolated admin BFF', () => {
     expect(await response.text()).not.toContain('ADMIN_ACCESS');
     expect(fetchMock.mock.calls[1]?.[0]).toBe('https://api.test.example/api/v1/auth/logout');
   });
+  it.each(['super_admin', 'ops_admin', 'support', 'auditor'])('admits the %s staff role with isolated cookies', async (role) => {
+    fetchMock.mockResolvedValueOnce(json({ success: true, data: { user: { role }, tokens } }));
+    const response = await call('POST', 'auth/login');
+    expect(response.status).toBe(200);
+    expect(await response.text()).not.toMatch(/ADMIN_ACCESS|ADMIN_REFRESH/);
+    expect(response.headers.get('set-cookie')).toContain('mn_admin_at=ADMIN_ACCESS');
+  });
+  it('fails closed for an unknown staff role', async () => {
+    fetchMock.mockResolvedValueOnce(json({ success: true, data: { user: { role: 'owner' }, tokens } })).mockResolvedValueOnce(json({ success: true }));
+    expect((await call('POST', 'auth/login')).status).toBe(403);
+    expect(fetchMock.mock.calls[1]?.[0]).toBe('https://api.test.example/api/v1/auth/logout');
+  });
   it('blocks registration, customer APIs, internal routes, refresh and path tricks', async () => {
     for (const path of ['auth/register', 'media', 'internal/jobs/run', 'AUTH/REFRESH', 'admin/../users']) expect((await call('POST', path)).status).toBe(404);
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it('forwards only the staff security endpoints it needs, with the admin session', async () => {
+    for (const path of ['auth/change-password', 'auth/logout-all', 'auth/mfa/other', 'auth/mfa/setup/extra']) expect((await call('POST', path)).status).toBe(404);
+    expect((await call('GET', 'auth/reauth')).status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockImplementation(async () => json({ success: true, data: {} }));
+    for (const path of ['auth/reauth', 'auth/mfa/setup', 'auth/mfa/enable', 'auth/mfa/disable', 'auth/mfa/recovery-codes']) expect((await call('POST', path, 'same-origin', 'mn_admin_at=ADMIN_ACCESS')).status).toBe(200);
+    expect((await call('GET', 'auth/mfa', 'same-origin', 'mn_admin_at=ADMIN_ACCESS')).status).toBe(200);
+    expect(fetchMock.mock.calls.map((c) => String(c[0]).replace('https://api.test.example/api/v1/', ''))).toEqual(['auth/reauth', 'auth/mfa/setup', 'auth/mfa/enable', 'auth/mfa/disable', 'auth/mfa/recovery-codes', 'auth/mfa']);
+    for (const c of fetchMock.mock.calls) expect(new Headers(c[1].headers).get('authorization')).toBe('Bearer ADMIN_ACCESS');
+    expect((await call('POST', 'auth/reauth', 'cross-site', 'mn_admin_at=ADMIN_ACCESS')).status).toBe(403);
+  });
+  it('passes a two-step sign-in challenge through without issuing cookies', async () => {
+    fetchMock.mockResolvedValueOnce(json({ success: false, error: { code: 'MFA_REQUIRED', message: 'Enter the code' } }, 403));
+    const response = await call('POST', 'auth/login');
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe('MFA_REQUIRED');
+    expect(response.headers.get('set-cookie')).toBeNull();
   });
   it('rejects cross-site writes before calling upstream', async () => {
     expect((await call('POST', 'admin/connections/123/sync', 'cross-site')).status).toBe(403);

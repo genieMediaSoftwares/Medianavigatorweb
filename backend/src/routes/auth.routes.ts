@@ -16,3 +16,10 @@ authRouter.post('/logout', authenticate, c.logout);
 authRouter.post('/logout-all', authenticate, c.logoutAll);
 authRouter.get('/me', authenticate, c.me);
 authRouter.post('/change-password', authenticate, validate({ body: v.changePassword }), c.changePassword);
+// Step-up and two-step sign-in (all under authLimiter).
+authRouter.post('/reauth', authenticate, validate({ body: v.reauth }), c.reauth);
+authRouter.get('/mfa', authenticate, c.mfaStatus);
+authRouter.post('/mfa/setup', authenticate, validate({ body: v.mfaSetup }), c.mfaSetup);
+authRouter.post('/mfa/enable', authenticate, validate({ body: v.mfaEnable }), c.mfaEnable);
+authRouter.post('/mfa/disable', authenticate, validate({ body: v.mfaConfirm }), c.mfaDisable);
+authRouter.post('/mfa/recovery-codes', authenticate, validate({ body: v.mfaConfirm }), c.mfaRecoveryCodes);

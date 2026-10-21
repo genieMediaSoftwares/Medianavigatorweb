@@ -2,6 +2,7 @@ import { asyncHandler } from '../lib/asyncHandler.js';
 import { ok } from '../lib/response.js';
 import { clampLimit, decodeCursor } from '../lib/pagination.js';
 import { adminService } from '../services/admin.service.js';
+import { mfaService } from '../services/mfa.service.js';
 
 const actor = (req: any) => ({ userId: req.auth!.userId as string, requestId: req.requestId as string, ip: req.ip as string | undefined });
 const paged = (req: any) => { const q = req.query; const limit = clampLimit(q.limit); return { ...q, limit, cursor: decodeCursor(q.cursor) }; };
@@ -13,10 +14,12 @@ const send = (res: any, out: { items: unknown[]; nextCursor: string | null; limi
 export const adminController = {
   system: asyncHandler(async (_req, res) => ok(res, await adminService.system())),
   users: asyncHandler(async (req, res) => send(res, await adminService.users(paged(req)))),
-  user: asyncHandler(async (req, res) => ok(res, await adminService.userDetail(req.params.id))),
+  user: asyncHandler(async (req, res) => ok(res, await adminService.userDetail(actor(req), req.params.id))),
   setRole: asyncHandler(async (req, res) => ok(res, await adminService.setRole(actor(req), req.params.id, req.body.role))),
   setStatus: asyncHandler(async (req, res) => ok(res, await adminService.setStatus(actor(req), req.params.id, req.body.status))),
-  adjustCredits: asyncHandler(async (req, res) => ok(res, await adminService.adjustCredits(actor(req), req.params.id, req.body.amount))),
+  adjustCredits: asyncHandler(async (req, res) => ok(res, await adminService.adjustCredits(actor(req), req.params.id, req.body.amount, req.body.reason))),
+  creditLedger: asyncHandler(async (req, res) => { const out = await adminService.creditLedger(req.params.id, paged(req)); ok(res, out.items, 200, { limit: out.limit, nextCursor: out.nextCursor }); }),
+  resetMfa: asyncHandler(async (req, res) => ok(res, await mfaService.resetByAdmin(actor(req), req.params.id))),
   connections: asyncHandler(async (req, res) => send(res, await adminService.connections(paged(req)))),
   syncRuns: asyncHandler(async (req, res) => send(res, await adminService.syncRuns(paged(req)))),
   triggerSync: asyncHandler(async (req, res) => ok(res, await adminService.triggerSync(actor(req), req.params.id), 202)),
