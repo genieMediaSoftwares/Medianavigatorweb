@@ -38,6 +38,7 @@ export const mediaRepository = {
 
   findByLegacyId: (userId: Types.ObjectId, legacyId: string) =>
     ContentItem.findOne({ userId, legacyId }).lean<ContentItemDoc>(),
+  /** Accepts either the provider (legacy) id or the document id, so every client id resolves. */
   findByIdOrLegacy: (userId: Types.ObjectId, id: string) => {
     const filter: Record<string, unknown> = { userId };
     if (isObjectId(id)) filter.$or = [{ _id: toObjectId(id) }, { legacyId: id }];

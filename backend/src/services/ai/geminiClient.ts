@@ -1,4 +1,3 @@
-import { retryTransient } from './retryTransient.js';
 import { FileState, GoogleGenAI, type Part } from '@google/genai';
 import type { ZodType, ZodTypeDef } from 'zod';
 import type { VideoInput } from './videoInput.js';
@@ -20,7 +19,7 @@ export const aiModel = () => config.ai.model ?? null;
 
 function getClient(): GoogleGenAI {
   if (!config.ai.enabled || !config.ai.apiKey) throw new AiUnavailableError();
-  client ??= new GoogleGenAI({ apiKey: config.ai.apiKey, httpOptions: { timeout: Math.max(config.ai.timeoutMs, 120_000) } });
+  client ??= new GoogleGenAI({ apiKey: config.ai.apiKey, httpOptions: { timeout: config.ai.timeoutMs } });
   return client;
 }
 
@@ -57,10 +56,10 @@ async function generateJsonImpl<T>(opts: { system: string; prompt: string; schem
       if (file.state !== 'ACTIVE' || !file.uri) throw new AiFailedError('Video processing did not complete. Please retry.', 'provider_error');
       parts.unshift({ fileData: { fileUri: file.uri, mimeType: file.mimeType || opts.video.blob.type }, ...sampling });
     }
-    const res = await retryTransient((remainingMs) => ai.models.generateContent({
+    const res = await ai.models.generateContent({
       model, contents: [{ role: 'user', parts }],
-      config: { systemInstruction: opts.system, responseMimeType: 'application/json', temperature: opts.video ? 0.2 : undefined, httpOptions: { timeout: remainingMs } },
-    }), timeout);
+      config: { systemInstruction: opts.system, responseMimeType: 'application/json', temperature: opts.video ? 0.2 : undefined, httpOptions: { timeout } },
+    });
     text = res.text;
   } catch (err) {
     if (err instanceof AiFailedError) throw err;
@@ -84,34 +83,23 @@ async function generateJsonImpl<T>(opts: { system: string; prompt: string; schem
 /** Uploads a video to Gemini's Files API and waits until it can be used in a prompt. */
 export async function uploadVideo(bytes: Uint8Array, mimeType: string, timeoutMs: number): Promise<{ name: string; uri: string; mimeType: string }> {
   const ai = getClient();
-  const deadline = Date.now() + timeoutMs;
-  let name: string | undefined;
-  const remaining = () => {
-    const ms = deadline - Date.now();
-    if (ms <= 0) throw new AiFailedError('Video processing timed out', 'timeout');
-    return ms;
-  };
-  try {
-    let file = await ai.files.upload({ file: new Blob([bytes as BlobPart], { type: mimeType }), config: { mimeType } });
-    name = file.name;
-    while (file.state === FileState.PROCESSING) {
-      await new Promise((r) => setTimeout(r, Math.min(1500, remaining())));
-      file = await ai.files.get({ name: file.name! });
-    }
-    if (file.state !== FileState.ACTIVE || !file.uri || !file.name) throw new AiFailedError('The analysis service could not process the video.', 'provider_error');
-    return { name: file.name, uri: file.uri, mimeType: file.mimeType ?? mimeType };
-  } catch (err) {
-    if (name) await deleteUploaded(name);
-    throw err;
+  const started = Date.now();
+  let file = await ai.files.upload({ file: new Blob([bytes as BlobPart], { type: mimeType }), config: { mimeType } });
+  while (file.state === FileState.PROCESSING) {
+    if (Date.now() - started > timeoutMs) throw new AiFailedError('Video processing timed out', 'timeout');
+    await new Promise((r) => setTimeout(r, 2000));
+    file = await ai.files.get({ name: file.name! });
   }
+  if (file.state !== FileState.ACTIVE || !file.uri || !file.name) throw new AiFailedError('The analysis service could not process the video.', 'provider_error');
+  return { name: file.name, uri: file.uri, mimeType: file.mimeType ?? mimeType };
 }
 
 /** Removes an uploaded file. Best effort: files also expire on Google's side after 48 hours. */
 export async function deleteUploaded(name: string): Promise<void> {
   try {
-    await getClient().files.delete({ name, config: { httpOptions: { timeout: 10000 } } });
+    await getClient().files.delete({ name });
   } catch (err) {
-    logger.warn('gemini file delete failed', { operation: 'ai', provider: 'gemini' });
+    logger.warn('gemini file delete failed', { operation: 'ai', provider: 'gemini', error: err });
   }
 }
 
@@ -122,14 +110,16 @@ async function generateMultimodalJsonImpl<T>(opts: { system: string; parts: Part
   const started = Date.now();
   let text: string | undefined;
   try {
-    const res = await retryTransient((remainingMs) => ai.models.generateContent({
-      model, contents: [{ role: 'user', parts: opts.parts }],
-      config: { systemInstruction: opts.system, responseMimeType: 'application/json', temperature: 0.2, httpOptions: { timeout: remainingMs } },
-    }), opts.timeoutMs);
+    const res = await Promise.race([
+      // The per-request timeout is also sent to Gemini as its server-side deadline; without it the client default
+      // (AI_TIMEOUT_MS) applies and a full video is cut off with 504 DEADLINE_EXCEEDED.
+      ai.models.generateContent({ model, contents: [{ role: 'user', parts: opts.parts }], config: { systemInstruction: opts.system, responseMimeType: 'application/json', temperature: 0.2, httpOptions: { timeout: opts.timeoutMs } } }),
+      new Promise<never>((_, rej) => setTimeout(() => rej(new AiFailedError('The analysis request timed out.', 'timeout')), opts.timeoutMs)),
+    ]);
     text = res.text;
   } catch (err) {
     if (err instanceof AiFailedError) throw err;
-    logger.warn('gemini multimodal request failed', { operation: 'ai', provider: 'gemini', status: (err as { status?: number }).status, error: err });
+    logger.warn('gemini multimodal request failed', { operation: 'ai', provider: 'gemini', error: err });
     if (/DEADLINE_EXCEEDED|"code":\s*504/.test(String((err as Error)?.message))) throw new AiFailedError('The analysis request timed out.', 'timeout');
     throw new AiFailedError('The analysis request failed.', 'provider_error');
   }

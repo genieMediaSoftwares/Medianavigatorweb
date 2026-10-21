@@ -77,12 +77,12 @@ describe('connecting a platform', () => {
     expect(await ConnectedAccount.countDocuments()).toBe(0);
   });
 
-  it('will not let a second user take over a provider account that is already connected', async () => {
+  it('lets a second user connect the same provider account (many accounts may use one key)', async () => {
     const a = await registerUser('own-a@test.example');
     const b = await registerUser('own-b@test.example');
     expect((await connect(a)).status).toBe(202);
-    const clash = await connect(b);
-    expect(clash.status).toBe(409);
+    const second = await connect(b);
+    expect(second.status).toBe(202);
   });
 });
 
