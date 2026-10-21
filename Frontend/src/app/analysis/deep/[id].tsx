@@ -1,12 +1,11 @@
-import { useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 
-import { ContentAnalysisView } from '@/features/analysis/ContentAnalysisView';
+import { DeepReportView } from '@/features/analysis/DeepReportView';
 
 /**
- * Deep Analysis: the saved six-point analysis of this post's actual content (full video with audio,
- * image or carousel slides) and how it relates to the post's measured performance.
+ * Evidence-first report with Overview, Audience and Next Move tabs for this exact post.
  */
 export default function DeepAnalysisScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  return <ContentAnalysisView key={id} mediaId={id} type="deep" />;
+  return <><Stack.Screen options={{ headerShown: false }} /><DeepReportView key={id} mediaId={id} /></>;
 }

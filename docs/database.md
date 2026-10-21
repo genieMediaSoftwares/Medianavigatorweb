@@ -14,7 +14,7 @@
 | `notifications` | notifications and derived alerts | `userId,createdAt`; `userId,dedupeKey` unique (partial) |
 | `files` | R2 object metadata only | `key` unique; `userId,status,createdAt` |
 | `aicaches` | cached AI output | `userId,cacheKey` unique; TTL on `expiresAt` |
-| `plannedcontents` | user planner entries | `userId,createdAt` |
+| `plannedcontents` | content plans: `scheduledAt` (UTC) + `timezone`/`localDate`/`localTime`, status, format, checklist, reminders, `remindersSent`, `groupId`, `source` (analysis reference), `publication` | `userId,createdAt`; `userId,scheduledAt`; `userId,groupId`; `status,scheduledAt` (reminder job); unique partial `userId,publication.mediaId` |
 | `auditlogs` | admin/security events (no secrets) | `createdAt`; `actorId,createdAt`; `action,createdAt` |
 
 ## Rules
@@ -30,3 +30,6 @@
 
 ## Backups
 Use Atlas backups/Cloud Backup on production. Back up `CREDENTIAL_ENCRYPTION_KEY` separately from the database.
+
+## Planner V2 migration
+Plans saved before Planner V2 have only `day` (weekday) and `time` ("6:00 PM"). They are **not rewritten** and no calendar date is invented for them: the API returns them with `needsDate: true` and the original values in `legacy`, and they appear under "Needs attention" until the user picks a real date (`POST /planner/:id/status {status:'planned', localDate, localTime, timezone}`), which fills `scheduledAt`. Dated V2 plans also keep `day`/`time` filled so the web planner's `GET /planner` keeps working. Stored status `scheduled` (older rows) is read as `planned`. No migration script is needed.

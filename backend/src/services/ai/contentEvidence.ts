@@ -41,7 +41,7 @@ export interface Comparison {
   rows: Array<{ key: string; label: string; post: number | null; median: number | null; differencePct: number | null }>;
 }
 
-export type MediaBasis = 'full_video' | 'youtube_video' | 'image' | 'carousel' | 'thumbnail' | 'none';
+export type MediaBasis = 'full_video' | 'youtube_video' | 'image' | 'carousel' | 'thumbnail' | 'none' | 'text' | 'document';
 
 export interface VideoInput {
   bytes: Uint8Array;
@@ -57,6 +57,7 @@ export interface MediaEvidence {
   images: Array<{ data: string; mimeType: string; label: string }>;
   /** Video files to upload to the model's file store, in order. */
   videos: VideoInput[];
+  documents?: Array<{ bytes: Uint8Array; mimeType: string; label: string }>;
   /** Public YouTube URL the model can read directly. */
   youtubeUrl: string | null;
   /** Length of the main video, when known. */
@@ -91,20 +92,23 @@ const IG_INSIGHTS: Array<{ name: string; key: string; label: string; unit: Metri
 const hosts = () => [`https://graph.facebook.com/${config.providers.metaApiVersion}`, `https://graph.instagram.com/${config.providers.metaApiVersion}`];
 
 /** GET on the Instagram Graph API, trying the Facebook host first and the Instagram host second. */
-async function igGet(path: string, token: string): Promise<{ ok: true; data: any } | { ok: false; message: string }> {
+async function igGet(path: string, token: string): Promise<{ ok: true; data: any } | { ok: false; message: string; loginExpired: boolean }> {
   let message = 'No response';
+  let loginExpired = false;
   for (const base of hosts()) {
     try {
       const sep = path.includes('?') ? '&' : '?';
       const res = await httpFetch(`${base}/${path}${sep}access_token=${encodeURIComponent(token)}`);
       const body = await res.json().catch(() => null);
       if (res.ok && body && !body.error) return { ok: true, data: body };
+      // Graph error 190 = the access token is invalid or expired.
+      if (body?.error?.code === 190) loginExpired = true;
       message = body?.error?.message ?? `HTTP ${res.status}`;
     } catch (err) {
       message = err instanceof Error ? err.message : 'Request failed';
     }
   }
-  return { ok: false, message };
+  return { ok: false, message, loginExpired };
 }
 
 function insightValue(entry: any): number | null {
@@ -114,9 +118,9 @@ function insightValue(entry: any): number | null {
 }
 
 /** Fresh media URLs and lifetime insights for one Instagram post, one metric per request so one unsupported metric can't hide the rest. */
-export async function fetchInstagramLive(creds: ProviderCredentials, providerMediaId: string): Promise<{ live: LiveInstagram | null; metrics: MetricValue[]; liveError: string | null }> {
+export async function fetchInstagramLive(creds: ProviderCredentials, providerMediaId: string): Promise<{ live: LiveInstagram | null; metrics: MetricValue[]; liveError: string | null; loginExpired: boolean }> {
   const token = creds.pageAccessToken || creds.accessToken;
-  if (!token) return { live: null, metrics: [], liveError: 'No stored access token for this account' };
+  if (!token) return { live: null, metrics: [], liveError: 'No stored access token for this account', loginExpired: false };
 
   const media = await igGet(`${providerMediaId}?fields=media_type,media_product_type,media_url,thumbnail_url,like_count,comments_count,children{media_type,media_url,thumbnail_url}`, token);
   const live: LiveInstagram | null = media.ok
@@ -154,7 +158,7 @@ export async function fetchInstagramLive(creds: ProviderCredentials, providerMed
       { key: 'comments', label: 'Comments', value: live.commentsCount, unit: 'count', available: live.commentsCount !== null, source: 'instagram_live', ...(live.commentsCount === null ? { note: 'Not returned by Instagram' } : {}) },
     );
   }
-  return { live, metrics, liveError: media.ok ? null : media.message };
+  return { live, metrics, liveError: media.ok ? null : media.message, loginExpired: !media.ok && media.loginExpired };
 }
 
 /** Metrics from the last sync, for platforms without a live insights call (and as a fallback). */
@@ -254,6 +258,22 @@ async function download(url: string, maxBytes: number): Promise<{ bytes: Uint8Ar
 
 const toImage = (d: { bytes: Uint8Array; mimeType: string }, label: string) => ({ data: Buffer.from(d.bytes).toString('base64'), mimeType: d.mimeType.startsWith('image/') ? d.mimeType : 'image/jpeg', label });
 
+/** Actual image attachments supplied by the provider, rather than a video's cover or link preview. */
+export async function collectImageAttachments(urls: string[]): Promise<MediaEvidence> {
+  const images: MediaEvidence['images'] = [];
+  const notes: string[] = [];
+  let budget = config.ai.contentAnalysis.maxMediaBytes;
+  for (const [i, url] of urls.slice(0, 20).entries()) {
+    const downloaded = await download(url, Math.max(1, budget));
+    if ('bytes' in downloaded && downloaded.mimeType.startsWith('image/')) {
+      budget -= downloaded.bytes.byteLength;
+      images.push(toImage(downloaded, `image ${i + 1} of ${urls.length}`));
+    } else notes.push(`Image ${i + 1} could not be loaded and was not reviewed.`);
+  }
+  if (urls.length > 20) notes.push('Only the first 20 image attachments were reviewed.');
+  return { basis: images.length ? urls.length > 1 ? 'carousel' : 'image' : 'none', images, videos: [], youtubeUrl: null, durationSeconds: null, notes, failure: images.length ? null : 'The original post images could not be loaded.' };
+}
+
 /** Duration from an MP4/MOV `mvhd` box (timescale + duration), or null when it can't be read. */
 export function mp4DurationSeconds(bytes: Uint8Array): number | null {
   const at = (i: number) => ((bytes[i] << 24) >>> 0) + (bytes[i + 1] << 16) + (bytes[i + 2] << 8) + bytes[i + 3];
@@ -268,6 +288,20 @@ export function mp4DurationSeconds(bytes: Uint8Array): number | null {
     return null;
   }
   return null;
+}
+
+/** Original video URL returned by an authenticated provider media lookup, never a cover image. */
+export async function collectVideoAttachment(url: string): Promise<MediaEvidence> {
+  const file = await download(url, config.ai.contentAnalysis.maxMediaBytes);
+  if (!('bytes' in file) || !file.mimeType.startsWith('video/')) throw new Error('The original video could not be loaded. Reconnect and sync again.');
+  const durationSeconds = mp4DurationSeconds(file.bytes);
+  return { basis: 'full_video', images: [], videos: [{ bytes: file.bytes, mimeType: file.mimeType, label: 'original video', durationSeconds }], youtubeUrl: null, durationSeconds, notes: [], failure: null };
+}
+
+export async function collectDocumentAttachment(url: string): Promise<MediaEvidence> {
+  const file = await download(url, config.ai.contentAnalysis.maxMediaBytes);
+  if (!('bytes' in file) || Buffer.from(file.bytes.subarray(0, 5)).toString() !== '%PDF-') throw new Error('This document is not an accessible PDF. Its original pages cannot be reviewed.');
+  return { basis: 'document', images: [], videos: [], documents: [{ bytes: file.bytes, mimeType: 'application/pdf', label: 'Original document' }], youtubeUrl: null, durationSeconds: null, notes: ['The original PDF was supplied for multimodal review. Page count and exhaustive page coverage could not be independently verified.'], failure: null };
 }
 
 const asVideo = (d: { bytes: Uint8Array; mimeType: string }, label: string): VideoInput => ({
@@ -290,40 +324,53 @@ export async function thumbnailOnly(item: Media, url: string | null | undefined,
 const VIDEO_FORMATS = new Set(['reel', 'short', 'video']);
 const WITHHELD = 'Instagram did not return a usable video file. The API does not explain why. Upload the original video to analyze this post.';
 
+export interface CollectMediaOptions {
+  /**
+   * The Deep Video Analysis loader (videoInput.loadVideoInput), used when the live fetch can't supply an
+   * Instagram video file: it retries both token styles and hosts, falls back to the file URL saved at
+   * sync, validates the file and records an expired login. Throws with a user-facing reason.
+   */
+  loadVideo?: () => Promise<Blob>;
+}
+
 /**
  * Fetches the post's own media through the connected account's authorized API, automatically:
  * the full video for reels/videos, the full image for photos and every slide for carousels.
  * A video is never replaced by its cover image: when the file can't be obtained, `failure` says why.
  */
-export async function collectMedia(item: Media, live: LiveInstagram | null, liveError: string | null = null): Promise<MediaEvidence> {
+export async function collectMedia(item: Media, live: LiveInstagram | null, liveError: string | null = null, opts: CollectMediaOptions = {}): Promise<MediaEvidence> {
   const max = config.ai.contentAnalysis.maxMediaBytes;
   const base: MediaEvidence = { basis: 'none', images: [], videos: [], youtubeUrl: null, durationSeconds: item.durationSeconds ?? null, notes: [], failure: null };
   const fail = (failure: string): MediaEvidence => ({ ...base, failure });
+  const fullVideo = (v: VideoInput): MediaEvidence => ({ ...base, basis: 'full_video', videos: [v], durationSeconds: v.durationSeconds ?? base.durationSeconds });
 
   if (item.platform === 'youtube') {
     return { ...base, basis: 'youtube_video', youtubeUrl: `https://www.youtube.com/watch?v=${encodeURIComponent(item.platformContentId)}` };
   }
 
   if (item.platform === 'instagram') {
+    // Instagram's live media type decides whether this is a video; the synced format is the fallback.
+    if (live ? live.mediaType === 'VIDEO' : VIDEO_FORMATS.has(item.contentType)) {
+      let liveProblem: string;
+      if (!live) liveProblem = `The post could not be fetched from Instagram${liveError ? ` (${liveError})` : ''}.`;
+      else if (!live.mediaUrl) liveProblem = WITHHELD;
+      else {
+        const d = await download(live.mediaUrl, max);
+        if ('bytes' in d) return fullVideo(asVideo(d, 'video'));
+        liveProblem = `The video file from Instagram could not be used: ${d.error}.`;
+      }
+      if (!opts.loadVideo) return fail(liveProblem);
+      try {
+        const blob = await opts.loadVideo();
+        return fullVideo(asVideo({ bytes: new Uint8Array(await blob.arrayBuffer()), mimeType: blob.type || 'video/mp4' }, 'video'));
+      } catch (err) {
+        return fail(err instanceof Error && err.message ? err.message : liveProblem);
+      }
+    }
+
     if (!live) return fail(`The post could not be fetched from Instagram${liveError ? ` (${liveError})` : ''}. Check that the connection is still valid and try again.`);
     const type = live.mediaType;
 
-    if (type === 'VIDEO') {
-      if (!live.mediaUrl) {
-        if (item.videoUrl) {
-          try {
-            const blob = await downloadVideo(item.videoUrl);
-            const v = asVideo({ bytes: new Uint8Array(await blob.arrayBuffer()), mimeType: blob.type }, 'synced video');
-            return { ...base, basis: 'full_video', videos: [v], durationSeconds: v.durationSeconds ?? base.durationSeconds };
-          } catch { /* An expired synced URL cannot replace the real video. */ }
-        }
-        return fail(WITHHELD);
-      }
-      const d = await download(live.mediaUrl, max);
-      if (!('bytes' in d)) return fail(`The video file from Instagram could not be used: ${d.error}.`);
-      const v = asVideo(d, 'video');
-      return { ...base, basis: 'full_video', videos: [v], durationSeconds: v.durationSeconds ?? base.durationSeconds };
-    }
 
     if (type === 'IMAGE') {
       if (!live.mediaUrl) return fail('Instagram did not return the image file for this post.');
@@ -354,8 +401,18 @@ export async function collectMedia(item: Media, live: LiveInstagram | null, live
     return fail(`Instagram returned an unsupported media type (${type ?? 'unknown'}).`);
   }
 
-  // Facebook and LinkedIn do not provide post media files through their APIs.
-  if (VIDEO_FORMATS.has(item.contentType)) return fail(`${item.platform} does not provide this video file through its API, so the video cannot be watched.`);
+  // A Facebook Page's own videos are readable with its Page token; LinkedIn provides no post media files.
+  if (VIDEO_FORMATS.has(item.contentType)) {
+    if (item.platform === 'facebook' && opts.loadVideo) {
+      try {
+        const blob = await opts.loadVideo();
+        return fullVideo(asVideo({ bytes: new Uint8Array(await blob.arrayBuffer()), mimeType: blob.type || 'video/mp4' }, 'video'));
+      } catch (err) {
+        return fail(err instanceof Error && err.message ? err.message : 'The video file could not be loaded from Facebook.');
+      }
+    }
+    return fail(`${item.platform} does not provide this video file through its API, so the video cannot be watched.`);
+  }
   return thumbnailOnly(item, item.thumbnailUrl, `${item.platform} does not provide the post's full image through its API.`);
 }
 

@@ -21,7 +21,9 @@ export function RangePicker({ value, onChange }: { value: PlannerRange; onChange
 /** Metric and format choices, built only from what this platform actually measured. */
 export function AnalysisFilters({ data, onMetric, onContentType }: { data: BestTimes; onMetric: (m: PlannerMetricKey) => void; onContentType: (t: string) => void }) {
   const types = data.contentTypes;
-  const showTypes = types.length > 1;
+  // Keep the row while a format is chosen, even if this range has only one, so the filter can always be cleared.
+  const showTypes = types.length > 1 || data.contentType !== 'all';
+  const chosen = data.contentType !== 'all' && !types.some((t) => t.type === data.contentType) ? [{ type: data.contentType, count: 0 }] : [];
   return (
     <View className="mb-md">
       {data.metrics.length > 1 ? (
@@ -38,7 +40,7 @@ export function AnalysisFilters({ data, onMetric, onContentType }: { data: BestT
         <>
           <Text className="mb-xs text-[12px] font-semibold uppercase tracking-[0.8px] text-neutral-500">Format</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} accessibilityRole="radiogroup">
-            {[{ type: 'all', count: types.reduce((a, b) => a + b.count, 0) }, ...types].map((t) => (
+            {[{ type: 'all', count: types.reduce((a, b) => a + b.count, 0) }, ...types, ...chosen].map((t) => (
               <Pill key={t.type} selected={data.contentType === t.type} onPress={() => onContentType(t.type)} label={CONTENT_TYPE_LABEL[t.type] ?? t.type} hint={String(t.count)} />
             ))}
           </ScrollView>

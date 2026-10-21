@@ -5,6 +5,8 @@ import { config } from '../config/env.js';
 import { decryptSecret, encryptSecret } from '../lib/crypto.js';
 import { logger } from '../lib/logger.js';
 import { ProviderHttpError } from '../lib/http.js';
+import { ConnectError } from '../lib/errors.js';
+import { MetaApiError } from '../integrations/meta/metaErrors.js';
 import { getAdapter } from '../integrations/registry.js';
 import { toContentItem } from '../integrations/mapper.js';
 import type { ProviderCredentials, ResolvedAccount } from '../integrations/types.js';
@@ -12,6 +14,8 @@ import { connectionRepository } from '../repositories/connection.repository.js';
 import { mediaRepository } from '../repositories/media.repository.js';
 import { syncRunRepository } from '../repositories/syncRun.repository.js';
 import { ContentItem } from '../models/ContentItem.js';
+import { ContentAnalysis } from '../models/ContentAnalysis.js';
+import { DeepAnalysisJob, SavedDeepAction } from '../models/DeepAnalysisJob.js';
 import type { ConnectedAccountDoc } from '../models/ConnectedAccount.js';
 import type { SyncRunDoc, SyncType } from '../models/SyncRun.js';
 import { analyticsService } from './analytics.service.js';
@@ -25,6 +29,11 @@ export type FailureKind = 'expired' | 'permission' | 'transient' | 'timeout' | '
  */
 export function classifyFailure(err: unknown): FailureKind {
   if (err instanceof ProviderHttpError) return err.transient ? 'transient' : 'fatal';
+  // Typed provider refusals carry their reason; only untyped errors fall back to the message patterns below.
+  const reason = err instanceof MetaApiError || err instanceof ConnectError ? err.reason : null;
+  if (reason === 'token_expired' || reason === 'token_invalid') return 'expired';
+  if (reason === 'permission_missing' || reason === 'app_restricted' || reason === 'account_not_authorized') return 'permission';
+  if (reason === 'provider_unavailable') return 'transient';
   const msg = String((err as Error)?.message ?? err);
   if (/timed out|timeout/i.test(msg)) return 'timeout';
   if (/expired|invalid[_ ]token|invalid_grant|code 190|session has been invalidated|revoked|unauthori[sz]ed|401/i.test(msg)) return 'expired';
@@ -103,6 +112,17 @@ export const syncService = {
         .filter((d): d is NonNullable<typeof d> => d !== null);
       const skipped = fetched.items.length - docs.length;
       const upserted = await mediaRepository.bulkUpsert(docs);
+      // Only a provably complete list may remove anything: the analysis then shows exactly what is on the account.
+      let removed = 0;
+      if (fetched.authoritative && !fetched.permissionError) {
+        const gone = await mediaRepository.deleteMissing(account._id, docs.map((d) => d.providerMediaId));
+        if (gone.length) await Promise.all([
+          ContentAnalysis.deleteMany({ userId: account.userId, mediaId: { $in: gone } }),
+          DeepAnalysisJob.deleteMany({ userId: account.userId, postId: { $in: gone } }),
+          SavedDeepAction.deleteMany({ userId: account.userId, postId: { $in: gone } }),
+        ]);
+        removed = gone.length;
+      }
       const total = await mediaRepository.countForAccount(account._id);
 
       const permissionBlocked = Boolean(fetched.permissionError);
@@ -111,7 +131,7 @@ export const syncService = {
         ? fetched.permissionError!.message
         : fetched.partialReason
           ? `Synchronized ${docs.length} items. ${fetched.partialReason}`
-          : `Synchronized ${docs.length} items from ${account.handle}.`;
+          : `Synchronized ${docs.length} items from ${account.handle}.${removed ? ` Removed ${removed} no longer on the account.` : ''}`;
       const updated = await connectionRepository.setStatus(account._id, status, statusMessage, {
         ...(fetched.accountInfo ? { accountInfo: fetched.accountInfo } : {}),
         lastSyncedAt: syncedAt,
@@ -119,14 +139,14 @@ export const syncService = {
         // Permission problems need user action; scheduling more attempts would only repeat the same failure.
         nextSyncAt: permissionBlocked ? null : new Date(syncedAt.getTime() + config.sync.intervalMinutes * 60_000),
         dataPointsCount: total,
-        missingPermissions: permissionBlocked ? fetched.permissionError!.missing : [],
+        missingPermissions: permissionBlocked ? fetched.permissionError!.missing : fetched.metricPermissionsMissing ?? [],
       });
 
       await analyticsService.recordSnapshot(updated ?? account, docs);
       await notificationService.refreshAlerts(account.userId);
       await notificationService.notify(
         account.userId, permissionBlocked ? 'sync_permission_required' : 'sync_completed',
-        permissionBlocked ? `${account.handle}: permissions needed` : `${account.handle}: sync complete`, statusMessage,
+        permissionBlocked ? `${account.handle}: permissions needed` : fetched.partialReason ? `${account.handle}: synced, some data unavailable` : `${account.handle}: sync complete`, statusMessage,
         permissionBlocked ? 'medium' : 'info', { platform: account.platform, syncRunId: String(run._id) },
       );
 
@@ -135,7 +155,7 @@ export const syncService = {
         itemsFetched: fetched.items.length, itemsCreated: upserted.created, itemsUpdated: upserted.updated, itemsSkipped: skipped, itemsFailed: 0,
         errorKind: permissionBlocked ? 'permission' : null, errorSummary: permissionBlocked ? fetched.permissionError!.message : fetched.partialReason ?? null,
       });
-      log('sync finished', { outcome, fetched: fetched.items.length, created: upserted.created, durationMs: Date.now() - started });
+      log('sync finished', { outcome, fetched: fetched.items.length, created: upserted.created, removed, durationMs: Date.now() - started });
     } catch (err) {
       await syncService.recordFailure(run, err);
     } finally {

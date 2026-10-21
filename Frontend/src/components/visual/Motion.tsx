@@ -26,11 +26,11 @@ export function PressableScale({ children, style, className, scaleTo = 0.97, onP
       className={className}
       style={[style, animatedStyle]}
       onPressIn={(e) => {
-        scale.value = withSpring(scaleTo, { damping: 20, stiffness: 400 });
+        scale.set(withSpring(scaleTo, { damping: 20, stiffness: 400 }));
         onPressIn?.(e);
       }}
       onPressOut={(e) => {
-        scale.value = withSpring(1, { damping: 18, stiffness: 300 });
+        scale.set(withSpring(1, { damping: 18, stiffness: 300 }));
         onPressOut?.(e);
       }}
     >

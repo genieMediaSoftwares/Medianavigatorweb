@@ -14,8 +14,8 @@ export function toContentItem(
   const unavailable = new Set(ctx.capabilities.unavailableMetrics);
   // A metric the platform returned as 0 for every field is indistinguishable from "not exposed"; only flag views when
   // there is no evidence the platform reported them for this item.
-  if (n.platform === 'facebook' && !n.views) unavailable.add('views');
-  if (!n.reach) unavailable.add('reach');
+  // The Facebook client reports exactly which metrics Meta returned (missingMetrics), so its zeros are real zeros.
+  if (n.platform !== 'facebook' && !n.reach) unavailable.add('reach');
   for (const m of n.missingMetrics ?? []) unavailable.add(m);
 
   return {

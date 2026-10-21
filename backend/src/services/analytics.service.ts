@@ -73,8 +73,12 @@ export const analyticsService = {
   },
 
   /** Writes today's per-account snapshot after a sync. */
-  async recordSnapshot(account: ConnectedAccountDoc, items: Array<{ views: number; likes: number; comments: number; shares: number; engagementRate: number }>) {
-    const eng = items.map((i) => i.engagementRate);
+  async recordSnapshot(account: ConnectedAccountDoc, items: Array<{ views: number; likes: number; comments: number; shares: number; engagementRate: number; unavailableMetrics?: string[] }>) {
+    // Totals and rates use only posts the platform gave that number for; a missing number is not a 0.
+    const has = (i: { unavailableMetrics?: string[] }, m: string) => !(i.unavailableMetrics ?? []).includes(m);
+    const viewed = items.filter((i) => has(i, 'views'));
+    const eng = items.filter((i) => has(i, 'engagementRate')).map((i) => i.engagementRate);
+    const sum = (m: 'likes' | 'comments' | 'shares') => items.filter((i) => has(i, m)).reduce((a, b) => a + b[m], 0);
     await analyticsRepository.upsertDaily({
       userId: account.userId,
       connectedAccountId: account._id,
@@ -82,12 +86,14 @@ export const analyticsService = {
       date: new Date().toISOString().slice(0, 10),
       calcVersion: CALC_VERSION,
       contentCount: items.length,
-      totalViews: items.reduce((a, b) => a + b.views, 0),
-      totalLikes: items.reduce((a, b) => a + b.likes, 0),
-      totalComments: items.reduce((a, b) => a + b.comments, 0),
-      totalShares: items.reduce((a, b) => a + b.shares, 0),
+      totalViews: viewed.reduce((a, b) => a + b.views, 0),
+      totalLikes: sum('likes'),
+      totalComments: sum('comments'),
+      totalShares: sum('shares'),
       meanEngagementRate: Number(mean(eng).toFixed(2)),
       medianEngagementRate: Number(median(eng).toFixed(2)),
+      viewsMeasured: viewed.length,
+      engagementMeasured: eng.length,
       followersCount: account.accountInfo?.followersCount ?? null,
     });
   },

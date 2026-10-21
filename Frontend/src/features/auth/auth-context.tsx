@@ -58,6 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Any authenticated request whose session cannot be refreshed lands the user back on the auth screens.
     setUnauthorizedHandler(() => setState({ status: 'unauthenticated' }));
+    // Restoring the external session also resets loading state for explicit retries.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void restoreSession();
     return () => setUnauthorizedHandler(null);
   }, [restoreSession]);

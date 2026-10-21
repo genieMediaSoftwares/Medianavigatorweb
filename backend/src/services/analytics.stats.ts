@@ -77,6 +77,9 @@ export interface PeriodStats {
   meanEngagementRate: number;
   medianViews: number;
   totalViews: number;
+  /** Posts in the period that had views / an engagement rate from the platform (the rest are not counted as 0). */
+  viewsMeasured: number;
+  engagementMeasured: number;
 }
 
 export function periodStats(items: NormalizedMedia[], from: Date, to: Date): PeriodStats {
@@ -84,14 +87,19 @@ export function periodStats(items: NormalizedMedia[], from: Date, to: Date): Per
     const t = new Date(i.publishedAt).getTime();
     return t >= from.getTime() && t < to.getTime();
   });
+  const has = (i: NormalizedMedia, m: string) => !((i as { unavailableMetrics?: string[] }).unavailableMetrics ?? []).includes(m);
+  const viewed = inRange.filter((i) => has(i, 'views'));
+  const engaged = inRange.filter((i) => has(i, 'engagementRate'));
   return {
     from: from.toISOString(),
     to: to.toISOString(),
     count: inRange.length,
-    medianEngagementRate: round(median(inRange.map((i) => i.engagementRate))),
-    meanEngagementRate: round(mean(inRange.map((i) => i.engagementRate))),
-    medianViews: Math.round(median(inRange.map((i) => i.views))),
-    totalViews: inRange.reduce((a, b) => a + b.views, 0),
+    medianEngagementRate: round(median(engaged.map((i) => i.engagementRate))),
+    meanEngagementRate: round(mean(engaged.map((i) => i.engagementRate))),
+    medianViews: Math.round(median(viewed.map((i) => i.views))),
+    totalViews: viewed.reduce((a, b) => a + b.views, 0),
+    viewsMeasured: viewed.length,
+    engagementMeasured: engaged.length,
   };
 }
 

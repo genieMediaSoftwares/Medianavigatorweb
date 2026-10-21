@@ -28,16 +28,19 @@ describe('POST /connections/youtube/connect with a Data API key', () => {
     expect(list.find((c: any) => c.platform === 'youtube').authMethod).toBe('api_key');
   });
 
-  it('answers provider problems with a clear 400, not “An unexpected error occurred”', async () => {
+  it('answers provider problems with a clear status, reason and message, not “An unexpected error occurred”', async () => {
     const u = await registerUser('yterr@test.example');
     answer = () => ({ status: 403, body: { error: { code: 403, errors: [{ reason: 'accessNotConfigured' }], details: [{ reason: 'SERVICE_DISABLED' }] } } });
     const disabled = await api().post('/api/v1/connections/youtube/connect').set(u.auth).send({ apiKey: KEY, channelQuery: '@mychannel' });
-    expect(disabled.status).toBe(400);
+    // A setting the owner must change in Google Cloud: 403 with a stable reason, never a generic 400 or 500.
+    expect(disabled.status).toBe(403);
+    expect(disabled.body.error.details).toMatchObject({ reason: 'permission_missing' });
     expect(disabled.body.error.message).toMatch(/YouTube Data API v3 isn’t enabled/);
 
     answer = () => ({ body: { items: [] } });
     const missing = await api().post('/api/v1/connections/youtube/connect').set(u.auth).send({ apiKey: KEY, channelQuery: '@nobodyhere' });
-    expect(missing.status).toBe(400);
+    expect(missing.status).toBe(404);
+    expect(missing.body.error.details).toEqual({ reason: 'account_not_found', stage: 'account' });
     expect(missing.body.error.message).toMatch(/No YouTube channel matches @nobodyhere/);
 
     const wrongField = await api().post('/api/v1/connections/youtube/connect').set(u.auth).send({ accessToken: KEY });

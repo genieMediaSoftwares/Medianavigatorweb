@@ -82,6 +82,13 @@ export const mediaRepository = {
   countForAccount: (connectedAccountId: Types.ObjectId) => ContentItem.countDocuments({ connectedAccountId }),
   /** Removes all synced media for one connection (used when the connected channel changes, so old content never mixes in). */
   deleteForAccount: (connectedAccountId: Types.ObjectId) => ContentItem.deleteMany({ connectedAccountId }),
+
+  /** Removes this account's items whose provider ID is not in `keep`, returning their legacy IDs. */
+  async deleteMissing(connectedAccountId: Types.ObjectId, keep: string[]): Promise<string[]> {
+    const gone = await ContentItem.find({ connectedAccountId, providerMediaId: { $nin: keep } }).select('legacyId').lean<Array<{ _id: Types.ObjectId; legacyId: string }>>();
+    if (gone.length) await ContentItem.deleteMany({ _id: { $in: gone.map((g) => g._id) } });
+    return gone.map((g) => g.legacyId);
+  },
   latestPublishedAt: async (connectedAccountId: Types.ObjectId) =>
     (await ContentItem.findOne({ connectedAccountId }).sort({ publishedAt: -1 }).select('publishedAt').lean<{ publishedAt: Date }>())?.publishedAt ?? null,
   existingIds: async (connectedAccountId: Types.ObjectId): Promise<Set<string>> =>

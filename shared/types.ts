@@ -192,7 +192,7 @@ export interface PlannedContent {
   title: string;
   isRecommended?: boolean;
   recommendationReason?: string;
-  status: 'planned' | 'draft' | 'published';
+  status: 'idea' | 'draft' | 'planned' | 'ready' | 'published' | 'cancelled';
 }
 
 export interface AlertItem {

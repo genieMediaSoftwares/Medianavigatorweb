@@ -25,18 +25,20 @@ export function useApiResource<T>(fetcher: () => Promise<T>) {
   const [state, setState] = useState<ResourceState<T>>({ status: 'loading' });
   const [refreshing, setRefreshing] = useState(false);
   const mounted = useRef(true);
+  const requestId = useRef(0);
 
   const run = useCallback(
     async (mode: 'load' | 'refresh') => {
+      const id = ++requestId.current;
       if (mode === 'load') setState({ status: 'loading' });
       else setRefreshing(true);
       try {
         const data = await fetcher();
-        if (mounted.current) setState({ status: 'success', data });
+        if (mounted.current && id === requestId.current) setState({ status: 'success', data });
       } catch (error) {
-        if (mounted.current) setState(toFailureState(error));
+        if (mounted.current && id === requestId.current) setState(toFailureState(error));
       } finally {
-        if (mounted.current) setRefreshing(false);
+        if (mounted.current && id === requestId.current) setRefreshing(false);
       }
     },
     [fetcher],
@@ -44,9 +46,15 @@ export function useApiResource<T>(fetcher: () => Promise<T>) {
 
   useEffect(() => {
     mounted.current = true;
-    void run('load');
+    let cancelled = false;
+    // Defer initialization so cleanup can cancel it during a rapid remount.
+    void Promise.resolve().then(() => {
+      if (!cancelled) return run('load');
+    });
     return () => {
+      cancelled = true;
       mounted.current = false;
+      requestId.current += 1;
     };
   }, [run]);
 

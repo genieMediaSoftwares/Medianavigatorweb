@@ -13,6 +13,10 @@ export class ApiError extends Error {
     /** Machine-readable code from the server (e.g. VALIDATION_ERROR) or a client-side code. */
     readonly code: string,
     readonly details: ApiErrorDetail[] = [],
+    /** Why connecting an account failed (token_invalid, permission_missing, app_restricted…), when the server says. */
+    readonly reason: string | null = null,
+    /** Where connecting stopped: token, permissions or account. */
+    readonly stage: string | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -27,7 +31,7 @@ export class ApiError extends Error {
 
 type Envelope<T> =
   | { success: true; data: T; meta?: PageMeta }
-  | { success: false; error: { code: string; message: string; details?: ApiErrorDetail[] } };
+  | { success: false; error: { code: string; message: string; details?: ApiErrorDetail[] | { reason?: string; stage?: string } } };
 
 type Query = Record<string, string | number | boolean | null | undefined>;
 
@@ -101,7 +105,11 @@ function toError(response: Response, envelope: Envelope<unknown>): ApiError {
   const error = envelope.success ? null : envelope.error;
   const message =
     response.status === 429 ? 'Too many requests. Please wait a moment and try again.' : (error?.message ?? `Request failed with status ${response.status}.`);
-  return new ApiError(message, response.status, error?.code ?? 'UNKNOWN_ERROR', error?.details ?? []);
+  // `details` is a list of field problems (422) or, for a refused account connection, { reason, stage }.
+  const details = error?.details;
+  const list = Array.isArray(details) ? details : [];
+  const info = Array.isArray(details) ? (details[0] as { reason?: string; stage?: string } | undefined) : details;
+  return new ApiError(message, response.status, error?.code ?? 'UNKNOWN_ERROR', list, info?.reason ?? null, info?.stage ?? null);
 }
 
 // One refresh at a time: concurrent 401s share the same rotation, because the server revokes the

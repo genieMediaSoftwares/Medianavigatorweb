@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 
 import { colors } from '@/constants/colors';
 import { formatCompactNumber, formatPercent } from '@/lib/format';
-import type { BestTimes, EvidenceLevel, PlannerSlot, Weekday } from '@/types/api';
+import type { BestTimes, EvidenceLevel, Platform, PlannerSlot, TimeWindowKey, Weekday } from '@/types/api';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -66,14 +66,47 @@ export function suggestion(slot: PlannerSlot, minSlotPosts: number): string {
   return 'Performs about like your typical post.';
 }
 
-const WEEK_INDEX: Record<Weekday, number> = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 0 };
+/**
+ * The slot for a day and window. A response missing that cell yields an empty slot instead of crashing the grid.
+ */
+export function slotAt(data: BestTimes, day: Weekday, window: TimeWindowKey): PlannerSlot {
+  return data.analysis?.slots.find((s) => s.day === day && s.window === window)
+    ?? { day, window, posts: 0, mean: null, median: null, score: null, level: null, liftPct: null, shareAboveTypical: null, pValue: null, evidence: 'insufficient' };
+}
 
-/** Next calendar date (today counts) that falls on `day` in `timezone`, e.g. "Mon, 20 Oct". */
-export function nextDateFor(day: Weekday, timezone: string, now = new Date()): string {
-  const todayName = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long' }).format(now) as Weekday;
-  const ahead = (WEEK_INDEX[day] - WEEK_INDEX[todayName] + 7) % 7;
-  const target = new Date(now.getTime() + ahead * 86_400_000);
-  return new Intl.DateTimeFormat('en-GB', { timeZone: timezone, weekday: 'short', day: 'numeric', month: 'short' }).format(target);
+/** Number of weekday × time-of-day slots in the grid (7 × the windows the server sends). */
+export const slotCount = (data: BestTimes) => 7 * data.windows.length;
+
+/** Horizontal centre (0–1) of hour `h`'s bar when 24 equal bars fill the width. */
+export const hourCenter = (h: number) => (h + 0.5) / 24;
+
+/** Same wording everywhere for "share of posts above expected". */
+export const ABOVE_EXPECTED_LABEL = 'Posts above expected';
+
+/**
+ * Accounts in this result that are connected but missing the permissions that measure posts. Their posts can't be
+ * compared, so "post more" would be the wrong advice.
+ */
+export function permissionGaps(data: BestTimes): { platform: Platform; name: string; missing: string[] }[] {
+  const relevant = data.platform === 'all' ? data.accounts.filter((a) => a.connected) : data.accounts.filter((a) => a.platform === data.platform);
+  return relevant.filter((a) => a.connected && (a.missingPermissions?.length ?? 0) > 0).map((a) => ({ platform: a.platform, name: a.name, missing: a.missingPermissions! }));
+}
+
+/** True when the result has no recommendation because the platform didn't measure the posts, not because there are few. */
+export function blockedByPermissions(data: BestTimes): boolean {
+  const a = data.analysis;
+  return Boolean(a && !a.recommendation && permissionGaps(data).length > 0 && a.excluded.unmeasured > 0 && a.eligiblePosts < data.method.thresholds.minTotalPosts);
+}
+
+/** Time windows for one weekday that past posts support, strongest first. Only slots with enough posts are offered. */
+export function windowsForDay(data: BestTimes, day: Weekday): { slot: PlannerSlot; label: string; range: string }[] {
+  const a = data.analysis;
+  if (!a || a.aggregate) return [];
+  const min = data.method.thresholds.minSlotPosts;
+  return data.windows
+    .map((w) => ({ slot: slotAt(data, day, w.key), label: w.label, range: w.range }))
+    .filter(({ slot }) => slot.posts >= min && slot.score !== null && slot.score > 50 && slot.evidence !== 'insufficient')
+    .sort((x, y) => (y.slot.score ?? 0) - (x.slot.score ?? 0));
 }
 
 export const NO_RECOMMENDATION: Record<NonNullable<NonNullable<BestTimes['analysis']>['noRecommendationReason']>, (data: BestTimes) => { title: string; message: string }> = {

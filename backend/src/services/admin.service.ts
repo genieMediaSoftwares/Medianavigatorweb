@@ -77,12 +77,10 @@ export const adminService = {
   async adjustCredits(actor: Actor, id: string, amount: number) {
     const target = await userRepository.findById(id);
     if (!target) throw notFound('User not found');
-    const current = target.credits ?? 50;
-    const next = current + amount;
-    if (next < 0) throw badRequest('Credits cannot go below zero');
-    await User.updateOne({ _id: toObjectId(id) }, { $set: { credits: next, updatedAt: new Date() } });
-    const updated = await userRepository.findById(id);
-    await auditRepository.record({ actorId: toObjectId(actor.userId), action: 'user.credits_adjust', targetType: 'user', targetId: id, ip: actor.ip, requestId: actor.requestId, meta: { from: current, to: next, amount } });
+    const updated = await User.findOneAndUpdate({ _id: toObjectId(id), ...(amount < 0 ? { $expr: { $gte: [{ $ifNull: ['$credits', 50] }, -amount] } } : {}) }, [{ $set: { credits: { $add: [{ $ifNull: ['$credits', 50] }, amount] }, updatedAt: '$$NOW' } }], { new: true });
+    if (!updated) throw badRequest('Credits cannot go below zero');
+    const next = updated.credits ?? 0;
+    await auditRepository.record({ actorId: toObjectId(actor.userId), action: 'user.credits_adjust', targetType: 'user', targetId: id, ip: actor.ip, requestId: actor.requestId, meta: { from: next - amount, to: next, amount } });
     return publicUser(updated!);
   },
 

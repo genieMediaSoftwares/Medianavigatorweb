@@ -6,7 +6,7 @@ import { colors } from '@/constants/colors';
 import { elevation } from '@/constants/theme';
 import type { BestTimes } from '@/types/api';
 
-import { CONTENT_TYPE_LABEL, formatMetric, metricOf } from '../presentation';
+import { CONTENT_TYPE_LABEL, formatMetric, metricOf, slotCount } from '../presentation';
 
 function Row({ icon, title, body }: { icon: ComponentProps<typeof Ionicons>['name']; title: string; body: string }) {
   return (
@@ -53,7 +53,7 @@ export function PostingPatternCard({ data }: { data: BestTimes }) {
             sameAsBest
               ? 'That is also your strongest slot, so keep it.'
               : rec
-                ? `It scores ${used.score} (50 = typical). Moving key posts to ${rec.day} ${rec.windowLabel.toLowerCase()} (scores ${rec.score}) is likely to reach more people.`
+                ? `It scores ${used.score} (50 = typical). ${rec.day} ${rec.windowLabel.toLowerCase()} scores ${rec.score}, so moving key posts there is worth testing.`
                 : `It scores ${used.score} (50 = typical).`
           }
         />
@@ -61,9 +61,9 @@ export function PostingPatternCard({ data }: { data: BestTimes }) {
 
       <Row
         icon="flask-outline"
-        title={`${a.pattern.untestedSlots} of 28 time slots untested`}
+        title={`${a.pattern.untestedSlots} of ${slotCount(data)} time slots untested`}
         body={
-          a.pattern.untestedSlots > 14
+          a.pattern.untestedSlots > slotCount(data) / 2
             ? 'You post in only a few slots, so a better time may exist that hasn’t been tried. Try a couple of posts in new slots to find out.'
             : 'You’ve tried a good spread of times, which makes the comparison more reliable.'
         }

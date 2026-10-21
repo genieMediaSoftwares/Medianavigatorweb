@@ -10,7 +10,15 @@ import { getAdapter } from '../integrations/registry.js';
 
 interface OAuthApp { authorizeUrl: string; clientId: string; redirectUri: string; scope: string; pkce: boolean; extra?: Record<string, string> }
 
-const FACEBOOK_SCOPES = 'pages_show_list,pages_read_engagement,read_insights';
+const FACEBOOK_SCOPES = 'pages_show_list,pages_read_engagement,pages_read_user_content,read_insights';
+
+/**
+ * Normalize legacy Meta callback configuration for Facebook. Instagram Login uses its
+ * separate Instagram app and redirect URI; each OAuth state remains platform-bound.
+ */
+export function metaRedirectUri(configured: string, platform: 'instagram' | 'facebook'): string {
+  return configured.replace(/\/oauth\/(instagram|facebook)\/callback(?=$|[?#])/, `/oauth/${platform}/callback`);
+}
 
 export function oauthApp(platform: PlatformType): OAuthApp {
   const p = config.providers;
@@ -20,7 +28,7 @@ export function oauthApp(platform: PlatformType): OAuthApp {
   }
   if (platform === 'facebook') {
     if (!p.meta) throw unavailable('Meta OAuth is not configured on this server');
-    return { authorizeUrl: `https://www.facebook.com/${p.metaApiVersion}/dialog/oauth`, clientId: p.meta.appId, redirectUri: p.meta.redirectUri, scope: FACEBOOK_SCOPES, pkce: false };
+    return { authorizeUrl: `https://www.facebook.com/${p.metaApiVersion}/dialog/oauth`, clientId: p.meta.appId, redirectUri: metaRedirectUri(p.meta.redirectUri, platform), scope: FACEBOOK_SCOPES, pkce: false };
   }
   if (platform === 'youtube') {
     if (!p.youtube) throw unavailable('YouTube OAuth is not configured on this server');

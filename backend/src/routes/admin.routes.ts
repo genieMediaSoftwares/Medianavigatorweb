@@ -5,9 +5,15 @@ import { authenticate } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import { adminLimiter } from '../middleware/rateLimit.js';
 import { admin as v } from '../validators/index.js';
+import { adminMonitoring } from '../services/adminMonitoring.service.js';
+import { asyncHandler } from '../lib/asyncHandler.js';
+import { ok } from '../lib/response.js';
 
 export const adminRouter = Router();
 adminRouter.use(adminLimiter, authenticate, requireRole('admin'));
+adminRouter.get('/monitoring', asyncHandler(async (_req, res) => ok(res, await adminMonitoring.monitoring())));
+adminRouter.get('/errors', asyncHandler(async (_req, res) => ok(res, await adminMonitoring.errors())));
+adminRouter.get('/permissions', asyncHandler(async (_req, res) => ok(res, adminMonitoring.permissions())));
 adminRouter.get('/system', c.system);
 adminRouter.get('/users', validate({ query: v.users }), c.users);
 adminRouter.get('/users/:id', validate({ params: v.idParams }), c.user);

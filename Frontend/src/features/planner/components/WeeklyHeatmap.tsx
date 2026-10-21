@@ -6,7 +6,7 @@ import { elevation } from '@/constants/theme';
 import { DAY_NAMES } from '@/lib/format';
 import type { BestTimes, PlannerSlot } from '@/types/api';
 
-import { cellValue, DAY_SHORT, EVIDENCE, metricOf } from '../presentation';
+import { cellValue, DAY_SHORT, EVIDENCE, metricOf, slotAt } from '../presentation';
 
 const HEAT_BG = ['bg-heat-0', 'bg-heat-1', 'bg-heat-2', 'bg-heat-3', 'bg-heat-4'] as const;
 const HEAT_TEXT = ['text-navy', 'text-navy', 'text-navy', 'text-white', 'text-white'] as const;
@@ -87,7 +87,7 @@ export function WeeklyHeatmap({ data, onSelect }: { data: BestTimes; onSelect: (
             </Text>
           </View>
           {DAY_NAMES.map((d) => {
-            const slot = analysis.slots.find((s) => s.day === d && s.window === w.key)!;
+            const slot = slotAt(data, d, w.key);
             return <Cell key={d} slot={slot} data={data} width={cell} best={rec?.day === d && rec.window === w.key} onPress={() => onSelect(slot)} />;
           })}
         </View>

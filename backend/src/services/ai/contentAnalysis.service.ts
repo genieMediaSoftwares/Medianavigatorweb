@@ -1,6 +1,6 @@
 import { createPartFromBase64, createPartFromUri, type Part } from '@google/genai';
+import type { Types } from 'mongoose';
 import { z } from 'zod';
-import { loadVideoInput } from './videoInput.js';
 import { config } from '../../config/env.js';
 import { AppError, mediaUnavailable, notFound, unavailable } from '../../lib/errors.js';
 import { toObjectId } from '../../lib/ids.js';
@@ -13,6 +13,7 @@ import { loadAnalyticsContext } from '../analytics.service.js';
 import { readCredentials } from '../sync.service.js';
 import { thumbnailOnly, mp4DurationSeconds, collectMedia, compare, derivedMetrics, evidenceHash, fetchInstagramLive, syncedMetrics, type Comparison, type MediaEvidence, type MetricsSnapshot, type MetricValue } from './contentEvidence.js';
 import { AiFailedError, AiUnavailableError, aiAvailable, deleteUploaded, generateMultimodalJson, uploadVideo } from './geminiClient.js';
+import { INSTAGRAM_LOGIN_EXPIRED, loadFacebookVideo, loadVideoInput } from './videoInput.js';
 
 /** Bump when the prompt, evidence rules or output schema change: older saved analyses are then regenerated. */
 export const CONTENT_ANALYSIS_VERSION = 'content-v11';
@@ -247,10 +248,16 @@ function toResponse(doc: ContentAnalysisDoc, fromCache: boolean, stale: boolean,
   };
 }
 
+async function loadInstagramVideo(uid: Types.ObjectId, mediaId: string): Promise<Blob> {
+  const input = await loadVideoInput(uid, mediaId);
+  if (!('blob' in input)) throw new AiFailedError('Instagram did not return a video file for this post.', 'provider_error');
+  return input.blob;
+}
+
 // One generation per (user, post, type) at a time: repeated taps share the same promise.
 const inFlight = new Map<string, Promise<ContentAnalysisResponse>>();
 
-async function generate(userId: string, mediaId: string, type: ContentAnalysisType, listContext: string | null, uploadedVideo?: Uint8Array) {
+async function generate(userId: string, mediaId: string, type: ContentAnalysisType, listContext: string | null, uploadedVideo?: Uint8Array, allowLimitedReview = true) {
   const uid = toObjectId(userId);
   const doc = await mediaRepository.findByLegacyId(uid, mediaId);
   if (!doc) throw notFound('Media not found');
@@ -262,6 +269,7 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
   let metricItems: MetricValue[] = syncedMetrics(item);
   let live = null;
   let liveError: string | null = null;
+  let loginExpired = false;
   if (item.platform === 'instagram') {
     if (!account?.credentialsEnc) liveError = 'the Instagram connection has no stored access';
     else {
@@ -269,6 +277,7 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
         const r = await fetchInstagramLive(readCredentials(account), doc.providerMediaId);
         live = r.live;
         liveError = r.liveError;
+        loginExpired = r.loginExpired;
         if (r.metrics.length) metricItems = r.metrics;
       } catch (err) {
         liveError = 'Instagram could not be reached';
@@ -284,24 +293,17 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
     basis: 'full_video', images: [], videos: [{ bytes: uploadedVideo, mimeType: 'video/mp4', label: 'User-provided original video', durationSeconds: mp4DurationSeconds(uploadedVideo) }], youtubeUrl: null,
     durationSeconds: mp4DurationSeconds(uploadedVideo), failure: null,
     notes: ['This analysis uses the video you uploaded alongside this post’s metrics. Its match to the published post has not been independently verified.'],
-  } : await collectMedia(item, live, liveError);
-  // Instagram's live media type decides whether this is a video; the synced format is the fallback.
+  } : await collectMedia(item, live, liveError,
+    item.platform === 'instagram' ? { loadVideo: () => loadInstagramVideo(uid, mediaId) }
+      : item.platform === 'facebook' ? { loadVideo: () => loadFacebookVideo(uid, mediaId) } : {});
   const videoPost = live ? live.mediaType === 'VIDEO' : VIDEO_TYPES.has(item.contentType);
-  if (videoPost && item.platform === 'instagram' && !VIDEO_BASIS.has(media.basis)) {
-    try {
-      const input = await loadVideoInput(uid, mediaId);
-      if ('blob' in input) {
-        const bytes = new Uint8Array(await input.blob.arrayBuffer());
-        if (bytes.byteLength <= config.ai.contentAnalysis.maxMediaBytes) {
-          const duration = mp4DurationSeconds(bytes);
-          media = { basis: 'full_video', images: [], videos: [{ bytes, mimeType: input.blob.type, label: 'Video retrieved from Instagram', durationSeconds: duration }], youtubeUrl: null, durationSeconds: duration, notes: [], failure: null };
-        }
-      }
-    } catch (err) {
-      logger.warn('automatic video retrieval unavailable', { operation: 'content-analysis', error: err });
-    }
+  if (loginExpired && account && !uploadedVideo) {
+    await connectionRepository.setStatus(account._id, 'connection_expired', 'Instagram login expired; reconnect required').catch(() => undefined);
+    throw mediaUnavailable(INSTAGRAM_LOGIN_EXPIRED);
   }
   if (videoPost && !VIDEO_BASIS.has(media.basis)) {
+    // Keep an existing full-video analysis when its expiring source cannot be fetched again.
+    if (!allowLimitedReview) throw mediaUnavailable(media.failure ?? 'The full video is unavailable.');
     media = await thumbnailOnly(item, live?.thumbnailUrl || item.thumbnailUrl,
       'The full video is unavailable. This is a limited review of the cover, caption and measured performance; scenes, audio and pacing were not assessed.');
   }
@@ -419,7 +421,6 @@ export const contentAnalysisService = {
     const ageHours = saved?.analyzedAt ? (Date.now() - saved.analyzedAt.getTime()) / 3_600_000 : Infinity;
     const stale = Boolean(saved?.result) && (saved!.evidenceHash !== hash || ageHours > config.ai.contentAnalysis.staleHours);
 
-    const needsGeneration = Boolean(!saved?.result || stale || opts.reanalyze);
 
     if (saved?.result && !stale && !opts.reanalyze) return toResponse(saved, true, false);
 
@@ -430,7 +431,7 @@ export const contentAnalysisService = {
     const listContext = type === 'deep' ? null : `This post is in the account's ${type === 'why_top' ? 'top-performing' : 'needs-attention'} list${opts.rank ? ` (${opts.rank})` : ''}.`;
     const job = (async () => {
       try {
-        const g = await generate(userId, mediaId, type, listContext, opts.uploadedVideo);
+        const g = await generate(userId, mediaId, type, listContext, opts.uploadedVideo, !saved?.result || !VIDEO_BASIS.has(saved.mediaBasis ?? ''));
         const updated = await ContentAnalysis.findOneAndUpdate(
           key,
           {

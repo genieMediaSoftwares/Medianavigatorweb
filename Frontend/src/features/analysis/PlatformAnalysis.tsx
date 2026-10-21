@@ -1,6 +1,6 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { AppState, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { EmptyState } from '@/components/EmptyState';
 import { ErrorState } from '@/components/ErrorState';
@@ -16,7 +16,8 @@ import type { AccountScope, Connection, MediaItem, Performer, PerformerSort, Pla
 
 import { fetchMediaPage, fetchPerformers, fetchSummary } from './api';
 import { AnalysisPostCard, CardMetric } from './components';
-import { cap, isUnavailable, isVideoType, plainComparison, sentence } from './wording';
+import { cap, isVideoType, plainComparison, sentence } from './wording';
+import { facebookMetricLimitations, postMetricValue } from './post-metrics';
 
 // The three content options of a platform's analysis. Used by the Analysis tab and by
 // /analysis/[platform] (Dashboard → View Analysis).
@@ -46,7 +47,8 @@ function useNav(platform?: Platform) {
 }
 
 /** Option 1: every synced post, page by page from GET /media, for one handle or all of them. Action: Deep Analysis. */
-function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountScope; connections: Connection[]; reloadKey: number; onSynced?: () => void }) {
+function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountScope; connections: Connection[]; reloadKey: string; onSynced?: () => void }) {
+  const router = useRouter();
   const platform = scope === 'all' ? undefined : scope;
   const nav = useNav(platform);
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -77,6 +79,7 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
         if (id === request.current) setState({ kind: 'error', message: e instanceof Error ? e.message : 'Unable to load posts.' });
       },
     );
+    return () => { request.current += 1; };
   }, [platform, reloadKey, retryKey]);
   const live = connections.filter((c) => c.connected && (scope === 'all' || c.platform === scope));
 
@@ -106,6 +109,8 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
   const reported = live.length === 1 ? live[0].accountInfo?.mediaCount : undefined;
   const syncing = platform ? sync.active.includes(platform) : sync.active.length > 0;
   const lastSynced = live.map((c) => c.lastSyncedAt).filter(Boolean).sort()[0] ?? null;
+  // Permissions the last sync reported missing for metrics: the posts were read, but those numbers are unavailable.
+  const metricGaps = [...new Set(live.flatMap((c) => (c.status === 'permission_required' ? [] : c.missingPermissions ?? [])))];
   return (
     <View>
       <View className="mb-sm rounded-[12px] bg-neutral-50 p-md">
@@ -123,12 +128,23 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
         {reported !== undefined && total < reported && !syncing ? (
           <Text className="mt-xs text-[11px] text-warning">{`${(reported - total).toLocaleString()} posts on the profile aren’t synced yet. Sync now to fetch them; posts the platform doesn’t share through its API (for example some stories or deleted posts) can’t be imported.`}</Text>
         ) : null}
+        {metricGaps.length && !syncing ? (
+          <View className="mt-xs" style={{ gap: 6 }}>
+            <Text className="text-[11px] text-warning">{`Meta denied access requiring ${metricGaps.join(' and ')} during the last sync. Reconnect to grant access, then sync again. Some metrics may also be unavailable for the post’s format.`}</Text>
+            {live.some((c) => c.platform === 'facebook' && c.missingPermissions?.length) ? (
+              <Text className="text-[11px] text-neutral-500">If Meta will not grant these permissions, resolve access in the Meta app dashboard first. Syncing again cannot unlock denied metrics, including when running locally.</Text>
+            ) : null}
+            {live.filter((c) => c.missingPermissions?.length).map((c) => (
+              <Button key={c.platform} title={`Reconnect ${c.name}`} size="sm" variant="secondary" onPress={() => router.push({ pathname: '/connect/[platform]', params: { platform: c.platform, reconnect: '1' } })} />
+            ))}
+          </View>
+        ) : null}
         {sync.error ? <Text className="mt-xs text-[11px] text-danger">{sync.error}</Text> : null}
       </View>
       <View className="flex-row flex-wrap justify-between">
       {items.map((m) => {
         const video = isVideoType(m.contentType);
-        const metric = (icon: CardMetric['icon'], label: string, key: 'views' | 'likes' | 'comments' | 'shares' | 'reach'): CardMetric => ({ icon, label, value: isUnavailable(m, key) ? null : m[key] });
+        const metric = (icon: CardMetric['icon'], label: string, key: 'views' | 'likes' | 'comments' | 'shares' | 'reach'): CardMetric => ({ icon, label, value: postMetricValue(m, key) });
         return (
           <AnalysisPostCard
             key={m.id}
@@ -139,13 +155,15 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
             publishedAt={m.publishedAt}
             metrics={[
               metric('eye-outline', 'views', 'views'),
-              metric('heart-outline', 'likes', 'likes'),
+              metric('heart-outline', m.platform === 'facebook' ? 'reactions' : 'likes', 'likes'),
               metric('chatbubble-outline', 'comments', 'comments'),
               metric('arrow-redo-outline', 'shares', 'shares'),
               metric('people-outline', 'reach', 'reach'),
+              ...(m.platform === 'facebook' && video ? [{ icon: 'time-outline' as const, label: 'watch time in minutes', decimals: 2, suffix: ' min', value: postMetricValue(m, 'watchTimeMinutes') }] : []),
               // Engagement needs measured reach or views; the sync marks it unavailable otherwise.
-              { icon: 'pulse-outline', label: 'eng.', value: [...m.unavailableMetrics, ...(m.missingMetrics ?? [])].includes('engagementRate') ? null : m.engagementRate, percent: true },
+              { icon: 'pulse-outline', label: 'eng.', value: postMetricValue(m, 'engagementRate'), percent: true },
             ]}
+            footnote={facebookMetricLimitations(m)}
             actions={[{ label: 'Deep Analysis', icon: video ? 'videocam-outline' : 'search-outline', primary: true, onPress: () => nav.deep(m.id) }]}
           />
         );
@@ -276,6 +294,23 @@ export function PlatformAnalysisLists({ scope, connections, tab, reloadKey, onSy
   /** Lets the all-accounts view jump to one handle. */
   onScope?: (s: AccountScope) => void;
 }) {
+  const [focusVersion, setFocusVersion] = useState(0);
+  useFocusEffect(useCallback(() => {
+    // Stack screens stay mounted: reload after returning from a connection or analysis screen.
+    setFocusVersion((version) => version + 1);
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        setFocusVersion((version) => version + 1);
+        onSynced?.();
+      }
+    });
+    onSynced?.();
+    return () => subscription.remove();
+  }, [onSynced]));
+  // Connection refreshes can reveal a sync completed on the dashboard or website.
+  const syncVersion = connections.filter((c) => scope === 'all' || c.platform === scope)
+    .map((c) => `${c.platform}:${c.lastSyncedAt ?? ''}`).join('|');
+  const dataVersion = `${reloadKey}:${focusVersion}:${syncVersion}`;
   const importing = connections.filter((c) => c.connected && (scope === 'all' || c.platform === scope) && (c.status === 'syncing' || c.status === 'connecting'));
   return (
     <>
@@ -283,13 +318,13 @@ export function PlatformAnalysisLists({ scope, connections, tab, reloadKey, onSy
         <Notice key={c.platform} variant="info" title={`Importing your ${c.name} posts`} message={`${c.dataPointsCount.toLocaleString()} posts synced so far. Pull down to refresh.`} />
       ))}
       <View style={{ display: tab === 'all' ? 'flex' : 'none' }}>
-        <AllPosts scope={scope} connections={connections} reloadKey={reloadKey} onSynced={onSynced} />
+        <AllPosts scope={scope} connections={connections} reloadKey={dataVersion} onSynced={onSynced} />
       </View>
       <View style={{ display: tab === 'top' ? 'flex' : 'none' }}>
-        <Ranked key={`top${reloadKey}`} kind="top" scope={scope} connections={connections} onScope={onScope} />
+        <Ranked key={`top${dataVersion}`} kind="top" scope={scope} connections={connections} onScope={onScope} />
       </View>
       <View style={{ display: tab === 'attention' ? 'flex' : 'none' }}>
-        <Ranked key={`bottom${reloadKey}`} kind="bottom" scope={scope} connections={connections} onScope={onScope} />
+        <Ranked key={`bottom${dataVersion}`} kind="bottom" scope={scope} connections={connections} onScope={onScope} />
       </View>
     </>
   );

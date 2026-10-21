@@ -1,4 +1,6 @@
 import { httpFetch } from '../../lib/http.js';
+import { ConnectError } from '../../lib/errors.js';
+import { MetaApiError } from '../meta/metaErrors.js';
 import { MetaAuth } from '../meta/metaAuth.js';
 import { InstagramClient } from '../meta/instagram/instagramClient.js';
 import type { ProviderAdapter, ProviderCredentials, ResolvedAccount } from '../types.js';
@@ -6,6 +8,8 @@ import type { ProviderAdapter, ProviderCredentials, ResolvedAccount } from '../t
 const legacyClient = new InstagramClient();
 const loginClient = new InstagramClient(true);
 const clientFor = (c: ProviderCredentials) => c.instagramLogin ? loginClient : legacyClient;
+/** Needed for legacy Facebook Login tokens. */
+const REQUIRED_SCOPES = ['instagram_basic', 'pages_show_list'];
 const token = (c: ProviderCredentials) => (c.accessToken || c.apiKey || '').trim();
 
 export const instagramAdapter: ProviderAdapter = {
@@ -40,12 +44,24 @@ export const instagramAdapter: ProviderAdapter = {
   async validate(creds) {
     if (creds.instagramLogin) {
       try { await loginClient.resolveAccount(token(creds), creds.accountId); return { isValid: true }; }
-      catch (err) { const error = err instanceof Error ? err.message : 'Instagram sign-in failed'; return { isValid: false, error, kind: /expired/i.test(error) ? 'expired' : 'permission' }; }
+      catch (err) {
+        const error = err instanceof Error ? err.message : 'Instagram sign-in failed';
+        const reason = err instanceof ConnectError || err instanceof MetaApiError ? err.reason : undefined;
+        return { isValid: false, error, reason, kind: reason === 'token_expired' || /expired/i.test(error) ? 'expired' : 'permission' };
+      }
     }
-    const v = await MetaAuth.validateToken(token(creds));
-    if (v.isValid) return { isValid: true };
-    const error = v.error || 'Instagram authentication failed.';
-    return { isValid: false, error, kind: /expired/i.test(error) ? 'expired' : /permission|blocked|restriction/i.test(error) ? 'permission' : 'invalid' };
+    const v = await MetaAuth.validateToken(token(creds), 'instagram');
+    if (v.isValid) {
+      // A Facebook user token reports what was granted: say exactly which required permission is missing, rather than
+      // failing later with "no Instagram account found".
+      const missing = v.scopesVerified ? REQUIRED_SCOPES.filter((s) => !v.scopes.includes(s)) : [];
+      if (missing.length) {
+        return { isValid: false, reason: 'permission_missing', kind: 'permission', error: `This token was generated without ${missing.join(' and ')}. In Graph API Explorer add ${missing.join(', ')} (with instagram_manage_insights and pages_read_engagement), generate a new token and select the Facebook Page linked to your Instagram account.` };
+      }
+      return { isValid: true };
+    }
+    const reason = v.reason ?? 'token_invalid';
+    return { isValid: false, error: v.error || 'Instagram authentication failed.', reason, kind: reason === 'token_expired' ? 'expired' : reason === 'permission_missing' || reason === 'app_restricted' ? 'permission' : 'invalid' };
   },
 
   async resolveAccount(creds): Promise<ResolvedAccount> {

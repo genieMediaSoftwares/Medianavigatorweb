@@ -4,6 +4,8 @@ import type { ZodType, ZodTypeDef } from 'zod';
 import type { VideoInput } from './videoInput.js';
 import { config } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
+import mongoose from 'mongoose';
+import { AiUsage } from '../../models/AdminTelemetry.js';
 
 export class AiUnavailableError extends Error {
   constructor(message = 'AI analysis is not configured on this server') { super(message); this.name = 'AiUnavailableError'; }
@@ -31,7 +33,7 @@ function parseJson(raw: string): unknown {
 }
 
 /** One model call, JSON out, validated against `schema`. Throws AiUnavailableError / AiFailedError; never returns made-up data. */
-export async function generateJson<T>(opts: { system: string; prompt: string; schema: ZodType<T, ZodTypeDef, unknown>; video?: VideoInput }): Promise<{ data: T; model: string; latencyMs: number }> {
+async function generateJsonImpl<T>(opts: { system: string; prompt: string; schema: ZodType<T, ZodTypeDef, unknown>; video?: VideoInput }): Promise<{ data: T; model: string; latencyMs: number }> {
   const ai = getClient();
   const model = config.ai.model!;
   const started = Date.now();
@@ -114,7 +116,7 @@ export async function deleteUploaded(name: string): Promise<void> {
 }
 
 /** One multimodal call (text + images/video parts), JSON out, validated against `schema`. */
-export async function generateMultimodalJson<T>(opts: { system: string; parts: Part[]; schema: ZodType<T, ZodTypeDef, unknown>; timeoutMs: number }): Promise<{ data: T; model: string; latencyMs: number }> {
+async function generateMultimodalJsonImpl<T>(opts: { system: string; parts: Part[]; schema: ZodType<T, ZodTypeDef, unknown>; timeoutMs: number }): Promise<{ data: T; model: string; latencyMs: number }> {
   const ai = getClient();
   const model = config.ai.model!;
   const started = Date.now();
@@ -127,7 +129,8 @@ export async function generateMultimodalJson<T>(opts: { system: string; parts: P
     text = res.text;
   } catch (err) {
     if (err instanceof AiFailedError) throw err;
-    logger.warn('gemini multimodal request failed', { operation: 'ai', provider: 'gemini', status: (err as { status?: number }).status });
+    logger.warn('gemini multimodal request failed', { operation: 'ai', provider: 'gemini', status: (err as { status?: number }).status, error: err });
+    if (/DEADLINE_EXCEEDED|"code":\s*504/.test(String((err as Error)?.message))) throw new AiFailedError('The analysis request timed out.', 'timeout');
     throw new AiFailedError('The analysis request failed.', 'provider_error');
   }
   if (!text) throw new AiFailedError('The analysis service returned an empty result.', 'invalid_response');
@@ -142,3 +145,15 @@ export async function generateMultimodalJson<T>(opts: { system: string; parts: P
   logger.info('gemini multimodal call', { operation: 'ai', provider: 'gemini', model, latencyMs });
   return { data: checked.data, model, latencyMs };
 }
+
+async function measured<T>(operation: string, run: () => Promise<T>): Promise<T> {
+  const started = Date.now(); let status = 'succeeded'; let reason: string | null = null;
+  try { return await run(); }
+  catch (error) { status = 'failed'; reason = error instanceof AiFailedError ? error.reason : error instanceof AiUnavailableError ? 'unavailable' : 'provider_error'; throw error; }
+  finally {
+    // Observability must never fail a customer request or buffer while MongoDB is disconnected.
+    if (mongoose.connection.readyState === 1) void AiUsage.create({ operation, model: aiModel() ?? 'unconfigured', status, reason, latencyMs: Date.now() - started }).catch(() => logger.warn('AI usage metadata could not be recorded'));
+  }
+}
+export function generateJson<T>(opts: Parameters<typeof generateJsonImpl<T>>[0]) { return measured('json', () => generateJsonImpl(opts)); }
+export function generateMultimodalJson<T>(opts: Parameters<typeof generateMultimodalJsonImpl<T>>[0]) { return measured('multimodal', () => generateMultimodalJsonImpl(opts)); }

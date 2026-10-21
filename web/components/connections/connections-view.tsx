@@ -38,6 +38,18 @@ function Stat({ icon: Icon, label, children }: { icon: typeof Users; label: stri
   );
 }
 
+/** Fixed text per failure reason from the OAuth callback; the URL never carries a message. */
+const OAUTH_FAILURE: Record<string, string> = {
+  token_invalid: 'The sign-in returned a token Meta then refused. Please try again.',
+  token_expired: 'The sign-in expired before it finished. Please try again.',
+  permission_missing: 'Some permissions were not granted. Sign in again and allow every permission Media Navigator asks for.',
+  app_restricted: 'Meta has restricted API access for this app. Check the app’s alerts in the Meta App Dashboard.',
+  account_not_found: 'No Instagram professional account or Facebook Page was found. Sign in again and select the Page linked to your Instagram account when Meta asks which Pages to share.',
+  account_not_authorized: 'That account isn’t one the signed-in user manages.',
+  account_selection_required: 'You manage several accounts. Connect with an access token and enter the ID of the one to connect.',
+  provider_unavailable: 'Meta isn’t responding right now. Please try again in a few minutes.',
+};
+
 function OauthBanner() {
   const params = useSearchParams();
   const router = useRouter();
@@ -46,7 +58,7 @@ function OauthBanner() {
   const name = PLATFORM_NAME[params.get('platform') as Platform] ?? 'your account';
   const shown = result === 'connected' ? { tone: 'good' as const, text: `${name} is connected. We’re importing your posts now.` }
     : result === 'denied' ? { tone: 'warn' as const, text: `You cancelled the ${name} sign-in, so nothing was connected.` }
-    : { tone: 'bad' as const, text: `We couldn’t finish connecting ${name}. Please try again.` };
+    : { tone: 'bad' as const, text: OAUTH_FAILURE[params.get('reason') ?? ''] ?? `We couldn’t finish connecting ${name}. Please try again.` };
   return <Notice tone={shown.tone} className="mb-6"><div className="flex items-center justify-between gap-3"><span>{shown.text}</span><button onClick={() => router.replace('/connections')} className="font-semibold underline">Dismiss</button></div></Notice>;
 }
 

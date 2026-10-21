@@ -28,6 +28,15 @@ intelligenceRouter.post('/analyze-video', aiLimiter, validate({ body: v.item }),
 intelligenceRouter.post('/compare', validate({ body: v.compare }), c.compare);
 // Six-point content analysis (deep / why_top / why_bottom) over the real media, saved per post.
 intelligenceRouter.post('/content-analysis', aiLimiter, validate({ body: v.contentAnalysis }), c.contentAnalysis);
+intelligenceRouter.post('/creative-report', aiLimiter, validate({ body: v.creativeReport }), c.creativeReport);
+intelligenceRouter.post('/deep-report', aiLimiter, validate({ body: v.deepReport }), c.deepReport);
+intelligenceRouter.post('/deep-report-v2', aiLimiter, validate({ body: v.deepV2 }), c.startDeepV2);
+intelligenceRouter.get('/deep-report-v2/:jobId', validate({ params: v.deepV2Job }), c.getDeepV2);
+intelligenceRouter.post('/deep-report-v2/:jobId/audience', aiLimiter, validate({ params: v.deepV2Job }), c.refreshDeepAudience);
+intelligenceRouter.post('/deep-report-v2/:jobId/cancel', validate({ params: v.deepV2Job }), c.cancelDeepV2);
+intelligenceRouter.get('/deep-report-v2/:jobId/saved-actions', validate({ params: v.deepV2Job }), c.savedDeepV2);
+intelligenceRouter.post('/deep-report-v2/:jobId/actions/:actionId', validate({ params: v.deepV2Action }), c.saveDeepV2);
+intelligenceRouter.delete('/deep-report-v2/:jobId/actions/:actionId', validate({ params: v.deepV2Action }), c.unsaveDeepV2);
 const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.ai.contentAnalysis.maxMediaBytes, files: 1, fields: 3 } });
 intelligenceRouter.post('/content-analysis/upload', aiLimiter, videoUpload.single('video'), validate({ body: v.contentAnalysis }), c.uploadContentAnalysis);
 intelligenceRouter.get('/content-analysis', validate({ query: v.contentAnalysisQuery }), c.savedContentAnalysis);

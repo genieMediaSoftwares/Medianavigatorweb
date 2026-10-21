@@ -181,6 +181,9 @@ export interface PeriodStats {
   meanEngagementRate: number;
   medianViews: number;
   totalViews: number;
+  /** Posts with views / an engagement rate from the platform; absent on older API responses. */
+  viewsMeasured?: number;
+  engagementMeasured?: number;
 }
 export interface SlimPost {
   id: string;

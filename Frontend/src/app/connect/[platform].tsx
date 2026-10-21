@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform as RNPlatform, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,7 +14,7 @@ import { TextField } from '@/components/ui/TextField';
 import { SegmentedControl } from '@/components/visual/SegmentedControl';
 import { colors } from '@/constants/colors';
 import { connectPlatform, disconnectPlatform, fetchConnections, startOAuth } from '@/features/connections/api';
-import { ConnectedPanel, ConnectionHeader, ConnectionSuccess, connectErrorMessage, ProviderSetupCard } from '@/features/connections/ConnectionParts';
+import { ConnectedPanel, ConnectionHeader, ConnectionSuccess, connectErrorMessage, connectErrorTitle, ProviderSetupCard } from '@/features/connections/ConnectionParts';
 import { YouTubeAnalyticsSection, YouTubeDataApiSection } from '@/features/connections/YouTubeConnect';
 import { isPlatform, PLATFORM_META, problemMessage, statusView } from '@/features/connections/platforms';
 import { PLATFORM_SETUP } from '@/features/connections/setup';
@@ -40,6 +40,7 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
   const [extra, setExtra] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [errorTitle, setErrorTitle] = useState<string | undefined>(undefined);
   // With one-tap sign-in available, the manual token form is a fallback the user opens on purpose.
   const [manual, setManual] = useState(!connection.oauthAvailable);
 
@@ -60,6 +61,7 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
       onConnected(result.connection);
     } catch (e) {
       setError(connectErrorMessage(e, name));
+      setErrorTitle(connectErrorTitle(e, name));
     } finally {
       setPhase('idle');
     }
@@ -121,7 +123,7 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
         </View>
       ) : null}
 
-      {error ? <Notice variant="error" message={error} /> : null}
+      {error ? <Notice variant="error" title={errorTitle} message={error} /> : null}
 
       <TextField
         label={mode.label}
@@ -163,13 +165,24 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
 /** Connect, manage or disconnect one platform. Connection state always comes from GET /connections. */
 export default function ConnectPlatformScreen() {
   const router = useRouter();
-  const { platform: param } = useLocalSearchParams<{ platform: string }>();
+  const { platform: param, reconnect } = useLocalSearchParams<{ platform: string; reconnect?: string }>();
   const platform = isPlatform(param) ? param : null;
-  const { state, reload, refresh } = useApiResource(fetchConnections);
+  const { state, refreshing, reload, refresh } = useApiResource(fetchConnections);
+  // Website connections are shared by this API and user. Recheck when returning
+  // from a browser tab where the user completed a connection.
+  useEffect(() => {
+    if (RNPlatform.OS !== 'web') return;
+    const onFocus = () => { void refresh(); };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [refresh]);
   const sync = useSync(useCallback(() => void refresh(), [refresh]));
   const [disconnecting, setDisconnecting] = useState(false);
   const [success, setSuccess] = useState<Connection | null>(null);
   const [oauthNotice, setOauthNotice] = useState<string | null>(null);
+  // Incremented to stop an earlier sign-in check (a new attempt, or leaving the screen).
+  const oauthCheck = useRef(0);
+  useEffect(() => () => { oauthCheck.current += 1; }, []);
 
   const goBack = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
@@ -200,16 +213,32 @@ export default function ConnectPlatformScreen() {
     }
   };
 
+  // On the web the sign-in opens in another tab and this call returns at once, so keep checking until the server has
+  // finished the exchange (it stores the connection on its callback), the user leaves, or a few minutes pass.
   const afterOAuth = async () => {
-    setOauthNotice(null);
-    try {
-      const latest = (await fetchConnections()).find((c) => c.platform === platform);
-      if (latest?.connected) setSuccess(latest);
-      else setOauthNotice(`${name} didn’t finish connecting. If you completed sign-in, pull to refresh in a moment; otherwise try again.`);
-      await refresh();
-    } catch (e) {
-      setOauthNotice(e instanceof Error ? e.message : 'Unable to check the connection.');
+    const screen = ++oauthCheck.current;
+    const snapshot = (c?: Connection) => JSON.stringify([c?.connected, c?.authMethod, c?.accountHandle, c?.statusMessage]);
+    const before = snapshot(connection);
+    setOauthNotice(`Waiting for you to finish signing in to ${name}…`);
+    // 60 checks, 3 seconds apart: about three minutes.
+    for (let attempt = 0; attempt < 60 && screen === oauthCheck.current; attempt++) {
+      try {
+        const latest = (await fetchConnections()).find((c) => c.platform === platform);
+        if (screen !== oauthCheck.current) return;
+        // A finished connection always changes the stored state ("Connected. First synchronization queued.").
+        if (latest?.connected && snapshot(latest) !== before) {
+          setOauthNotice(null);
+          setSuccess(latest);
+          await refresh();
+          return;
+        }
+      } catch (e) {
+        setOauthNotice(e instanceof Error ? e.message : 'Unable to check the connection.');
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 3000));
     }
+    if (screen === oauthCheck.current) setOauthNotice(`${name} didn’t finish connecting. If Meta showed an error, it will be listed under Connections on the web app; otherwise try again.`);
   };
 
   if (success) {
@@ -222,7 +251,8 @@ export default function ConnectPlatformScreen() {
   }
 
   const status = connection ? statusView(connection, sync.active.includes(platform)) : null;
-  const showForm = connection && (!connection.connected || status?.needsReconnect);
+  const reconnecting = reconnect === '1' || Boolean(connection?.missingPermissions?.length);
+  const showForm = connection && (!connection.connected || status?.needsReconnect || reconnecting);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.white }}>
@@ -237,6 +267,15 @@ export default function ConnectPlatformScreen() {
             <Text className="mb-xl mt-sm text-center text-[15px] leading-[22px] text-neutral-500">{setup.intro}</Text>
           </View>
 
+          {platform === 'instagram' || platform === 'facebook' ? (
+            <View className="mb-lg">
+              <Text className="mb-sm text-center text-[13px] leading-[19px] text-neutral-500">
+                Already connected on the website? Use the same Media Navigator account and refresh to load that connection.
+              </Text>
+              <Button title="Refresh connection" variant="secondary" icon="refresh-outline" onPress={() => void refresh()} loading={refreshing} />
+            </View>
+          ) : null}
+
           {state.status === 'loading' ? (
             <LoadingState message="Checking connection…" />
           ) : state.status !== 'success' ? (
@@ -250,7 +289,7 @@ export default function ConnectPlatformScreen() {
               {problemMessage(connection) ? <Notice variant="warning" title={status?.label} message={problemMessage(connection)!} /> : null}
               {sync.error ? <Notice variant="error" title="Sync" message={sync.error} /> : null}
 
-              {connection.connected && !status?.needsReconnect ? (
+              {connection.connected && !status?.needsReconnect && !reconnecting ? (
                 <View style={{ gap: 10 }}>
                   <Text className="text-center text-[13px] text-neutral-500">
                     {`Last synced ${formatRelativeTime(connection.lastSyncedAt || null)} · ${connection.dataPointsCount.toLocaleString()} items`}
