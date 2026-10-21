@@ -16,7 +16,7 @@ import { AiFailedError, AiUnavailableError, aiAvailable, deleteUploaded, generat
 import { INSTAGRAM_LOGIN_EXPIRED, loadFacebookVideo, loadVideoInput } from './videoInput.js';
 
 /** Bump when the prompt, evidence rules or output schema change: older saved analyses are then regenerated. */
-export const CONTENT_ANALYSIS_VERSION = 'content-v11';
+export const CONTENT_ANALYSIS_VERSION = 'content-v12';
 
 const FACTORS = ['Hook Effectiveness', 'Content Quality', 'Audience Engagement', 'Audience Psychology', 'Reach & Discoverability', 'Repeatable Success Factors'];
 const TITLES: Record<ContentAnalysisType, string[]> = {
@@ -40,7 +40,6 @@ const GUIDE: Record<ContentAnalysisType, string[]> = {
   why_top: FACTOR_GUIDE,
   why_bottom: FACTOR_GUIDE,
 };
-
 const SYSTEM = `You are Media Navigator's Content Performance & Creative Intelligence Engine.
 
 You are an expert social media content strategist, visual content analyst, creative director, audience behavior analyst, and performance marketing specialist.
@@ -69,13 +68,9 @@ Rules you must follow:
 - Use the exact numbers provided; only use metrics marked available.
 - Each of the six points answers its own question; do not repeat the same idea across points.
 - The six points must follow this exact order and these exact titles: 1. Hook Effectiveness, 2. Content Quality, 3. Audience Engagement, 4. Audience Psychology, 5. Reach & Discoverability, 6. Repeatable Success Factors. Each point must be 1-2 sentences, concise and specific, in the style of "What's Working?" bullet points.
-- Observations contain only concrete visible/audible evidence. Interpretation must explain a plausible viewer response and an exact edit to test, never paraphrase the observations.
-- In the hook point, quote the actual opening line or on-screen text if present, cite its timestamp, identify the promise and payoff, and propose a replacement opening with exact wording and timing.
-- In visual/audio technique findings, identify the specific cut, framing, text readability, speech/music balance or silence at a timestamp, then specify an actionable edit. Do not retell the plot.
-- Cover the full duration supplied, including middle and ending, rather than restricting analysis to the opening minute.
+- Anti-generic rule: never write a point that could apply to any other post. Every point must name a concrete moment (timestamp + what is on screen / what is heard) and the exact edit to test. If you cannot name a concrete moment, say the evidence is missing instead of generalising.
 - No generic statements ("engaging", "attractive", "use trending music", "post consistently") unless tied to a specific observation or measured gap.
 - Be concise and specific. Plain English. No numerical confidence percentages.
-- Anti-generic rule: never write a point that could apply to any other post. Every point must name a concrete moment (timestamp + what is on screen / what is heard) and the exact edit to test. If you cannot name a concrete moment, say the evidence is missing instead of generalising.
 Return JSON only.`;
 
 // Long or over-full fields are trimmed rather than rejected; the six-point structure itself is strict.
@@ -259,7 +254,7 @@ const inFlight = new Map<string, Promise<ContentAnalysisResponse>>();
 
 async function generate(userId: string, mediaId: string, type: ContentAnalysisType, listContext: string | null, uploadedVideo?: Uint8Array, allowLimitedReview = true) {
   const uid = toObjectId(userId);
-  const doc = await mediaRepository.findByLegacyId(uid, mediaId);
+  const doc = await mediaRepository.findByIdOrLegacy(uid, mediaId);
   if (!doc) throw notFound('Media not found');
   const item = toNormalized(doc);
   const ctx = await loadAnalyticsContext(uid);
@@ -323,10 +318,13 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
         const fps = fpsFor(v.durationSeconds);
         const videoMetadata: Record<string, unknown> = {};
         if (fps) videoMetadata.fps = fps;
+        const limitSeconds = 120;
+        if (v.durationSeconds && v.durationSeconds > limitSeconds) videoMetadata.endOffset = `${limitSeconds}s`;
         parts.push({ ...createPartFromUri(f.uri, f.mimeType), ...(Object.keys(videoMetadata).length ? { videoMetadata } : {}) });
       }
       if (media.youtubeUrl) {
         const videoMetadata: Record<string, unknown> = {};
+        if (media.durationSeconds && media.durationSeconds > 120) { videoMetadata.startOffset = '0s'; videoMetadata.endOffset = '120s'; }
         parts.push({ fileData: { fileUri: media.youtubeUrl }, ...(Object.keys(videoMetadata).length ? { videoMetadata } : {}) });
       }
       for (const img of media.images) {
@@ -343,10 +341,10 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
   try {
     out = await call();
   } catch (err) {
-    // If the full video cannot be uploaded to the analysis service (for example because the Gemini
-    // Files API rejects it), fall back to a thumbnail-only review instead of failing the whole request.
+    // If the full video cannot be processed by the analysis service, fall back to a thumbnail-only
+    // review instead of failing the whole request.
     if (media.basis === 'full_video') {
-      logger.warn('content analysis video upload/processing failed; falling back to thumbnail', { operation: 'content-analysis', mediaId, error: err });
+      logger.warn('content analysis video processing failed; falling back to thumbnail', { operation: 'content-analysis', mediaId, error: err });
       media = await thumbnailOnly(item, live?.thumbnailUrl || item.thumbnailUrl,
         'The full video could not be processed by the analysis service. This is a limited review of the cover image, caption and measured performance; scenes, audio and pacing were not assessed.');
       out = await call();

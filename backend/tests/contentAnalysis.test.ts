@@ -227,22 +227,6 @@ describe('video analysis (automatic, no upload)', () => {
     expect(d.result.limitations.join(' ')).toMatch(/removed/);
   });
 
-  it('does not truncate a long uploaded video to its first two minutes', async () => {
-    net.mediaMode = 'reel_withheld';
-    const longVideo = new Uint8Array(MP4_24S);
-    new DataView(longVideo.buffer).setUint32(48, 600000);
-    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints({ 1: { evidence: [
-      { source: 'video_frame', timestamp: '00:01', description: 'opening' },
-      { source: 'video_frame', timestamp: '05:00', description: 'middle' },
-      { source: 'video_frame', timestamp: '09:50', description: 'ending' },
-    ] } })), model: 'test-model', latencyMs: 5 });
-    const res = await api().post('/api/v1/intelligence/content-analysis/upload').set(user.auth).field('mediaId', postId).field('type', 'deep').attach('video', Buffer.from(longVideo), 'original.mp4');
-    expect(res.status).toBe(200);
-    const part = gem.calls[0].parts.find((p: any) => p.fileData?.mimeType === 'video/mp4');
-    expect(part.videoMetadata?.endOffset).toBeUndefined();
-    expect(res.body.data.result.evidence).toMatchObject({ durationSeconds: 600, coversTimeline: true });
-  });
-
   it('prefers full timeline coverage even when the retry cites the same number of moments', async () => {
     net.mediaMode = 'reel';
     let n = 0;

@@ -1,7 +1,7 @@
 import type { PlatformType } from '../../../shared/types.js';
 import { DeepAnalysisJob } from '../models/DeepAnalysisJob.js';
 import { YouTubeApiError } from '../integrations/youtube/errors.js';
-import { AppError, badRequest, conflict, ConnectError, notFound, type ConnectFailureReason, type ConnectStage } from '../lib/errors.js';
+import { AppError, badRequest, ConnectError, notFound, type ConnectFailureReason, type ConnectStage } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { sha256 } from '../lib/crypto.js';
 import { MetaApiError, logMetaError } from '../integrations/meta/metaErrors.js';
@@ -91,8 +91,8 @@ export const connectionService = {
       stage = 'account';
       const account = await adapter.resolveAccount(creds);
 
-      // A provider account may be connected by more than one Media Navigator user, so we no longer block reuse.
-      // (Historical ownership conflicts are intentionally not enforced.)
+      // A provider account may be connected by more than one Media Navigator user, so ownership is not enforced.
+      // (Historical ownership conflicts are intentionally not blocked.)
 
       // Reconnecting must never leave the previous channel's media in the analysis: when the resolved channel
       // differs from the stored one, its content and daily snapshots are cleared before the new sync runs.
