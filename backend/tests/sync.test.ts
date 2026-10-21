@@ -351,7 +351,8 @@ describe('data lifecycle and ownership', () => {
     fake.accountId = 'b'; await connect(b, 'instagram', { accessToken: 'tok-b' });
     await drain();
     expect(await ContentItem.countDocuments()).toBe(24);
-    expect((await api().delete('/api/v1/users/me').set(a.auth).send({ password: 'wrong-Pass-1' })).status).toBe(401);
+    // A wrong confirmation password is a 400 that keeps the session; only an invalid session is a 401.
+    expect((await api().delete('/api/v1/users/me').set(a.auth).send({ password: 'wrong-Pass-1' })).status).toBe(400);
     expect((await api().delete('/api/v1/users/me').set(a.auth).send({ password: 'Sup3rSecret99' })).status).toBe(200);
     expect(await ContentItem.countDocuments({ userId: new mongoose.Types.ObjectId(a.id) })).toBe(0);
     expect(await ContentItem.countDocuments({ userId: new mongoose.Types.ObjectId(b.id) })).toBe(12);

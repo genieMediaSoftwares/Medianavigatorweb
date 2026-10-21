@@ -19,6 +19,7 @@ import { useConnections } from '@/lib/hooks/useQueries';
 import { useSync } from '@/lib/hooks/useSync';
 import { PLATFORM_NAME } from '@/lib/platforms';
 import { qk } from '@/lib/queryKeys';
+import { syncCoverageNote } from '@/lib/sync-coverage';
 import { PLATFORMS, type Connection, type Platform } from '@/types/api';
 import { ConnectModal } from './connect-modal';
 
@@ -70,6 +71,8 @@ function PlatformCard({ platform, connection, onConnect, onDisconnect }: { platf
   const live = Boolean(connection?.connected);
   const problem = connection ? problemMessage(connection) : null;
   const followers = connection?.accountInfo?.followersCount;
+  const following = connection?.accountInfo?.followsCount;
+  const coverage = live && connection ? syncCoverageNote(connection) : null;
 
   return (
     <article className="card flex flex-col p-6" aria-label={PLATFORM_NAME[platform]}>
@@ -94,7 +97,9 @@ function PlatformCard({ platform, connection, onConnect, onDisconnect }: { platf
               <p className="mt-2 text-[13px] text-muted">{run?.status === 'queued' ? 'Waiting for its turn…' : `Importing your posts${run && run.items.fetched ? ` · ${whole(run.items.fetched)} read so far` : '…'}`}</p>
             </div>
           )}
-          {!syncing && run?.status === 'partial' && <Notice tone="warn" className="mt-4">The last update finished, but some posts couldn&apos;t be read{run.items.skipped ? ` (${run.items.skipped} skipped)` : ''}.</Notice>}
+          {typeof following === 'number' && <p className="mt-3 text-[13px] text-muted">{whole(following)} following</p>}
+          {!syncing && coverage && (coverage.attention ? <Notice tone="warn" className="mt-4">{coverage.text}</Notice> : <p className="mt-3 text-[13px] text-muted">{coverage.text}</p>)}
+          {!syncing && run?.status === 'partial' && !coverage?.attention && <Notice tone="warn" className="mt-4">The last update finished, but some posts couldn&apos;t be read{run.items.skipped ? ` (${run.items.skipped} skipped)` : ''}.</Notice>}
           {problem && <p className="mt-4 flex gap-2 rounded-xl bg-warn-bg p-3 text-sm text-warn"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />{problem}</p>}
           <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-5">
             {view.needsAction

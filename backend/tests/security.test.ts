@@ -4,8 +4,8 @@ import express from 'express';
 import request from 'supertest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildConfig, ConfigError } from '../src/config/env.js';
-import { encryptSecret, decryptSecret } from '../src/lib/crypto.js';
+import { buildConfig, config, ConfigError } from '../src/config/env.js';
+import { encryptSecret, decryptSecret, encryptedWithCurrentKey } from '../src/lib/crypto.js';
 import { redact } from '../src/lib/logger.js';
 import { httpFetch } from '../src/lib/http.js';
 import { createLimiter } from '../src/middleware/rateLimit.js';
@@ -94,6 +94,27 @@ describe('credential encryption', () => {
     expect(decryptSecret(a)).toBe('super-secret-token');
     const parts = a.split('.'); parts[3] = Buffer.from('tampered').toString('base64url');
     expect(() => decryptSecret(parts.join('.'))).toThrow();
+  });
+
+  it('keeps values readable through a key rotation until they are re-encrypted', () => {
+    const crypto = config.crypto as { credentialKey: Buffer; previousCredentialKey: Buffer | null };
+    const original = { current: crypto.credentialKey, previous: crypto.previousCredentialKey };
+    try {
+      const old = encryptSecret('provider-token');
+      expect(encryptedWithCurrentKey(old)).toBe(true);
+      crypto.credentialKey = Buffer.alloc(32, 9);
+      crypto.previousCredentialKey = original.current;
+      expect(decryptSecret(old)).toBe('provider-token');
+      expect(encryptedWithCurrentKey(old)).toBe(false);
+      const moved = encryptSecret(decryptSecret(old));
+      expect(encryptedWithCurrentKey(moved)).toBe(true);
+      crypto.previousCredentialKey = null;
+      expect(() => decryptSecret(old)).toThrow();
+      expect(decryptSecret(moved)).toBe('provider-token');
+    } finally {
+      crypto.credentialKey = original.current;
+      crypto.previousCredentialKey = original.previous;
+    }
   });
 });
 

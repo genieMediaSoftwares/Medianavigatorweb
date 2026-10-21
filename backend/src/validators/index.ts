@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ROLES } from '../../../shared/admin.js';
 import { pageQuery } from '../lib/pagination.js';
 import { isObjectId } from '../lib/ids.js';
 import { isValidLocalDate } from '../lib/zonedTime.js';
@@ -7,6 +8,8 @@ import { ALL_PLAN_FORMATS, REMINDER_OFFSETS } from '../services/planner/plans.js
 const email = z.string().trim().toLowerCase().email().max(254);
 export const password = z.string().min(8, 'Password must be at least 8 characters').max(128)
   .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), 'Password must contain at least one letter and one number');
+const mfaCode = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code');
+const secondFactor = { mfaCode: mfaCode.optional(), recoveryCode: z.string().trim().min(8).max(20).optional() };
 const text = (max: number) => z.string().trim().min(1).max(max);
 const objectId = z.string().refine(isObjectId, 'Invalid id');
 const platform = z.enum(['instagram', 'facebook', 'youtube', 'linkedin']);
@@ -14,11 +17,16 @@ const timezone = z.string().max(64).refine((tz) => { try { new Intl.DateTimeForm
 
 export const auth = {
   register: z.object({ email, password, fullName: text(120), organization: text(160).optional(), accountType: text(60).optional() }).strict(),
-  login: z.object({ email, password: z.string().min(1).max(128) }).strict(),
+  login: z.object({ email, password: z.string().min(1).max(128), ...secondFactor }).strict(),
   refresh: z.object({ refreshToken: z.string().min(20).max(200) }).strict(),
   changePassword: z.object({ currentPassword: z.string().min(1).max(128), newPassword: password }).strict(),
   forgot: z.object({ email }).strict(),
   reset: z.object({ token: z.string().min(20).max(200), newPassword: password }).strict(),
+  reauth: z.object({ password: z.string().min(1).max(128), ...secondFactor }).strict(),
+  mfaSetup: z.object({ password: z.string().min(1).max(128) }).strict(),
+  mfaEnable: z.object({ mfaCode }).strict(),
+  mfaConfirm: z.object({ password: z.string().min(1).max(128), ...secondFactor }).strict()
+    .refine((v) => v.mfaCode || v.recoveryCode, 'Enter an authentication code or a recovery code'),
 };
 
 export const users = {
@@ -132,10 +140,11 @@ export const files = {
 export const admin = {
   users: pageQuery.extend({ search: z.string().trim().max(100).optional() }).strict(),
   idParams: z.object({ id: objectId }).strict(),
-  role: z.object({ role: z.enum(['user', 'admin']) }).strict(),
+  role: z.object({ role: z.enum(ROLES) }).strict(),
   status: z.object({ status: z.enum(['active', 'disabled']) }).strict(),
-  credits: z.object({ amount: z.number().int().min(-1000).max(1000) }).strict(),
-  connections: pageQuery.extend({ status: z.string().max(40).optional(), platform: platform.optional() }).strict(),
+  credits: z.object({ amount: z.number().int().min(-1000).max(1000).refine((n) => n !== 0, 'Amount must not be zero'), reason: z.string().trim().min(3).max(200).optional() }).strict(),
+  ledger: pageQuery.strict(),
+  connections: pageQuery.extend({ status: z.enum(['connecting', 'syncing', 'sync_complete', 'sync_failed', 'permission_required', 'connection_expired', 'disconnected']).optional(), platform: platform.optional() }).strict(),
   syncRuns: pageQuery.extend({ status: z.enum(['queued', 'running', 'succeeded', 'partial', 'failed', 'cancelled']).optional(), platform: platform.optional() }).strict(),
   audit: pageQuery.extend({ action: z.string().max(80).optional() }).strict(),
 };

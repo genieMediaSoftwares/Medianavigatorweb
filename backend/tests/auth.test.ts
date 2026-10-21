@@ -115,13 +115,34 @@ describe('JWT and sessions', () => {
     const other = await api().post('/api/v1/auth/login').send({ email: 'cp@test.example', password: PASSWORD });
     const otherAuth = { Authorization: `Bearer ${other.body.data.tokens.accessToken}` };
     const bad = await api().post('/api/v1/auth/change-password').set(u.auth).send({ currentPassword: 'nope-nope-1', newPassword: 'Brand-new-pass1' });
-    expect(bad.status).toBe(401);
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.code).toBe('INVALID_CREDENTIALS');
+    expect((await api().get('/api/v1/auth/me').set(u.auth)).status).toBe(200);
+    expect((await api().get('/api/v1/auth/me').set(otherAuth)).status).toBe(200);
     const ok = await api().post('/api/v1/auth/change-password').set(u.auth).send({ currentPassword: PASSWORD, newPassword: 'Brand-new-pass1' });
     expect(ok.status).toBe(200);
     expect((await api().get('/api/v1/auth/me').set(u.auth)).status).toBe(200);
     expect((await api().get('/api/v1/auth/me').set(otherAuth)).status).toBe(401);
     expect((await api().post('/api/v1/auth/login').send({ email: 'cp@test.example', password: PASSWORD })).status).toBe(401);
     expect((await api().post('/api/v1/auth/login').send({ email: 'cp@test.example', password: 'Brand-new-pass1' })).status).toBe(200);
+  });
+
+  it('wrong deletion password preserves the account, profile and every session', async () => {
+    const u = await registerUser('delete-wrong@test.example');
+    const other = await api().post('/api/v1/auth/login').send({ email: u.email, password: PASSWORD });
+    const bad = await api().delete('/api/v1/users/me').set(u.auth).send({ password: 'Wrong-pass-1' });
+    expect(bad.status).toBe(400);
+    expect(bad.body.error.code).toBe('INVALID_CREDENTIALS');
+    const me = await api().get('/api/v1/users/me').set(u.auth);
+    expect(me.status).toBe(200);
+    expect(me.body.data.profile.fullName).toBe('Test User');
+    expect((await api().get('/api/v1/auth/me').set({ Authorization: `Bearer ${other.body.data.tokens.accessToken}` })).status).toBe(200);
+    expect((await api().post('/api/v1/auth/refresh').send({ refreshToken: u.refreshToken })).status).toBe(200);
+  });
+
+  it('still requires authentication for password confirmation workflows', async () => {
+    expect((await api().post('/api/v1/auth/change-password').send({ currentPassword: PASSWORD, newPassword: 'Brand-new-pass1' })).status).toBe(401);
+    expect((await api().delete('/api/v1/users/me').send({ password: PASSWORD })).status).toBe(401);
   });
 
   it('a disabled account loses access immediately', async () => {

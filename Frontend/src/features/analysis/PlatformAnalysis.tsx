@@ -18,6 +18,7 @@ import { fetchMediaPage, fetchPerformers, fetchSummary } from './api';
 import { AnalysisPostCard, CardMetric } from './components';
 import { cap, isVideoType, plainComparison, sentence } from './wording';
 import { facebookMetricLimitations, postMetricValue } from './post-metrics';
+import { syncCoverage, syncCoverageText } from './syncCoverage';
 
 // The three content options of a platform's analysis. Used by the Analysis tab and by
 // /analysis/[platform] (Dashboard → View Analysis).
@@ -105,8 +106,13 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
   if (items.length === 0) return <EmptyState icon="images-outline" title="No posts yet" message="Your account is connected, but no posts have been imported yet. Sync it from the Dashboard to check again." />;
 
   const total = live.reduce((a, c) => a + c.dataPointsCount, 0);
-  // Instagram and YouTube report how many posts the profile has; compare it with what was synced.
-  const reported = live.length === 1 ? live[0].accountInfo?.mediaCount : undefined;
+  // One account: compare the profile's post count, what the API returned on the last sync and what is stored.
+  const coverage = syncCoverageText(live.length === 1 ? syncCoverage(live[0]) : { kind: 'none' }, live.length === 1 ? live[0].name : '');
+  const profile = live.length === 1 ? live[0].accountInfo : undefined;
+  const audience = [
+    typeof profile?.followersCount === 'number' ? `${profile.followersCount.toLocaleString()} followers` : null,
+    typeof profile?.followsCount === 'number' ? `${profile.followsCount.toLocaleString()} following` : null,
+  ].filter(Boolean).join(' · ');
   const syncing = platform ? sync.active.includes(platform) : sync.active.length > 0;
   const lastSynced = live.map((c) => c.lastSyncedAt).filter(Boolean).sort()[0] ?? null;
   // Permissions the last sync reported missing for metrics: the posts were read, but those numbers are unavailable.
@@ -117,16 +123,15 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
         <View className="flex-row items-center">
           <View className="flex-1 pr-sm">
             <Text className="text-[13px] font-semibold text-navy">
-              {reported !== undefined
-                ? `${total.toLocaleString()} of ${reported.toLocaleString()} profile posts synced`
-                : `${total.toLocaleString()} posts synced${live.length > 1 ? ` across ${live.length} accounts` : ''}`}
+              {coverage.headline ?? `${total.toLocaleString()} posts synced${live.length > 1 ? ` across ${live.length} accounts` : ''}`}
             </Text>
             <Text className="mt-[2px] text-[11px] text-neutral-500">{`${live.length > 1 ? 'Oldest sync' : 'Last synced'} ${formatRelativeTime(lastSynced)} · showing ${items.length.toLocaleString()}`}</Text>
+            {audience ? <Text className="mt-[2px] text-[11px] text-neutral-500">{audience}</Text> : null}
           </View>
           <Button title={syncing ? 'Syncing…' : live.length > 1 ? 'Sync all' : 'Sync now'} size="sm" variant="secondary" icon="refresh-outline" loading={syncing} onPress={() => void sync.start(platform ?? 'all')} />
         </View>
-        {reported !== undefined && total < reported && !syncing ? (
-          <Text className="mt-xs text-[11px] text-warning">{`${(reported - total).toLocaleString()} posts on the profile aren’t synced yet. Sync now to fetch them; posts the platform doesn’t share through its API (for example some stories or deleted posts) can’t be imported.`}</Text>
+        {coverage.note && !syncing ? (
+          <Text className={`mt-xs text-[11px] ${coverage.attention ? 'text-warning' : 'text-neutral-500'}`}>{coverage.note}</Text>
         ) : null}
         {metricGaps.length && !syncing ? (
           <View className="mt-xs" style={{ gap: 6 }}>

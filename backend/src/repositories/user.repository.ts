@@ -1,6 +1,7 @@
 import type { Types } from 'mongoose';
 import { User, type UserDoc } from '../models/User.js';
 import { toObjectId } from '../lib/ids.js';
+import type { Role } from '../types/auth.js';
 
 export const userRepository = {
   findById: (id: string | Types.ObjectId) => User.findById(typeof id === 'string' ? toObjectId(id) : id).lean<UserDoc>(),
@@ -11,7 +12,7 @@ export const userRepository = {
   findByEmailWithPassword: (email: string) => User.findOne({ email: email.toLowerCase() }).select('+passwordHash').lean<UserDoc>(),
   findByIdWithPassword: (id: string) => User.findById(toObjectId(id)).select('+passwordHash').lean<UserDoc>(),
 
-  create: async (data: { email: string; passwordHash: string; role?: 'user' | 'admin' }) => {
+  create: async (data: { email: string; passwordHash: string; role?: Role }) => {
     const doc = await User.create({ ...data, passwordChangedAt: new Date() });
     return doc.toObject() as UserDoc;
   },
@@ -29,12 +30,12 @@ export const userRepository = {
   setPassword: (id: Types.ObjectId, passwordHash: string) =>
     User.updateOne({ _id: id }, { $set: { passwordHash, passwordChangedAt: new Date(), failedLoginCount: 0, lockedUntil: null } }),
 
-  setRole: (id: string, role: 'user' | 'admin') => User.findByIdAndUpdate(toObjectId(id), { $set: { role } }, { new: true }).lean<UserDoc>(),
+  setRole: (id: string, role: Role) => User.findByIdAndUpdate(toObjectId(id), { $set: { role } }, { new: true, runValidators: true }).lean<UserDoc>(),
   setStatus: (id: string, status: 'active' | 'disabled') => User.findByIdAndUpdate(toObjectId(id), { $set: { status } }, { new: true }).lean<UserDoc>(),
   markDeleted: (id: Types.ObjectId, anonymizedEmail: string) =>
     User.updateOne({ _id: id }, { $set: { deletedAt: new Date(), status: 'disabled', email: anonymizedEmail } }),
 
-  countAdmins: () => User.countDocuments({ role: 'admin', status: 'active', deletedAt: null }),
+  countAdmins: () => User.countDocuments({ role: { $in: ['admin', 'super_admin'] }, status: 'active', deletedAt: null }),
 
   async page(params: { limit: number; cursor?: { t: number; id: string }; search?: string }) {
     const filter: Record<string, unknown> = { deletedAt: null };

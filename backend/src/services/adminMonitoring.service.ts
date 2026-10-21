@@ -6,6 +6,7 @@ import { Analytics } from '../models/Analytics.js';
 import { SyncRun } from '../models/SyncRun.js';
 import { aiAvailable, aiModel } from './ai/geminiClient.js';
 import { CREDIT_RULES } from './credits.service.js';
+import { permissionCatalogue } from './permissions.js';
 
 export const adminMonitoring = {
   async monitoring() {
@@ -28,9 +29,6 @@ export const adminMonitoring = {
     return { server, sync, analysis, deep, note: 'Latest 50 records per source. Server errors are retained for 30 days starting with this release. Provider payloads and error messages are excluded to protect credentials and media URLs.' };
   },
   permissions() {
-    return { roles: [
-      { role: 'user', permissions: ['Manage own profile, connections, content and analyses'], adminAccess: false },
-      { role: 'admin', permissions: ['View system health, analytics, AI usage, errors and audit history', 'Manage user status and credits', 'Grant and revoke administrator access', 'Inspect all social connections and trigger existing sync jobs'], adminAccess: true },
-    ], safeguards: ['Database role and active session checked on every admin API request', 'Self role/status changes are forbidden', 'Last administrator cannot be removed or disabled', 'Account disabling revokes sessions', 'Administrative mutations are audited'] };
+    return permissionCatalogue();
   },
 };

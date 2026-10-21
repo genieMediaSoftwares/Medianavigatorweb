@@ -71,20 +71,31 @@ export const instagramAdapter: ProviderAdapter = {
       handle: `@${a.username.replace(/^@/, '')}`,
       displayName: a.name,
       avatarUrl: a.profilePictureUrl,
-      accountInfo: { id: a.id, username: a.username, name: a.name, followersCount: a.followersCount, mediaCount: a.mediaCount },
+      accountInfo: { id: a.id, username: a.username, name: a.name, followersCount: a.followersCount, followsCount: a.followsCount, mediaCount: a.mediaCount },
       credentialsPatch: { accountId: a.id, accessToken: token(creds) },
     };
   },
 
   async fetchContent(creds, account, ctx) {
     const info = await clientFor(creds).resolveAccount(token(creds), creds.accountId || account.providerAccountId);
-    const items = await clientFor(creds).fetchMedia(token(creds), info.id, info, ctx.existing);
-    const reported = account.accountInfo.mediaCount;
-    // The paginator may stop early when a page request fails; compare against the count the platform reports.
-    const partialReason = reported && items.length < reported * 0.9
-      ? `Fetched ${items.length} of ${reported} items reported by Instagram; the remainder may be Stories/archived or a page failed to load.`
-      : undefined;
+    const listing = { complete: false };
+    const items = await clientFor(creds).fetchMedia(token(creds), info.id, info, ctx.existing, listing);
+    // Instagram's profile `media_count` can be higher than what its /media edge returns, and the API says nothing about
+    // the difference. Only a listing that was read to its last page counts as complete; a cut-off listing makes the run
+    // partial, and the already-stored posts are kept.
+    const partialReason = listing.complete ? undefined
+      : `Instagram stopped returning posts after ${items.length}. The posts already received were saved; sync again to read the rest.`;
     const insights = creds.instagramLogin ? await loginClient.fetchAccountInsights(token(creds), info.id) : undefined;
-    return { items, partialReason, accountInfo: { id: info.id, username: info.username, name: info.name, followersCount: info.followersCount, mediaCount: info.mediaCount, ...(insights ? { insights } : {}) } };
+    return {
+      items, partialReason,
+      accountInfo: {
+        id: info.id, username: info.username, name: info.name, followersCount: info.followersCount, followsCount: info.followsCount, mediaCount: info.mediaCount,
+        mediaListComplete: listing.complete,
+        // How many posts Instagram's API returned for this account, known only when every page was read.
+        accessibleMediaCount: listing.complete ? items.length : null,
+        mediaListCheckedAt: new Date().toISOString(),
+        ...(insights ? { insights } : {}),
+      },
+    };
   },
 };

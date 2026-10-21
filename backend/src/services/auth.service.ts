@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { config } from '../config/env.js';
-import { badRequest, conflict, unauthorized, unavailable, AppError } from '../lib/errors.js';
+import { badRequest, conflict, invalidCredentials, unauthorized, unavailable, AppError } from '../lib/errors.js';
 import { randomToken, sha256 } from '../lib/crypto.js';
 import { signAccessToken } from '../lib/jwt.js';
 import { logger } from '../lib/logger.js';
@@ -12,6 +12,9 @@ import { auditRepository } from '../repositories/audit.repository.js';
 import { emailEnabled, sendPasswordResetEmail } from './email.service.js';
 import { profileView } from './user.service.js';
 import type { UserDoc } from '../models/User.js';
+import { isStaffRole } from '../../../shared/admin.js';
+import { permissionsFor } from './permissions.js';
+import { mfaService, type SecondFactor } from './mfa.service.js';
 
 export interface ClientInfo { userAgent?: string; ip?: string }
 
@@ -42,8 +45,10 @@ async function issueSession(user: Pick<UserDoc, '_id' | 'role'>, client: ClientI
   };
 }
 
-export const publicUser = (u: Pick<UserDoc, '_id' | 'email' | 'role' | 'status' | 'createdAt' | 'lastLoginAt' | 'credits' | 'freeTopChecksRemaining' | 'freeBottomChecksRemaining'>) => ({
+export const publicUser = (u: Pick<UserDoc, '_id' | 'email' | 'role' | 'status' | 'createdAt' | 'lastLoginAt' | 'credits' | 'freeTopChecksRemaining' | 'freeBottomChecksRemaining' | 'mfa'>) => ({
   id: String(u._id), email: u.email, role: u.role, status: u.status, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt ?? null,
+  permissions: permissionsFor(u.role),
+  mfaEnabled: Boolean(u.mfa?.enabled),
   credits: u.credits ?? 50,
   freeTopChecksRemaining: u.freeTopChecksRemaining ?? 5,
   freeBottomChecksRemaining: u.freeBottomChecksRemaining ?? 5,
@@ -65,7 +70,7 @@ export const authService = {
     return { user: publicUser(user), profile: profileView(profile), tokens };
   },
 
-  async login(input: { email: string; password: string }, client: ClientInfo) {
+  async login(input: { email: string; password: string } & SecondFactor, client: ClientInfo) {
     const user = await userRepository.findByEmailWithPassword(input.email);
     const locked = user?.lockedUntil && user.lockedUntil.getTime() > Date.now();
     // Always run one bcrypt comparison so response time does not reveal whether the email exists.
@@ -77,9 +82,16 @@ export const authService = {
       throw unauthorized('Invalid email or password');
     }
     if (user.status !== 'active') throw unauthorized('This account is disabled');
+    // Two-step sign-in: no session exists until the second factor is verified. A wrong code counts toward lockout.
+    try {
+      await mfaService.requireSecondFactor(String(user._id), input, () => userRepository.registerLoginFailure(user._id, config.auth.maxFailedLogins, config.auth.lockoutMinutes));
+    } catch (err) {
+      if (err instanceof AppError && err.code === 'INVALID_CREDENTIALS') throw unauthorized('Invalid authentication code');
+      throw err;
+    }
     await userRepository.registerLoginSuccess(user._id);
     const tokens = await issueSession(user, client);
-    if (user.role === 'admin') await auditRepository.record({ actorId: user._id, action: 'admin.login', ip: client.ip });
+    if (isStaffRole(user.role)) await auditRepository.record({ actorId: user._id, action: 'admin.login', ip: client.ip });
     return { user: publicUser(user), tokens };
   },
 
@@ -116,9 +128,26 @@ export const authService = {
   logout: (sessionId: string) => sessionRepository.revoke(sessionId, 'logout'),
   logoutAll: (userId: string) => sessionRepository.revokeAllForUser(userId, 'logout_all'),
 
+  /**
+   * Step-up: re-confirms the password (and the second factor when enabled) for this session, which then counts as
+   * recently authenticated for `config.auth.stepUpMaxAgeSeconds`. A wrong password counts toward lockout.
+   */
+  async reauth(userId: string, sessionId: string, input: { password: string } & SecondFactor, client: ClientInfo & { requestId?: string }) {
+    const user = await userRepository.findByIdWithPassword(userId);
+    if (!user) throw unauthorized('Account is no longer available');
+    if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) throw new AppError('RATE_LIMITED', 'Too many failed attempts. Try again later.');
+    const fail = () => userRepository.registerLoginFailure(user._id, config.auth.maxFailedLogins, config.auth.lockoutMinutes);
+    if (!(await bcrypt.compare(input.password, user.passwordHash))) { await fail(); throw invalidCredentials('Password is incorrect'); }
+    await mfaService.requireSecondFactor(userId, input, fail);
+    await sessionRepository.markReauthenticated(sessionId);
+    await auditRepository.record({ actorId: user._id, action: 'auth.reauth', targetType: 'session', targetId: sessionId, ip: client.ip, requestId: client.requestId });
+    return { reauthenticated: true, validForSeconds: config.auth.stepUpMaxAgeSeconds };
+  },
+
   async changePassword(userId: string, sessionId: string, current: string, next: string) {
     const user = await userRepository.findByIdWithPassword(userId);
-    if (!user || !(await bcrypt.compare(current, user.passwordHash))) throw unauthorized('Current password is incorrect');
+    if (!user) throw unauthorized('Account is no longer available');
+    if (!(await bcrypt.compare(current, user.passwordHash))) throw invalidCredentials('Current password is incorrect');
     if (current === next) throw badRequest('New password must be different from the current password');
     await userRepository.setPassword(user._id, await hash(next));
     // Keep this device signed in; every other session must re-authenticate.

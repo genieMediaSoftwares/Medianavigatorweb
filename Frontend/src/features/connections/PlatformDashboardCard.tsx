@@ -107,6 +107,12 @@ export function PlatformDashboardCard({ platform, connection, metrics, onConnect
   const needsReconnect = connected && statusView(connection).needsReconnect;
   // Synced, but the platform refused some metrics (e.g. Facebook without read_insights): say why the numbers are N/A.
   const missingPermissions = connected ? connection.missingPermissions ?? [] : [];
+  // Profile numbers exactly as the platform reported them on the last sync; omitted when it did not report them.
+  const info = connected ? connection.accountInfo : undefined;
+  const audience = [
+    typeof info?.followersCount === 'number' ? `${formatCompactNumber(info.followersCount)} followers` : null,
+    typeof info?.followsCount === 'number' ? `${formatCompactNumber(info.followsCount)} following` : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <View
@@ -141,6 +147,11 @@ export function PlatformDashboardCard({ platform, connection, metrics, onConnect
               <Metric label="Total Views" value={metrics?.totalViews != null ? formatCompactNumber(metrics.totalViews) : null} divider />
               <Metric label="Eng. Rate" value={metrics?.engagementRate != null ? formatPercent(metrics.engagementRate, 1) : null} divider />
             </View>
+          ) : null}
+          {connected && audience ? (
+            <Text className="mt-[6px] text-center text-[10px] leading-[14px] text-neutral-500" numberOfLines={1} adjustsFontSizeToFit>
+              {audience}
+            </Text>
           ) : null}
           {connected && missingPermissions.length ? (
             <View className="mt-sm flex-row items-start" accessible accessibilityLabel={`${meta.name} didn't share some numbers. Reconnect and allow ${missingPermissions.join(', ')}.`}>

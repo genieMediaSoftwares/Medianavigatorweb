@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ACCESS_COOKIE, REFRESH_COOKIE, clearCookieHeaders, cookieHeaders, isHttps, type Tokens } from '@/lib/server/session';
 import { UpstreamUnreachable, callApi, refreshTokens } from '@/lib/server/upstream';
+import { isStaffRole } from '../../../../../shared/admin';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -49,7 +50,9 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
   // ...but every decision below uses a lower-cased copy, because the API matches routes case-insensitively.
   const path = forwardPath.toLowerCase();
 
-  if (!(path.startsWith('admin/') || (path === 'auth/login' && req.method === 'POST') || (path === 'auth/logout' && req.method === 'POST') || (path === 'auth/me' && req.method === 'GET'))) return json(404, errorBody('NOT_FOUND', 'Not found'));
+  // Staff security endpoints the admin app needs: step-up and two-step sign-in enrolment.
+  const staffAuth = (req.method === 'POST' && (path === 'auth/reauth' || path === 'auth/mfa/setup' || path === 'auth/mfa/enable' || path === 'auth/mfa/disable' || path === 'auth/mfa/recovery-codes')) || (req.method === 'GET' && path === 'auth/mfa');
+  if (!(path.startsWith('admin/') || staffAuth || (path === 'auth/login' && req.method === 'POST') || (path === 'auth/logout' && req.method === 'POST') || (path === 'auth/me' && req.method === 'GET'))) return json(404, errorBody('NOT_FOUND', 'Not found'));
 
   if (BLOCKED.has(path) || path === 'internal' || path.startsWith('internal/')) return json(404, errorBody('NOT_FOUND', 'Not found'));
   if (req.method !== 'GET' && req.method !== 'HEAD' && !isSameOrigin(req)) return json(403, errorBody('FORBIDDEN', 'Cross-site requests are not allowed'));
@@ -94,7 +97,7 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
     if (isLogin && upstream.ok) {
       const parsed = JSON.parse(text) as { success: boolean; data: { tokens: Tokens } & Record<string, unknown> };
       const { tokens, ...rest } = parsed.data;
-      if ((rest.user as { role?: string } | undefined)?.role !== 'admin') {
+      if (!isStaffRole((rest.user as { role?: string } | undefined)?.role)) {
         await callApi('/auth/logout', { method: 'POST', accessToken: tokens.accessToken, requestId }).catch(() => undefined);
         return json(403, errorBody('FORBIDDEN', 'Administrator access is required.'), clearCookieHeaders(secure));
       }

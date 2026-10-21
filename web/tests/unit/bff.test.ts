@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.stubEnv('API_BASE_URL', 'https://api.test.example');
-const { GET, POST } = await import('@/app/api/v1/[...path]/route');
+const { GET, POST, DELETE } = await import('@/app/api/v1/[...path]/route');
 
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 // Browsers send Sec-Fetch-Site on every fetch; `site` lets a test pretend to be another website.
@@ -76,6 +76,15 @@ describe('backend-for-frontend proxy', () => {
     const res = await call(GET, 'GET', 'media', { cookie: 'mn_at=OLD; mn_rt=RT-refresh-2' });
     expect(res.status).toBe(401);
     expect(cookies(res).join('\n')).toMatch(/mn_at=;.*Max-Age=0/);
+  });
+
+  it.each([['auth/change-password', 'POST', POST], ['users/me', 'DELETE', DELETE]] as const)('preserves cookies and skips refresh on invalid password at %s', async (path, method, handler) => {
+    fetchMock.mockResolvedValueOnce(json(400, { success: false, error: { code: 'INVALID_CREDENTIALS', message: 'Password is incorrect' } }));
+    const res = await call(handler, method, path, { cookie: 'mn_at=AT1; mn_rt=RT1', body: { password: 'wrong' } });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error.code).toBe('INVALID_CREDENTIALS');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(cookies(res)).toEqual([]);
   });
 
   it('never lets the browser call the refresh endpoint directly', async () => {

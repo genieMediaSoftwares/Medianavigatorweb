@@ -37,9 +37,16 @@ export async function registerUser(email: string, opts: { password?: string; ful
   return { id: d.user.id as string, email, accessToken: d.tokens.accessToken as string, refreshToken: d.tokens.refreshToken as string, auth: { Authorization: `Bearer ${d.tokens.accessToken}` } };
 }
 
+/** Step-up for a test session, as the admin app does before a high-risk change. */
+export async function reauth(u: { auth: Record<string, string> }, password = PASSWORD) {
+  const res = await request(createApp()).post('/api/v1/auth/reauth').set(u.auth).send({ password });
+  if (res.status !== 200) throw new Error(`reauth failed: ${res.status} ${JSON.stringify(res.body)}`);
+}
+
 export async function registerAdmin(email = 'admin@test.example') {
   const u = await registerUser(email);
   await userRepository.setRole(u.id, 'admin');
+  await reauth(u);
   // role is read from the database on each request, so the existing token is already admin
   return u;
 }

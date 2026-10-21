@@ -88,7 +88,7 @@ export interface Connection {
   primaryStrength: string;
   dataPointsCount: number;
   missingPermissions: string[];
-  accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; followingCount?: number; mediaCount?: number };
+  accountInfo?: { id: string; name?: string; username?: string; followersCount?: number; followsCount?: number; mediaCount?: number; accessibleMediaCount?: number | null; mediaListComplete?: boolean; mediaListCheckedAt?: string };
   sync?: { state: string; lastSyncedAt: string | null; nextSyncAt: string | null; lastError: string | null };
   capabilities?: ProviderCapabilities;
   oauthAvailable?: boolean;
