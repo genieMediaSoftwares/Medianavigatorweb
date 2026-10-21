@@ -15,7 +15,8 @@ import { AuditLog } from './AuditLog.js';
 import { RateLimit } from './RateLimit.js';
 import { ContentAnalysis } from './ContentAnalysis.js';
 import { DeepAnalysisJob, SavedDeepAction } from './DeepAnalysisJob.js';
+import { AiUsage, SystemError } from './AdminTelemetry.js';
 
-export const allModels = [User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis, DeepAnalysisJob, SavedDeepAction];
+export const allModels = [User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis, DeepAnalysisJob, SavedDeepAction, AiUsage, SystemError];
 
 export { User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis };

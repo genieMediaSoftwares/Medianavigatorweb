@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { AppError } from '../lib/errors.js';
 import { fail } from '../lib/response.js';
 import { logger } from '../lib/logger.js';
+import { SystemError } from '../models/AdminTelemetry.js';
 
 export function notFoundHandler(req: Request, res: Response) {
   fail(res, 404, 'NOT_FOUND', `Route ${req.method} ${req.path} not found`);
@@ -11,6 +12,12 @@ export function notFoundHandler(req: Request, res: Response) {
 
 export function errorHandler(err: any, req: Request, res: Response, _next: NextFunction) {
   if (res.headersSent) return;
+
+  const serverStatus = err instanceof AppError ? err.status : (err?.name === 'MongoServerSelectionError' || err?.name === 'MongoNetworkError') ? 503 : 500;
+  const expectedClientError = err instanceof ZodError || err instanceof SyntaxError || (typeof err?.type === 'string' && err.type.startsWith('entity.')) || err?.name === 'MulterError' || err?.code === 'LIMIT_FILE_SIZE' || err?.code === 11000 || err instanceof mongoose.Error.CastError || err instanceof mongoose.Error.ValidationError;
+  if (serverStatus >= 500 && !expectedClientError && mongoose.connection.readyState === 1) {
+    void SystemError.create({ code: err instanceof AppError ? err.code : 'INTERNAL_ERROR', status: serverStatus, method: req.method, route: `${req.baseUrl}${req.route?.path ?? '/unmatched'}`, requestId: req.requestId }).catch(() => logger.warn('Error metadata could not be recorded'));
+  }
 
   if (err instanceof AppError) {
     if (err.status >= 500) logger.error('request failed', { requestId: req.requestId, code: err.code, error: err });

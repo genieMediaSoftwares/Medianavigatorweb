@@ -11,6 +11,7 @@ Media Navigator is an AI-powered media intelligence command center that connects
 ## Architecture
 - **API**: an Express + TypeScript API with versioned `/api/v1/*` endpoints, in `backend/`, described in `docs/api.md`.
 - **Web client**: a Next.js + TypeScript app in `web/`. The browser talks only to the web app's own `/api/v1/*` route handlers, which call the API from the server and keep tokens in httpOnly cookies. See `web/README.md`.
+- **Administration**: a separate Next.js + TypeScript application in `admin/` on port 3001, using the same API and MongoDB for website and mobile administration. See `admin/README.md`.
 - **Intelligence**: Server-side Gemini SDK (`@google/genai`) for interpretation, always separated from measured and calculated numbers.
 - **Adapters**: Normalized multi-platform ingestion for Meta (Instagram and Facebook), YouTube and LinkedIn.
 - **Documentation**: `docs/` (architecture, api, authentication, database, deployment, security, integrations, runbook), product docs in `docs/product/`, and the client brief in `docs/FRONTEND_PROMPT.md`.

@@ -69,6 +69,7 @@ export function UsersTab() {
                       <td className={`${td} text-right`}>
                         {self ? <span className="text-subtle">No changes to yourself</span> : (
                           <span className="inline-flex gap-2">
+                            <Button size="sm" variant="secondary" onClick={() => setAction({ user: u, kind: 'role' })}>{u.role === 'admin' ? 'Remove admin' : 'Make admin'}</Button>
                             <Button size="sm" variant="secondary" onClick={() => setAction({ user: u, kind: 'status' })}>{u.status === 'active' ? 'Disable' : 'Enable'}</Button>
                             <Button size="sm" onClick={() => { setCreditUser(u); setCreditAmount('10'); }}>Credits</Button>
                           </span>

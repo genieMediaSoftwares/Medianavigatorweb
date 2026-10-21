@@ -49,6 +49,9 @@ async function handle(req: NextRequest, ctx: { params: Promise<{ path: string[] 
   // ...but every decision below uses a lower-cased copy, because the API matches routes case-insensitively.
   const path = forwardPath.toLowerCase();
 
+  // Administration is served exclusively by the separate application.
+  if (path === 'admin' || path.startsWith('admin/')) return json(404, errorBody('NOT_FOUND', 'Use the separate administration application'));
+
   if (BLOCKED.has(path) || path === 'internal' || path.startsWith('internal/')) return json(404, errorBody('NOT_FOUND', 'Not found'));
   if (req.method !== 'GET' && req.method !== 'HEAD' && !isSameOrigin(req)) return json(403, errorBody('FORBIDDEN', 'Cross-site requests are not allowed'));
 
