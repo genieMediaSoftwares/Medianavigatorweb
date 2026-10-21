@@ -110,7 +110,7 @@ describe('six-point content analysis', () => {
     const d = res.body.data;
     expect(d.result.points).toHaveLength(6);
     expect(d.result.points.map((p: any) => p.number)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(d.result.points[0].title).toBe('Scene-by-scene understanding');
+    expect(d.result.points[0].title).toBe('Hook Effectiveness');
     expect(d.mediaBasis).toBe('image');
     // The image itself was sent to the model, not only text.
     expect(gem.calls[0].parts.some((p: any) => p.inlineData?.mimeType === 'image/jpeg')).toBe(true);
@@ -144,8 +144,8 @@ describe('six-point content analysis', () => {
   it('keeps Why Top, Why Bottom and Deep Analysis as separate saved results with their own titles', async () => {
     const top = (await analyze({ type: 'why_top', rank: '#1 of 6 by views' })).body.data;
     const bottom = (await analyze({ type: 'why_bottom' })).body.data;
-    expect(top.result.points[0].title).toBe('Actual content strengths');
-    expect(bottom.result.points[5].title).toBe('Prioritized recovery plan');
+    expect(top.result.points[0].title).toBe('Hook Effectiveness');
+    expect(bottom.result.points[5].title).toBe('Repeatable Success Factors');
     expect(gem.calls[0].parts[0].text).toContain('#1 of 6 by views');
     expect(await ContentAnalysis.countDocuments()).toBe(2);
   });
@@ -219,6 +219,22 @@ describe('video analysis (automatic, no upload)', () => {
     expect(d.result.limitations.join(' ')).toMatch(/removed/);
   });
 
+  it('does not truncate a long uploaded video to its first two minutes', async () => {
+    net.mediaMode = 'reel_withheld';
+    const longVideo = new Uint8Array(MP4_24S);
+    new DataView(longVideo.buffer).setUint32(48, 600000);
+    gem.impl = ({ schema }: any) => ({ data: schema.parse(sixPoints({ 1: { evidence: [
+      { source: 'video_frame', timestamp: '00:01', description: 'opening' },
+      { source: 'video_frame', timestamp: '05:00', description: 'middle' },
+      { source: 'video_frame', timestamp: '09:50', description: 'ending' },
+    ] } })), model: 'test-model', latencyMs: 5 });
+    const res = await api().post('/api/v1/intelligence/content-analysis/upload').set(user.auth).field('mediaId', postId).field('type', 'deep').attach('video', Buffer.from(longVideo), 'original.mp4');
+    expect(res.status).toBe(200);
+    const part = gem.calls[0].parts.find((p: any) => p.fileData?.mimeType === 'video/mp4');
+    expect(part.videoMetadata?.endOffset).toBeUndefined();
+    expect(res.body.data.result.evidence).toMatchObject({ durationSeconds: 600, coversTimeline: true });
+  });
+
   it('prefers full timeline coverage even when the retry cites the same number of moments', async () => {
     net.mediaMode = 'reel';
     let n = 0;
@@ -278,7 +294,7 @@ describe('video analysis (automatic, no upload)', () => {
     expect(res.body.data.result.confidence.level).toBe('low');
     expect(res.body.data.result.evidence.momentsCited).toBe(0);
     expect(res.body.data.result.limitations.join(' ')).toMatch(/limited review/);
-    expect(res.body.data.result.points[0].title).toBe('Available evidence');
+    expect(res.body.data.result.points[0].title).toBe('Hook Effectiveness');
   });
 
   it('analyzes every carousel slide in order (images and video) and discloses slides it could not load', async () => {

@@ -65,16 +65,12 @@ export async function downloadVideo(source: string): Promise<Blob> {
 }
 
 export async function loadVideoInput(userId: Types.ObjectId, mediaId: string, options: { allowThirdParty?: boolean } = {}): Promise<VideoInput> {
-  const doc = await mediaRepository.findByLegacyId(userId, mediaId);
+  const doc = await mediaRepository.findByIdOrLegacy(userId, mediaId);
   if (!doc) throw failure('Video not found.');
   if (doc.platform === 'youtube' && /^[A-Za-z0-9_-]{11}$/.test(doc.providerMediaId)) {
     return { youtubeUrl: `https://www.youtube.com/watch?v=${doc.providerMediaId}` };
   }
   if (doc.platform !== 'instagram') throw failure('Full video input is currently supported for Instagram and public YouTube videos.');
-  // The post ownership lookup above authorizes this request. Public media does not
-  // require a still-valid token; private API data continues to require one below.
-  const publicVideo = await retrievePublicVideo(doc.mediaUrl);
-  if (publicVideo) return { blob: publicVideo };
   const account = await connectionRepository.findForUserWithCredentials(userId, 'instagram');
   if (!account?.active || String(account._id) !== String(doc.connectedAccountId)) throw failure('Reconnect the Instagram account that owns this video.');
   if (!account.credentialsEnc) throw failure('Reconnect Instagram to restore video access.');
@@ -199,27 +195,4 @@ export function instagramPermalink(value: unknown): string | null {
     u.search = ''; u.hash = '';
     return u.toString();
   } catch { return null; }
-}
-
-async function retrievePublicVideo(permalink: unknown): Promise<Blob | null> {
-  const page = instagramPermalink(permalink);
-  if (!page) return null;
-  try {
-    const response = await fetch(page, { redirect: 'error', signal: AbortSignal.timeout(15000), headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html' } });
-    if (!response.ok) return null;
-    const html = await response.text();
-    const patterns = [
-      /property=["']og:video(?::secure_url)?["'][^>]*content=["']([^"']+)["']/i,
-      /content=["']([^"']+)["'][^>]*property=["']og:video(?::secure_url)?["']/i,
-      /"video_url"\s*:\s*"([^"]+)"/i,
-      /"video_versions"\s*:\s*\[[^\]]*"url"\s*:\s*"([^"]+)"/i,
-    ];
-    for (const pattern of patterns) {
-      const raw = html.match(pattern)?.[1];
-      if (!raw) continue;
-      const source = raw.replace(/\\u0026/g, '&').replace(/\\\//g, '/').replace(/&amp;/g, '&');
-      try { if (isVideoCdn(new URL(source))) return await downloadVideo(source); } catch { /* try another declared video source */ }
-    }
-  } catch { /* public file unavailable */ }
-  return null;
 }

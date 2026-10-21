@@ -1,6 +1,6 @@
 import type { PlatformType } from '../../../shared/types.js';
 import { YouTubeApiError } from '../integrations/youtube/errors.js';
-import { badRequest, conflict, providerError, notFound } from '../lib/errors.js';
+import { badRequest, providerError, notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
 import { ProviderHttpError } from '../lib/http.js';
 import { getAdapter, PLATFORMS } from '../integrations/registry.js';
@@ -45,8 +45,8 @@ export const connectionService = {
       if (!v.isValid) throw badRequest(v.error || `${platform} authorization failed`);
       const account = await adapter.resolveAccount(creds);
 
-      const owner = await ConnectedAccount.findOne({ platform, providerAccountId: account.providerAccountId, active: true }).select('userId').lean<{ userId: unknown }>();
-      if (owner && String(owner.userId) !== userId) throw conflict('This account is already connected to another Media Navigator user');
+      // A provider account may be connected by more than one Media Navigator user, so we no longer block reuse.
+      // (Historical ownership conflicts are intentionally not enforced.)
 
       // Reconnecting must never leave the previous channel's media in the analysis: when the resolved channel
       // differs from the stored one, its content and daily snapshots are cleared before the new sync runs.
