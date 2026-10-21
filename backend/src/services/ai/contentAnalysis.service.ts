@@ -16,41 +16,29 @@ import { AiFailedError, AiUnavailableError, aiAvailable, deleteUploaded, generat
 import { INSTAGRAM_LOGIN_EXPIRED, loadFacebookVideo, loadVideoInput } from './videoInput.js';
 
 /** Bump when the prompt, evidence rules or output schema change: older saved analyses are then regenerated. */
-export const CONTENT_ANALYSIS_VERSION = 'content-v8';
+export const CONTENT_ANALYSIS_VERSION = 'content-v11';
 
+const FACTORS = ['Hook Effectiveness', 'Content Quality', 'Audience Engagement', 'Audience Psychology', 'Reach & Discoverability', 'Repeatable Success Factors'];
 const TITLES: Record<ContentAnalysisType, string[]> = {
-  deep: ['Scene-by-scene understanding', 'Hook and storytelling', 'Visual and audio techniques', 'Audience appeal', 'Performance evidence', 'Distribution insights and improvements'],
-  why_top: ['Actual content strengths', 'Hook and retention potential', 'Creative strategy', 'Audience response', 'Performance and discoverability', 'Repeatable success'],
-  why_bottom: ['Performance gap', 'Visual content and hook', 'Retention and pacing', 'Audience response', 'Discoverability and content fit', 'Prioritized recovery plan'],
+  deep: FACTORS,
+  why_top: FACTORS,
+  why_bottom: FACTORS,
 };
 
-const LIMITED_TITLES = ['Available evidence', 'Caption and message', 'Measured audience response', 'Comparison with earlier posts', 'Possible explanations', 'Experiments to test'];
+const LIMITED_TITLES = FACTORS;
 
+const FACTOR_GUIDE = [
+  'Hook Effectiveness: Analyze the first 3 seconds for Reels, first slide for Carousels, or visual/text hook for Posts. Identify the exact hook that grabs attention and why it works or fails.',
+  'Content Quality: Assess visuals, editing, storytelling, clarity, pacing, design, and audio. Highlight the strongest creative elements and any weaknesses.',
+  'Audience Engagement: Analyze likes, comments, shares, saves, engagement rate, and watch time. Identify which interactions are driving performance.',
+  'Audience Psychology: Explain the psychological triggers (emotions, relatability, curiosity, usefulness, entertainment, trust) supported by the content and audience evidence.',
+  'Reach & Discoverability: Analyze reach, non-follower reach, hashtags, keywords, caption, and distribution signals. Identify factors associated with higher (or lower) reach.',
+  'Repeatable Success Factors: Identify the strongest moments, CTA, format, topic, and timing. Give 2-3 specific actions to recreate successful elements or fix weak ones.',
+];
 const GUIDE: Record<ContentAnalysisType, string[]> = {
-  deep: [
-    'Walk through the content in order. For a video, cite at least 3 distinct moments with mm:ss timestamps from the beginning, the middle and the end: locations, subjects, actions, scenery, camera movement, transitions and visual details actually shown. For images and slides: what each one shows.',
-    'The opening (first seconds or first frame), how the piece progresses, its pacing, narrative and payoff, and the specific moments that may hold or lose attention. Measured retention only if it is in the metrics.',
-    'Composition, lighting, colours, editing rhythm, transitions, music, dialogue, sound effects, text overlays and the creative format actually used. Call a sound or format "trending" only if the evidence proves it.',
-    'Why this specific content may be interesting, emotional, useful, entertaining or shareable, tied to named scenes or moments (not generic praise).',
-    'Connect the observed content to the real metrics provided (views, reach, saves, shares, comments, watch time, profile actions) and to the comparison with earlier posts. Only use metrics marked available.',
-    'Plausible reasons for the observed performance (clearly labelled as hypotheses), the evidence gaps, and specific improvements or repeatable creative strengths, ending with one concrete next action.',
-  ],
-  why_top: [
-    'The specific scenes, subjects, moments and visual choices that distinguish this content, with mm:ss timestamps for a video (at least 3, from beginning, middle and end).',
-    'The actual opening, pacing, scene changes and payoff. Measured retention only if present in the metrics.',
-    'The storytelling, audio, editing, on-screen text and creative format observed, and how they may work for viewers.',
-    'Connect what is in the content to the measured saves, shares, comments, watch time, profile actions and other available signals.',
-    'Compare the real metrics with comparable posts (comparison rows) and give supported reasons for the relative performance; say when the sample is small or the post is young. High views alone do not explain success.',
-    'The strongest evidence-supported creative elements and one specific follow-up post or experiment to test whether the success repeats.',
-  ],
-  why_bottom: [
-    'Quantify the gap against comparable posts using the comparison rows; say if the post is young, the sample is small, or the gap is within normal variation.',
-    'Observable weaknesses in the opening, subject clarity, framing, visual appeal or context, with mm:ss timestamps for a video (at least 3, from beginning, middle and end).',
-    'Whether structure, length, pacing, scene progression or ending may create friction. Do not assert drop-off points without retention data.',
-    'Interactions relative to reach, saves, shares, comments, profile activity and other available signals. A low-reach post can still do well among the people it reached.',
-    'Caption, topic clarity, keywords, hashtags, audience fit and format mismatch, without claiming they caused low distribution.',
-    'The three most useful changes to test, ranked by expected value, each with the metric that should improve if it works. State whether this looks like a content problem, a distribution problem, insufficient data or normal variation.',
-  ],
+  deep: FACTOR_GUIDE,
+  why_top: FACTOR_GUIDE,
+  why_bottom: FACTOR_GUIDE,
 };
 
 const SYSTEM = `You are Media Navigator's Content Performance & Creative Intelligence Engine.
@@ -80,8 +68,14 @@ Rules you must follow:
 - Never present a hypothesis as fact. Never claim to know Instagram's private ranking or why it recommended a post. Correlation is not causation.
 - Use the exact numbers provided; only use metrics marked available.
 - Each of the six points answers its own question; do not repeat the same idea across points.
+- The six points must follow this exact order and these exact titles: 1. Hook Effectiveness, 2. Content Quality, 3. Audience Engagement, 4. Audience Psychology, 5. Reach & Discoverability, 6. Repeatable Success Factors. Each point must be 1-2 sentences, concise and specific, in the style of "What's Working?" bullet points.
+- Observations contain only concrete visible/audible evidence. Interpretation must explain a plausible viewer response and an exact edit to test, never paraphrase the observations.
+- In the hook point, quote the actual opening line or on-screen text if present, cite its timestamp, identify the promise and payoff, and propose a replacement opening with exact wording and timing.
+- In visual/audio technique findings, identify the specific cut, framing, text readability, speech/music balance or silence at a timestamp, then specify an actionable edit. Do not retell the plot.
+- Cover the full duration supplied, including middle and ending, rather than restricting analysis to the opening minute.
 - No generic statements ("engaging", "attractive", "use trending music", "post consistently") unless tied to a specific observation or measured gap.
 - Be concise and specific. Plain English. No numerical confidence percentages.
+- Anti-generic rule: never write a point that could apply to any other post. Every point must name a concrete moment (timestamp + what is on screen / what is heard) and the exact edit to test. If you cannot name a concrete moment, say the evidence is missing instead of generalising.
 Return JSON only.`;
 
 // Long or over-full fields are trimmed rather than rejected; the six-point structure itself is strict.
@@ -96,7 +90,7 @@ const evidenceSchema = z.object({
 const pointSchema = z.object({
   number: z.number().int().min(1).max(6),
   title: z.string().optional(),
-  observations: list(text(400), 5).pipe(z.array(z.string()).min(1)),
+  observations: list(text(180), 3).pipe(z.array(z.string()).min(1)),
   evidence: list(evidenceSchema, 8).default([]),
   metricKeys: list(z.string().max(40), 8).default([]),
   interpretation: text(900),
@@ -329,13 +323,10 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
         const fps = fpsFor(v.durationSeconds);
         const videoMetadata: Record<string, unknown> = {};
         if (fps) videoMetadata.fps = fps;
-        const limitSeconds = 120;
-        if (v.durationSeconds && v.durationSeconds > limitSeconds) videoMetadata.endOffset = `${limitSeconds}s`;
         parts.push({ ...createPartFromUri(f.uri, f.mimeType), ...(Object.keys(videoMetadata).length ? { videoMetadata } : {}) });
       }
       if (media.youtubeUrl) {
         const videoMetadata: Record<string, unknown> = {};
-        if (media.durationSeconds && media.durationSeconds > 120) { videoMetadata.startOffset = '0s'; videoMetadata.endOffset = '120s'; }
         parts.push({ fileData: { fileUri: media.youtubeUrl }, ...(Object.keys(videoMetadata).length ? { videoMetadata } : {}) });
       }
       for (const img of media.images) {
@@ -352,8 +343,18 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
   try {
     out = await call();
   } catch (err) {
-    if (!(err instanceof AiFailedError) || err.reason !== 'invalid_response') throw err;
-    out = await call('Your previous answer did not match the required JSON. Return exactly six points numbered 1 to 6 with every required field.');
+    // If the full video cannot be uploaded to the analysis service (for example because the Gemini
+    // Files API rejects it), fall back to a thumbnail-only review instead of failing the whole request.
+    if (media.basis === 'full_video') {
+      logger.warn('content analysis video upload/processing failed; falling back to thumbnail', { operation: 'content-analysis', mediaId, error: err });
+      media = await thumbnailOnly(item, live?.thumbnailUrl || item.thumbnailUrl,
+        'The full video could not be processed by the analysis service. This is a limited review of the cover image, caption and measured performance; scenes, audio and pacing were not assessed.');
+      out = await call();
+    } else if (err instanceof AiFailedError && err.reason === 'invalid_response') {
+      out = await call('Your previous answer did not match the required JSON. Return exactly six points numbered 1 to 6 with every required field.');
+    } else {
+      throw err;
+    }
   }
   const isVideo = VIDEO_BASIS.has(media.basis);
   if (isVideo && !coversTimeline(moments(sanitize(out.data, type, media.basis, metrics.items, media.durationSeconds)), media.durationSeconds)) {
@@ -396,8 +397,9 @@ function failureMessage(err: unknown): string {
   if (err instanceof AiFailedError) {
     if (err.reason === 'timeout') return 'The analysis took too long. Please try again.';
     if (err.reason === 'invalid_response') return 'The AI returned an incomplete analysis. Please try again.';
-    return 'The AI service could not complete the analysis. Please try again.';
+    return err.message || 'The AI service could not complete the analysis. Please try again.';
   }
+  if (err instanceof Error) return err.message || 'The analysis could not be completed.';
   return 'The analysis could not be completed.';
 }
 
@@ -410,7 +412,7 @@ export const contentAnalysisService = {
   async analyze(userId: string, mediaId: string, type: ContentAnalysisType, opts: { reanalyze?: boolean; rank?: string | null; uploadedVideo?: Uint8Array } = {}): Promise<ContentAnalysisResponse> {
     if (!aiAvailable()) throw unavailable('AI analysis is not configured on this server.');
     const uid = toObjectId(userId);
-    const doc = await mediaRepository.findByLegacyId(uid, mediaId);
+    const doc = await mediaRepository.findByIdOrLegacy(uid, mediaId);
     if (!doc) throw notFound('Media not found');
     const item = toNormalized(doc);
     const hash = evidenceHash(item, CONTENT_ANALYSIS_VERSION);
@@ -456,7 +458,7 @@ export const contentAnalysisService = {
   /** Saved result only (no generation). */
   async get(userId: string, mediaId: string, type: ContentAnalysisType): Promise<ContentAnalysisResponse | null> {
     const uid = toObjectId(userId);
-    const doc = await mediaRepository.findByLegacyId(uid, mediaId);
+    const doc = await mediaRepository.findByIdOrLegacy(uid, mediaId);
     if (!doc) throw notFound('Media not found');
     const saved = await ContentAnalysis.findOne({ userId: uid, mediaId, analysisType: type, analysisVersion: CONTENT_ANALYSIS_VERSION }).lean<ContentAnalysisDoc>();
     if (!saved?.result) return null;
