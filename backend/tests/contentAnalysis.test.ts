@@ -118,7 +118,7 @@ describe('six-point content analysis', () => {
     const d = res.body.data;
     expect(d.result.points).toHaveLength(6);
     expect(d.result.points.map((p: any) => p.number)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(d.result.points[0].title).toBe('Hook Effectiveness');
+    expect(d.result.points[0].title).toBe('Hook Strength');
     expect(d.mediaBasis).toBe('image');
     // The image itself was sent to the model, not only text.
     expect(gem.calls[0].parts.some((p: any) => p.inlineData?.mimeType === 'image/jpeg')).toBe(true);
@@ -152,8 +152,8 @@ describe('six-point content analysis', () => {
   it('keeps Why Top, Why Bottom and Deep Analysis as separate saved results with their own titles', async () => {
     const top = (await analyze({ type: 'why_top', rank: '#1 of 6 by views' })).body.data;
     const bottom = (await analyze({ type: 'why_bottom' })).body.data;
-    expect(top.result.points[0].title).toBe('Hook Effectiveness');
-    expect(bottom.result.points[5].title).toBe('Repeatable Success Factors');
+    expect(top.result.points[0].title).toBe('Hook Strength');
+    expect(bottom.result.points[5].title).toBe('Performance Signals');
     expect(gem.calls[0].parts[0].text).toContain('#1 of 6 by views');
     expect(await ContentAnalysis.countDocuments()).toBe(2);
   });
@@ -276,7 +276,7 @@ describe('video analysis (automatic, no upload)', () => {
     expect(res.body.data.result.confidence.level).toBe('low');
     expect(res.body.data.result.evidence.momentsCited).toBe(0);
     expect(res.body.data.result.limitations.join(' ')).toMatch(/limited review/);
-    expect(res.body.data.result.points[0].title).toBe('Hook Effectiveness');
+    expect(res.body.data.result.points[0].title).toBe('Hook Strength');
   });
 
   it('when the live media URL is withheld, falls back to the web video loader (file saved at sync) and watches the full video', async () => {

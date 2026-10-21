@@ -132,6 +132,82 @@ export interface ConnectInput {
   username?: string;
 }
 
+// ── Performance-adaptive diagnosis ────────────────────────────────────────
+export type DiagnosisClass = 'TOP' | 'AVERAGE' | 'BOTTOM' | 'INSUFFICIENT_DATA';
+/** The status an insight or a diagnostic carries; shown with a colour AND a label. */
+export type DiagnosisSignal = 'positive' | 'mixed' | 'negative' | 'unknown';
+
+export interface DiagnosisInsight {
+  key: 'hook' | 'relevance' | 'visual' | 'storytelling' | 'engagement' | 'signals';
+  title?: string;
+  signal: DiagnosisSignal;
+  observation: string;
+  evidence: string;
+  whyItMatters: string;
+  metric: string | null;
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface DiagnosisAlternative {
+  title: string;
+  angle: string;
+  hook: string;
+  execution: string;
+  cta: string | null;
+  whyItMayWorkBetter: string;
+}
+
+export interface DiagnosisDiagnostic {
+  title: string;
+  signal: DiagnosisSignal;
+  observation: string;
+  metric: string | null;
+  impact: string;
+  improvement: string;
+}
+
+export interface DiagnosisBaseline {
+  sampleSize: number;
+  medianEngagementRate: number;
+  p25EngagementRate: number;
+  p75EngagementRate: number;
+  medianViews: number;
+  rows: Array<{ key: string; label: string; post: number | null; median: number | null; differencePct: number | null }>;
+  method: string;
+}
+
+export interface DiagnosisResult {
+  summary: string;
+  limitations: string[];
+  confidence: { level: 'high' | 'medium' | 'low'; reason: string };
+  /** Top performers. */
+  threeLine?: { whatWorked: string; performanceProof: string; strategicTakeaway: string };
+  insights?: DiagnosisInsight[];
+  preserve?: string[];
+  /** Bottom performers. */
+  nextStep?: { headline: string; body: string };
+  alternatives?: DiagnosisAlternative[];
+  diagnostics?: DiagnosisDiagnostic[];
+  /** Average performers and not-enough-history posts. */
+  whatWorks?: string;
+  mainOpportunity?: string;
+  nextExperiment?: string;
+}
+
+export interface DiagnosisResponse {
+  mediaId: string;
+  analysisVersion: string;
+  classification: DiagnosisClass;
+  baseline: DiagnosisBaseline;
+  result: DiagnosisResult;
+  mediaBasis: string;
+  model: string | null;
+  analyzedAt: string;
+  fromCache: boolean;
+  stale: boolean;
+  refreshError?: string;
+}
+
 // ── Media ─────────────────────────────────────────────────────────────────
 export type PerformanceTier = 'Strong' | 'Above average' | 'Average' | 'Emerging' | 'Declining';
 

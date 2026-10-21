@@ -40,3 +40,6 @@ intelligenceRouter.delete('/deep-report-v2/:jobId/actions/:actionId', validate({
 const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.ai.contentAnalysis.maxMediaBytes, files: 1, fields: 3 } });
 intelligenceRouter.post('/content-analysis/upload', aiLimiter, videoUpload.single('video'), validate({ body: v.contentAnalysis }), c.uploadContentAnalysis);
 intelligenceRouter.get('/content-analysis', validate({ query: v.contentAnalysisQuery }), c.savedContentAnalysis);
+// Performance-adaptive diagnosis of one post (insights first for a top performer, recovery plan for a bottom one).
+intelligenceRouter.post('/diagnosis', aiLimiter, validate({ body: v.diagnosis }), c.diagnosis);
+intelligenceRouter.get('/diagnosis', validate({ query: v.diagnosis.partial({ reanalyze: true }) }), c.savedDiagnosis);
