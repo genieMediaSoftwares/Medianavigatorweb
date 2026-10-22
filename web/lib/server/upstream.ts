@@ -2,8 +2,11 @@ import 'server-only';
 import { getEnv } from '@/env';
 import type { Tokens } from './session';
 
-/** Upper bound for any call from the web server to the API. */
-const UPSTREAM_TIMEOUT_MS = 30_000;
+/**
+ * Upper bound for any call from the web server to the API. A little headroom over the API's own
+ * timeouts, so a slow report reads as a slow report instead of a failed connection.
+ */
+const UPSTREAM_TIMEOUT_MS = 60_000;
 
 export class UpstreamUnreachable extends Error {}
 
@@ -39,6 +42,8 @@ export function refreshTokens(refreshToken: string, requestId: string): Promise<
     }
   })();
   inflight.set(refreshToken, run);
-  void run.finally(() => setTimeout(() => inflight.delete(refreshToken), 10_000));
+  // The result is kept for a while, so requests that were already in flight when the rotation
+  // happened reuse the same fresh pair instead of starting a second rotation.
+  void run.finally(() => setTimeout(() => inflight.delete(refreshToken), 30_000));
   return run;
 }

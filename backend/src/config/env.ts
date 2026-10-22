@@ -57,6 +57,7 @@ const schema = z.object({
   LOGIN_LOCKOUT_MINUTES: int('LOGIN_LOCKOUT_MINUTES', 1),
   PASSWORD_RESET_TOKEN_TTL_MINUTES: int('PASSWORD_RESET_TOKEN_TTL_MINUTES', 1),
   MAX_SESSIONS_PER_USER: int('MAX_SESSIONS_PER_USER', 1),
+  REFRESH_GRACE_SECONDS: optionalText.transform((v) => (v === undefined ? 60 : Number(v))).refine((n) => Number.isInteger(n) && n >= 0, 'REFRESH_GRACE_SECONDS must be a whole number of seconds'),
   // Optional: "true" blocks admin endpoints for staff who have not enrolled in MFA. Off unless set, so existing
   // administrators can enrol before it is enforced.
   STAFF_MFA_REQUIRED: optionalText.refine((v) => v === undefined || v === 'true' || v === 'false', 'STAFF_MFA_REQUIRED must be "true" or "false"'),
@@ -212,6 +213,12 @@ export function buildConfig(source: Record<string, string | undefined>) {
       lockoutMinutes: raw.LOGIN_LOCKOUT_MINUTES,
       resetTokenTtlMinutes: raw.PASSWORD_RESET_TOKEN_TTL_MINUTES,
       maxSessionsPerUser: raw.MAX_SESSIONS_PER_USER,
+      /**
+       * How long the previous refresh token stays usable after a rotation. Two tabs, or two requests
+       * arriving at the same moment, can both present the same refresh token; without this window the
+       * second one would look like a replay and sign the user out.
+       */
+      refreshGraceSeconds: raw.REFRESH_GRACE_SECONDS ?? 60,
       staffMfaRequired: raw.STAFF_MFA_REQUIRED === 'true',
       /** How recently a session must have re-confirmed credentials for high-risk admin actions. */
       stepUpMaxAgeSeconds: 300,
