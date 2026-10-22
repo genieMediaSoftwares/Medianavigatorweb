@@ -6,7 +6,7 @@ import { PlatformTile } from '@/components/ui/platform-logo';
 import { PLATFORMS } from '@/types/api';
 
 const STEPS: Array<{ n: string; icon: LucideIcon; title: string; text: string }> = [
-  { n: '1', icon: Plug, title: 'Connect your accounts', text: 'Link Instagram, YouTube, Facebook or LinkedIn in a click. We only read; we never post.' },
+  { n: '1', icon: Plug, title: 'Connect your accounts', text: 'Connect the supported accounts you manage using the available sign-in or access-token options. We only read; we never post.' },
   { n: '2', icon: BarChart3, title: 'We compare each post with your own results', text: 'Every post is judged against your usual, so one viral hit doesn’t skew the picture.' },
   { n: '3', icon: Sparkles, title: 'You get clear next steps', text: 'What to repeat, what to fix, and the best times to post, in plain words.' },
 ];
@@ -44,7 +44,7 @@ export function Landing() {
           <div>
             <p className="eyebrow">Connect · Analyze · Improve · Grow</p>
             <h1 className="mt-4 text-[44px] font-extrabold leading-[1.04] sm:text-[58px]">Know what to post <span className="grad-text">before</span> you post it.</h1>
-            <p className="mt-6 max-w-xl text-lg text-muted sm:text-xl">Media Navigator connects your Instagram, YouTube, Facebook and LinkedIn, compares every post with your own results, and tells you what to repeat, what to fix and when to publish.</p>
+            <p className="mt-6 max-w-xl text-lg text-muted sm:text-xl">Media Navigator connects your Instagram, YouTube, Facebook and LinkedIn, compares your synced posts with your own results, and tells you what to repeat, what to fix and when to publish.</p>
             <div className="mt-8 flex flex-wrap gap-3"><LinkButton href="/sign-up" size="lg">Get started<ArrowRight className="h-5 w-5" aria-hidden="true" /></LinkButton><LinkButton href="#how" variant="secondary" size="lg">See how it works</LinkButton></div>
             <div className="mt-10 flex flex-wrap items-center gap-4 text-sm text-muted"><span className="font-semibold">Works with</span>{PLATFORMS.map((p) => <PlatformTile key={p} platform={p} />)}</div>
           </div>
@@ -53,7 +53,7 @@ export function Landing() {
               <div className="flex justify-center rounded-xl bg-white p-6"><LogoLockup width={360} /></div>
               <p className="eyebrow mt-8">After your first update you get</p>
               <ul className="mt-4 space-y-3 text-[15px] text-text">
-                {['Your best posts and the ones that could be better', 'Your strongest days and hours to post', 'Plain-language ideas for what to try next'].map((t) => (
+                {['Your best posts and the ones that could be better', 'Posting-time insights when enough history is available', 'Plain-language ideas for what to try next'].map((t) => (
                   <li key={t} className="flex gap-3"><span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600"><Sparkles className="h-3.5 w-3.5" aria-hidden="true" /></span>{t}</li>
                 ))}
               </ul>

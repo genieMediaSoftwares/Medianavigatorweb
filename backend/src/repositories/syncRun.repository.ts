@@ -35,18 +35,20 @@ export const syncRunRepository = {
     ).lean<SyncRunDoc>();
   },
 
+  ownsLease: (id: Types.ObjectId, owner: string) => SyncRun.exists({ _id: id, active: true, status: 'running', leaseOwner: owner, leaseExpiresAt: { $gt: new Date() } }),
+
   /** Puts a failed-but-retryable run back on the queue after a delay. */
-  requeue: (id: Types.ObjectId, delayMs: number, errorSummary: string) =>
-    SyncRun.updateOne({ _id: id }, { $set: { status: 'queued', queuedAt: new Date(Date.now() + delayMs), leaseOwner: null, leaseExpiresAt: null, errorSummary } }),
+  requeue: (id: Types.ObjectId, delayMs: number, errorSummary: string, owner?: string) =>
+    SyncRun.updateOne({ _id: id, ...(owner ? { status: 'running', leaseOwner: owner, leaseExpiresAt: { $gt: new Date() } } : {}) }, { $set: { status: 'queued', queuedAt: new Date(Date.now() + delayMs), leaseOwner: null, leaseExpiresAt: null, errorSummary } }),
 
   heartbeat: (id: Types.ObjectId, owner: string, leaseSeconds: number) =>
     SyncRun.updateOne({ _id: id, leaseOwner: owner, status: 'running' }, { $set: { leaseExpiresAt: new Date(Date.now() + leaseSeconds * 1000) } }),
 
-  async finish(id: Types.ObjectId, status: Extract<SyncStatus, 'succeeded' | 'partial' | 'failed' | 'cancelled'>, fields: Partial<SyncRunDoc>) {
+  async finish(id: Types.ObjectId, status: Extract<SyncStatus, 'succeeded' | 'partial' | 'failed' | 'cancelled'>, fields: Partial<SyncRunDoc>, owner?: string) {
     const run = await SyncRun.findById(id).select('startedAt').lean<{ startedAt?: Date }>();
     const completedAt = new Date();
     return SyncRun.findOneAndUpdate(
-      { _id: id },
+      { _id: id, ...(owner ? { status: 'running', leaseOwner: owner, leaseExpiresAt: { $gt: new Date() } } : {}) },
       {
         $set: { ...fields, status, completedAt, durationMs: run?.startedAt ? completedAt.getTime() - run.startedAt.getTime() : null, leaseOwner: null, leaseExpiresAt: null },
         $unset: { active: '' },

@@ -33,6 +33,8 @@ const list = (name: string) =>
 
 const optionalText = z.string().trim().optional().transform((v) => (v === '' ? undefined : v));
 
+const optionalInt = (min: number, max: number, fallback: number) => optionalText.transform(v => v === undefined ? fallback : Number(v)).refine(n => Number.isSafeInteger(n) && n >= min && n <= max, `Must be an integer between ${min} and ${max}`);
+
 const schema = z.object({
   // --- server ---
   NODE_ENV: z.enum(['development', 'test', 'production'], { errorMap: () => ({ message: 'NODE_ENV must be development, test or production' }) }),
@@ -44,6 +46,9 @@ const schema = z.object({
   TRUST_PROXY_HOPS: int('TRUST_PROXY_HOPS', 0),
 
   // --- database ---
+  MONGODB_POOL_SIZE: optionalInt(1, 200, 20),
+  MONGODB_WAIT_QUEUE_TIMEOUT_MS: optionalInt(100, 60000, 5000),
+  DEEP_WORKER_ENABLED: bool('DEEP_WORKER_ENABLED').optional(),
   MONGODB_URI: required('MONGODB_URI').refine((v) => /^mongodb(\+srv)?:\/\//.test(v), 'MONGODB_URI must start with mongodb:// or mongodb+srv://'),
   MONGODB_QUERY_MAX_LIMIT: int('MONGODB_QUERY_MAX_LIMIT', 1),
   ANALYTICS_MAX_ITEMS: int('ANALYTICS_MAX_ITEMS', 1),
@@ -103,6 +108,7 @@ const schema = z.object({
   JOBS_TRIGGER_SECRET: optionalText,
 
   // --- AI limits (the Gemini key itself is an optional group, see below) ---
+  AI_MAX_CONCURRENT_REQUESTS: optionalInt(1, 100, 4),
   AI_TIMEOUT_MS: int('AI_TIMEOUT_MS', 1000),
   AI_MAX_INPUT_CHARS: int('AI_MAX_INPUT_CHARS', 100),
   AI_CACHE_TTL_HOURS: int('AI_CACHE_TTL_HOURS', 1),
@@ -203,7 +209,7 @@ export function buildConfig(source: Record<string, string | undefined>) {
       trustProxyHops: raw.TRUST_PROXY_HOPS,
     },
     cors: { allowedOrigins: raw.CORS_ALLOWED_ORIGINS },
-    database: { mongoUri: raw.MONGODB_URI, queryMaxLimit: raw.MONGODB_QUERY_MAX_LIMIT, analyticsMaxItems: raw.ANALYTICS_MAX_ITEMS },
+    database: { poolSize: raw.MONGODB_POOL_SIZE, waitQueueTimeoutMs: raw.MONGODB_WAIT_QUEUE_TIMEOUT_MS, mongoUri: raw.MONGODB_URI, queryMaxLimit: raw.MONGODB_QUERY_MAX_LIMIT, analyticsMaxItems: raw.ANALYTICS_MAX_ITEMS },
     auth: {
       jwtSecret: raw.JWT_SECRET,
       accessTtlSeconds: raw.JWT_ACCESS_EXPIRES_IN,
@@ -262,9 +268,11 @@ export function buildConfig(source: Record<string, string | undefined>) {
     },
     ai: {
       enabled: Boolean(gemini),
+      workerEnabled: raw.DEEP_WORKER_ENABLED ?? true,
       apiKey: gemini?.GEMINI_API_KEY,
       model: gemini?.GEMINI_MODEL,
       timeoutMs: raw.AI_TIMEOUT_MS,
+      maxConcurrentRequests: raw.AI_MAX_CONCURRENT_REQUESTS,
       maxInputChars: raw.AI_MAX_INPUT_CHARS,
       cacheTtlHours: raw.AI_CACHE_TTL_HOURS,
       contentAnalysis: {

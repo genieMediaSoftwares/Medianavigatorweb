@@ -6,7 +6,7 @@ test('private pages send signed-out visitors to sign in, then back', async ({ pa
   await expect(page).toHaveURL(/\/sign-in\?next=%2Fposts/);
   await signIn(page);
   await page.goto('/posts');
-  await expect(page.getByRole('heading', { name: 'Posts', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your content', level: 1 })).toBeVisible();
 });
 
 test('a wrong password gets a kind message that does not reveal whether the email exists', async ({ page }) => {
@@ -39,5 +39,5 @@ test('sign-up validates as you type and creates an account that starts onboardin
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/onboarding/);
-  await expect(page.getByText('Step 1 of 2')).toBeVisible();
+  await expect(page.getByText('Step 1 of 3')).toBeVisible();
 });

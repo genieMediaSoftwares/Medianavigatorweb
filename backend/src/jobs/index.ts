@@ -1,3 +1,4 @@
+import { startPollLoop } from './pollLoop.js';
 import { config } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { enqueueDueSyncs, schedulerIntervalMs } from './sync/scheduler.js';
@@ -10,21 +11,19 @@ import { sendDueReminders } from './planner/reminders.js';
  * (unique active-run index + leases), so they can later be moved to a separate process/instance unchanged.
  * NOTE: an in-process loop only runs while the web instance is awake. See docs/deployment.md for the Render options.
  */
-export function startJobs(): () => void {
-  const stops: Array<() => void> = [];
-  stops.push(startDeepV2Worker());
+export function startJobs(): () => Promise<void> {
+  const stops: Array<() => Promise<void>> = [];
+  if (config.ai.workerEnabled) stops.push(startDeepV2Worker());
   if (config.sync.schedulerEnabled) {
-    const t = setInterval(() => { enqueueDueSyncs().catch((err) => logger.error('scheduler tick failed', { error: err })); }, schedulerIntervalMs());
-    stops.push(() => clearInterval(t));
+    stops.push(startPollLoop(() => enqueueDueSyncs(), schedulerIntervalMs(), error => logger.error('scheduler tick failed', { error })));
     logger.info('sync scheduler enabled');
     // Plan reminders ride on the same scheduler switch: one instance with the scheduler on delivers them.
-    const r = setInterval(() => { sendDueReminders().catch((err) => logger.error('plan reminder tick failed', { error: err })); }, 60_000);
-    stops.push(() => clearInterval(r));
+    stops.push(startPollLoop(() => sendDueReminders(), 60_000, error => logger.error('plan reminder tick failed', { error })));
     logger.info('plan reminders enabled');
   }
   if (config.sync.workerEnabled) {
     stops.push(startWorker());
     logger.info('sync worker enabled');
   }
-  return () => stops.forEach((s) => s());
+  return async () => { await Promise.all(stops.map(stop => stop())); };
 }
