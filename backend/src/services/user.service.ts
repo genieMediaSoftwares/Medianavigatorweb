@@ -1,3 +1,4 @@
+import { InstagramAd } from '../models/InstagramAd.js';
 import { randomToken } from '../lib/crypto.js';
 import { notFound } from '../lib/errors.js';
 import { toObjectId } from '../lib/ids.js';
@@ -73,7 +74,7 @@ export const userService = {
     await Promise.all([
       mediaRepository.deleteAllForUser(id), analyticsRepository.deleteAllForUser(id), notificationRepository.deleteAllForUser(id),
       fileRepository.deleteAllForUser(id), plannedRepository.deleteAllForUser(id), aiCacheRepository.deleteAllForUser(id), profileRepository.deleteByUserId(id),
-      ConnectedAccount.deleteMany({ userId: id }), ContentAnalysis.deleteMany({ userId: id }),
+      InstagramAd.deleteMany({ userId: id }), ConnectedAccount.deleteMany({ userId: id }), ContentAnalysis.deleteMany({ userId: id }),
       DeepAnalysisJob.deleteMany({ userId: id }), SavedDeepAction.deleteMany({ userId: id }),
     ]);
     await userRepository.markDeleted(id, `deleted+${String(id)}@deleted.invalid`);

@@ -1,3 +1,4 @@
+import { InstagramAd } from '../models/InstagramAd.js';
 import crypto from 'node:crypto';
 import type { Types } from 'mongoose';
 import type { NormalizedMedia } from '../../../shared/types.js';
@@ -112,6 +113,13 @@ export const syncService = {
         .filter((d): d is NonNullable<typeof d> => d !== null);
       const skipped = fetched.items.length - docs.length;
       const upserted = await mediaRepository.bulkUpsert(docs);
+      if (fetched.paidAds?.items.length) {
+        await InstagramAd.bulkWrite(fetched.paidAds.items.map(record => ({ updateOne: {
+          filter: { userId: account.userId, connectedAccountId: account._id, instagramAccountId: account.providerAccountId, adKey: `${record.adAccountId}:${record.id}` },
+          update: { $set: { record } }, upsert: true,
+        } })));
+      }
+      // Keep historical paid records (and their timestamps) when Meta stops exposing an ad.
       // Only a provably complete list may remove anything: the analysis then shows exactly what is on the account.
       let removed = 0;
       if (fetched.authoritative && !fetched.permissionError) {

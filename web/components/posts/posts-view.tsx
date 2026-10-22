@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutGrid, Search, Sparkles } from 'lucide-react';
+import { LayoutGrid, Megaphone, Search, Sparkles } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Button, LinkButton } from '@/components/ui/button';
@@ -15,17 +15,19 @@ import { useChannel } from '@/lib/hooks/useChannel';
 import { usePerformers, usePostsFeed } from '@/lib/hooks/usePosts';
 import { useConnections, useSummary } from '@/lib/hooks/useQueries';
 import { useSync } from '@/lib/hooks/useSync';
+import { useBoostedMediaIds } from '@/lib/hooks/useAds';
 import { tagFor } from '@/lib/performance';
 import { platformName, typeLabel } from '@/lib/platforms';
 import type { ContentType, MediaItem, Performer, PerformerSort, Platform } from '@/types/api';
+import { AdsBoosts } from './ads-boosts';
 import { PostCard, PostThumb } from './post-card';
 import { PostDetailDrawer } from './post-detail-drawer';
 import { plainComparison } from './plain-language';
 import { WhyPerformerModal } from '@/components/insights/why-performer-modal';
 import { DeepVideoAnalysisModal } from '@/components/insights/deep-video-analysis-modal';
 
-type Tab = 'all' | 'working' | 'attention';
-const TABS = [{ id: 'all', label: 'All posts' }, { id: 'working', label: 'Top performers' }, { id: 'attention', label: 'Opportunities' }];
+type Tab = 'all' | 'working' | 'attention' | 'ads';
+const TABS = [{ id: 'all', label: 'All posts' }, { id: 'working', label: 'Top performers' }, { id: 'attention', label: 'Opportunities' }, { id: 'ads', label: 'Ads / Boosts' }];
 type AllSort = 'newest' | 'views' | 'engagement';
 const ALL_SORTS: Array<{ value: AllSort; label: string }> = [{ value: 'newest', label: 'Newest' }, { value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }];
 const RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }, { value: 'likes', label: 'Most likes' }, { value: 'comments', label: 'Most comments' }];
@@ -40,7 +42,7 @@ function useDebounced<T>(value: T, ms: number): T {
 const KNOWN_TYPES: ContentType[] = ['reel', 'short', 'video', 'post', 'article', 'carousel'];
 const asType = (t: string): ContentType => KNOWN_TYPES.find((k) => k === t) ?? 'post';
 
-function RankedCard({ p, kind, rank, onOpen, onOpenWhy }: { p: Performer; kind: 'working' | 'attention'; rank: number; onOpen: () => void; onOpenWhy: (p: Performer, type: 'top' | 'bottom') => void }) {
+function RankedCard({ p, kind, rank, onOpen, onOpenWhy, boosted }: { p: Performer; kind: 'working' | 'attention'; rank: number; onOpen: () => void; onOpenWhy: (p: Performer, type: 'top' | 'bottom') => void; boosted?: boolean }) {
   return (
     <article className="rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-brand-200 sm:p-6">
       <div className="flex items-start gap-4 sm:gap-6">
@@ -50,6 +52,7 @@ function RankedCard({ p, kind, rank, onOpen, onOpenWhy }: { p: Performer; kind: 
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
             <span className="rounded-md bg-brand-50 px-2 py-1 font-semibold text-brand-700">#{rank}</span>
+            {boosted && <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-1 font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"><Megaphone className="h-3.5 w-3.5" aria-hidden="true" />Boosted</span>}
             <PlatformIcon platform={p.platform} className="h-4 w-4" /><span>{typeLabel(p.contentType)}</span>
             <span aria-hidden="true">·</span><span>{dateShort(p.publishedAt)}</span>
           </div>
@@ -82,6 +85,7 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
   const summary = useSummary(channel, 365);
   const perf = usePerformers(sort);
   const insufficient = useMemo(() => new Set(summary.data?.insufficientHistory ?? []), [summary.data]);
+  const boostedIds = useBoostedMediaIds();
 
   const list = useMemo(() => {
     const src = perf.data ? (kind === 'working' ? perf.data.top : perf.data.bottom) : [];
@@ -120,7 +124,7 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
         <EmptyState icon={<Search className="h-7 w-7" aria-hidden="true" />} title={filtering ? 'No posts match your search' : 'Nothing to show here yet'} description={filtering ? 'Try a different word, or clear the format filter.' : 'Check back after your next update.'} />
       ) : (
         <>
-          <div className="grid gap-5 xl:grid-cols-2">{list.slice(0, shown).map((p, i) => <RankedCard key={p.id} p={p} kind={kind} rank={i + 1} onOpen={() => onOpen(p.mediaId)} onOpenWhy={onOpenWhy} />)}</div>
+          <div className="grid gap-5 xl:grid-cols-2">{list.slice(0, shown).map((p, i) => <RankedCard key={p.id} p={p} kind={kind} rank={i + 1} onOpen={() => onOpen(p.mediaId)} onOpenWhy={onOpenWhy} boosted={boostedIds?.has(p.mediaId)} />)}</div>
           {list.length > shown && <div className="flex justify-center"><Button variant="secondary" onClick={() => setShown((n) => n + RANK_PAGE)}>Show more</Button></div>}
         </>
       )}
@@ -134,6 +138,7 @@ function AllPosts({ channel, query, format, onOpen }: { channel: Platform | 'all
   const summary = useSummary(channel, 365);
   const sync = useSync();
   const all = useMemo<MediaItem[]>(() => feed.data?.pages.flatMap((p) => p.items) ?? [], [feed.data]);
+  const boostedIds = useBoostedMediaIds();
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -177,7 +182,7 @@ function AllPosts({ channel, query, format, onOpen }: { channel: Platform | 'all
           action={feed.hasNextPage ? <Button variant="secondary" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>Show more posts</Button> : undefined} />
       ) : (
         <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
-          {items.map((p, idx) => <PostCard key={p.id || `post-${idx}`} item={p} tag={tagFor(p, summary.data)} onOpen={() => onOpen(p.id)} />)}
+          {items.map((p, idx) => <PostCard key={p.id || `post-${idx}`} item={p} tag={tagFor(p, summary.data)} onOpen={() => onOpen(p.id)} boosted={boostedIds?.has(p.id)} />)}
         </div>
       )}
       {feed.hasNextPage && items.length > 0 && <div className="flex justify-center"><Button variant="secondary" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>Show more</Button></div>}
@@ -191,7 +196,7 @@ export function PostsView() {
   const pathname = usePathname();
   const params = useSearchParams();
   const tabParam = params.get('tab');
-  const tab: Tab = tabParam === 'working' || tabParam === 'attention' ? tabParam : 'all';
+  const tab: Tab = tabParam === 'working' || tabParam === 'attention' || tabParam === 'ads' ? tabParam : 'all';
   const { channel, setChannel } = useChannel();
   const connections = useConnections();
   const [search, setSearch] = useState('');
@@ -226,7 +231,7 @@ export function PostsView() {
     body = (
       <div className="space-y-6">
         <TabBar label="Post views" tabs={TABS} value={tab} onChange={setTab} />
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+        {tab !== 'ads' && <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3">
           <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" aria-hidden="true" />
             <Input type="search" aria-label="Search posts" placeholder="Search your posts" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
@@ -239,8 +244,8 @@ export function PostsView() {
             <Segmented<Platform | 'all'> label="Channel" value={channel} onChange={setChannel}
               options={[{ value: 'all', label: 'All' }, ...connected.map((c) => ({ value: c.platform, label: platformName(c.platform) }))]} />
           )}
-        </div>
-        {tab === 'all'
+        </div>}
+        {tab === 'ads' ? <AdsBoosts /> : tab === 'all'
           ? <AllPosts channel={channel} query={query} format={format} onOpen={setOpen} />
           : <RankedList kind={tab} channel={channel} query={query} format={format} onOpen={setOpen} onOpenWhy={(item, type) => setWhyModal({ open: true, item, type })} />}
       </div>
