@@ -48,6 +48,7 @@ export function AdsBoosts() {
   if (!first?.connected) return <EmptyState icon={<Megaphone className="h-7 w-7" />} title="Connect Instagram to see ads and boosts" description="Your real paid-content data will appear after you connect and sync an account with advertising access." action={<LinkButton href="/connections">Connect Instagram</LinkButton>} />;
   const items = feed.data?.pages.flatMap(p => p.items) ?? [];
   const nextBoosts = feed.data?.pages[0]?.nextBoosts ?? [];
+  const boostedIds = feed.data?.pages[0]?.boostedMediaIds ?? [];
   const status = first.sync;
   const blocked = status?.status === 'permission_required';
   return <div className="space-y-5">

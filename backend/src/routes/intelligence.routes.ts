@@ -11,6 +11,8 @@ import { intelligence as v } from '../validators/index.js';
 export const intelligenceRouter = Router();
 intelligenceRouter.use(authenticate);
 intelligenceRouter.get('/ads', validate({ query: adsQuery }), c.ads);
+// Lightweight: only the ids of the posts that are boosted, for marking them in the post lists.
+intelligenceRouter.get('/ads/boosted', c.boostedAds);
 intelligenceRouter.get('/status', c.status);
 intelligenceRouter.get('/overview', c.overview);
 intelligenceRouter.get('/timing', c.timing);

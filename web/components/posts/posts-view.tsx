@@ -95,7 +95,9 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
       && (!q || `${p.title} ${p.caption ?? ''}`.toLowerCase().includes(q)));
   }, [perf.data, kind, channel, insufficient, format, query]);
 
-  if (perf.isLoading || summary.isLoading) return <div className="space-y-4" role="status" aria-label="Loading"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div>;
+  // The ranking is what this tab is about, so it renders as soon as it arrives. The account summary is
+  // slower and only decides which posts are left out, so it must never hold the list back.
+  if (perf.isLoading) return <div className="space-y-4" role="status" aria-label="Loading"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div>;
   if (perf.isError) return <ErrorState error={perf.error} onRetry={() => void perf.refetch()} />;
 
   const allSrc = perf.data ? (kind === 'working' ? perf.data.top : perf.data.bottom) : [];

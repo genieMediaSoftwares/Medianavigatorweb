@@ -1,4 +1,4 @@
-import { listInstagramAds } from '../services/instagramAds.service.js';
+import { listBoostedMediaIds, listInstagramAds } from '../services/instagramAds.service.js';
 import type { adsQuery } from '../services/instagramAds.service.js';
 import type { z } from 'zod';
 import { badRequest } from '../lib/errors.js';
@@ -21,6 +21,7 @@ const uid = (req: any) => req.auth!.userId as string;
 
 export const intelligenceController = {
   ads: asyncHandler(async (req, res) => ok(res, await listInstagramAds(uid(req), req.query as z.infer<typeof adsQuery>))),
+  boostedAds: asyncHandler(async (req, res) => ok(res, { mediaIds: await listBoostedMediaIds(uid(req)) })),
   startDeepV2: asyncHandler(async (req, res) => {
     const b = req.body as { postId: string; reanalyze?: boolean; goal?: string };
     const state = await deepV2Jobs.start(uid(req), b.postId, b.reanalyze, b.goal);
