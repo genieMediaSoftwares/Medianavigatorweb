@@ -14,7 +14,9 @@ export async function connectDatabase(uri: string = config.database.mongoUri): P
   mongoose.connection.on('error', (err) => logger.error('mongodb error', { error: err }));
   await mongoose.connect(uri, {
     serverSelectionTimeoutMS: 10_000,
-    maxPoolSize: 20,
+    maxPoolSize: config.database.poolSize,
+    waitQueueTimeoutMS: config.database.waitQueueTimeoutMs,
+    bufferCommands: false,
   });
   logger.info('mongodb connected');
 }
@@ -35,7 +37,7 @@ export async function databaseHealth(): Promise<DatabaseHealth> {
   if (state === 2) return 'connecting';
   if (state !== 1) return 'disconnected';
   try {
-    await mongoose.connection.db!.admin().ping();
+    await mongoose.connection.db!.admin().ping({ maxTimeMS: 2000 });
     return 'connected';
   } catch {
     return 'disconnected';

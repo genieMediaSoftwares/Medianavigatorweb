@@ -1,3 +1,4 @@
+import { startPollLoop } from '../../jobs/pollLoop.js';
 import { randomUUID } from 'node:crypto';
 import { config } from '../../config/env.js';
 import { sha256 } from '../../lib/crypto.js';
@@ -88,19 +89,9 @@ export const deepV2Jobs = {
     return true;
   },
 };
-export function startDeepV2Worker(): () => void {
-  let busy = false, stopped = false;
-  const tick = async () => {
-    if (busy || stopped) return;
-    busy = true;
-    try {
-      await DeepAnalysisJob.updateMany({ status: 'processing', attempts: { $gte: 3 }, leaseExpiresAt: { $lte: new Date() } }, { $set: { status: 'failed', error: 'Processing was interrupted repeatedly. Please retry.', leaseOwner: null, leaseExpiresAt: null } });
-      await deepV2Jobs.runOne();
-    } catch { logger.warn('deep analysis worker could not process a job'); }
-    finally { busy = false; }
-  };
-  const timer = setInterval(() => void tick(), 2000);
-  timer.unref();
-  void tick();
-  return () => { stopped = true; clearInterval(timer); };
+export function startDeepV2Worker(): () => Promise<void> {
+  return startPollLoop(async () => {
+    await DeepAnalysisJob.updateMany({ status: 'processing', attempts: { $gte: 3 }, leaseExpiresAt: { $lte: new Date() } }, { $set: { status: 'failed', error: 'Processing was interrupted repeatedly. Please retry.', leaseOwner: null, leaseExpiresAt: null } });
+    await deepV2Jobs.runOne();
+  }, 2000, () => logger.warn('deep analysis worker could not process a job'));
 }

@@ -1,11 +1,17 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, 'codex/**', 'claude/**']
   pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   admin:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: admin
@@ -21,6 +27,7 @@ jobs:
       - run: npm run build
   api:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: backend
@@ -34,6 +41,7 @@ jobs:
       - run: npm run build
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: web

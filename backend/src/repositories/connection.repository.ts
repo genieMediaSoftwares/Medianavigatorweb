@@ -38,6 +38,9 @@ export const connectionRepository = {
       { new: true },
     ).lean<ConnectedAccountDoc>(),
 
+  deferScheduled: (id: Types.ObjectId, now: Date, next: Date) =>
+    ConnectedAccount.updateOne({ _id: id, active: true, status: { $in: ['sync_complete', 'sync_failed'] }, nextSyncAt: { $lte: now } }, { $set: { nextSyncAt: next } }),
+
   /** Live, healthy accounts whose next sync is due. */
   findDue: (now: Date, limit: number) =>
     ConnectedAccount.find({ active: true, status: { $in: ['sync_complete', 'sync_failed'] }, nextSyncAt: { $lte: now } })

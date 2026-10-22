@@ -20,8 +20,7 @@ async function main() {
     logger.info('shutting down', { signal });
     const force = setTimeout(() => { logger.error('forced exit after shutdown timeout'); process.exit(1); }, 15_000);
     force.unref();
-    stopJobs();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await Promise.all([stopJobs(), new Promise<void>((resolve) => server.close(() => resolve()))]);
     await disconnectDatabase();
     process.exit(0);
   };
