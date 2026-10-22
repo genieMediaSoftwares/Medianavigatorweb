@@ -28,7 +28,7 @@ export function WelcomeState() {
   return (
     <div className="space-y-8">
       <Card className="text-center sm:p-10">
-        <h2 className="text-2xl">Welcome to Media Navigator</h2>
+        <h2 className="text-2xl">Connect an account to get your analysis</h2>
         <p className="mx-auto mt-2 max-w-xl text-[15px] text-muted">Connect one account and we will tell you, in plain words, what is working, what to fix and when to post. We only read your posts. We never post, edit or delete anything.</p>
       </Card>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

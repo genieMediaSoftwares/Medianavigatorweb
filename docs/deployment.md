@@ -51,3 +51,18 @@ Instagram long-lived tokens are refreshed during sync when less than seven days 
 ## Facebook Page sign-in
 
 The Facebook card redirects directly to official Facebook authorization when configured. There are no Facebook API-key, Page-ID, or token fields in the UI. Set `META_APP_ID`, `META_APP_SECRET`, and `META_REDIRECT_URI` on the backend. For production the redirect must be `https://medianavigator-api.onrender.com/api/v1/connections/oauth/facebook/callback`; register the identical URL in Meta's Facebook Login settings. Request `pages_show_list`, `pages_read_engagement`, and `read_insights` and complete Meta's required access review for public users. This reads managed Pages, not personal-profile posts. The backend still uses the official Graph API after consent. Without the app credentials, the UI explains that sign-in is not configured.
+
+
+## Public URLs for the Meta app settings
+
+For the web deployment at `https://medianavigatorweb.vercel.app`, use:
+
+- Privacy policy: `https://medianavigatorweb.vercel.app/privacy`
+- Terms of Service: `https://medianavigatorweb.vercel.app/terms`
+- User data deletion instructions: `https://medianavigatorweb.vercel.app/data-deletion`
+
+These routes are public and do not require sign-in. Verify all three load on the deployed site before submitting the Meta settings; a Git push alone does not confirm deployment.
+
+## Local development without sample account data
+
+The old `preview-mock-api.mjs` server is retired. Start the real backend using `backend/.env`, then start the web app with its real `API_BASE_URL`. Do not override the API address with the old port 4100 demo service. New accounts have no connections or analytics until the user connects a channel and completes a sync.

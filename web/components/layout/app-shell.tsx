@@ -13,6 +13,7 @@ import { BottomNav } from './bottom-nav';
 import { ConnectionAlert } from './connection-alert';
 import { Sidebar } from './sidebar';
 import { TopBar } from './top-bar';
+import { ConnectionRequired } from './connection-required';
 
 const COLLAPSE_KEY = 'mn-sidebar-collapsed';
 
@@ -48,7 +49,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar isAdmin={isAdmin} collapsed={collapsed} onToggle={toggle} />
         <TopBar collapsed={collapsed} />
         <main id="main" className={`min-h-screen pb-24 pt-[72px] transition-[padding] duration-200 lg:pb-12 ${collapsed ? 'lg:pl-[72px]' : 'lg:pl-[264px]'}`}>
-          <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6"><ConnectionAlert />{children}</div>
+          <div className="mx-auto max-w-[1200px] px-4 py-8 sm:px-6"><ConnectionAlert />{['/home', '/posts', '/insights', '/best-times', '/plan'].some(p => pathname === p || pathname.startsWith(`${p}/`)) ? <ConnectionRequired>{children}</ConnectionRequired> : children}</div>
         </main>
         <BottomNav isAdmin={isAdmin} />
       </SyncProvider>

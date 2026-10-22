@@ -67,7 +67,7 @@ export function OnboardingFlow() {
       <Wordmark href="/home" />
       <div className="my-auto py-10">
         <div className="mb-8">
-          <div className="mb-2 flex items-center justify-between text-sm font-semibold"><span className="text-brand-600">Step {step} of 2</span><span className="text-subtle">{step === 1 ? 'About you' : 'Connect an account'}</span></div>
+          <div className="mb-2 flex items-center justify-between text-sm font-semibold"><span className="text-brand-600">Step {step} of 3</span><span className="text-subtle">{step === 1 ? 'About you' : step === 2 ? 'Connect an account' : 'Quick product tour'}</span></div>
           <div className="h-2 overflow-hidden rounded-full bg-brand-100" role="progressbar" aria-valuemin={1} aria-valuemax={3} aria-valuenow={step}><div className="h-full rounded-full bg-brand-600 transition-all duration-300" style={{ width: step === 1 ? '33%' : step === 2 ? '66%' : '100%' }} /></div>
         </div>
 
@@ -84,7 +84,7 @@ export function OnboardingFlow() {
             {error && <Notice tone="bad">{error}</Notice>}
             <Button type="submit" size="lg" className="w-full" loading={isSubmitting}>Continue<ArrowRight className="h-5 w-5" aria-hidden="true" /></Button>
           </form>
-        ) : (
+        ) : step === 2 ? (
           <div className="card p-6 sm:p-8">
             <h1 className="text-[28px] leading-tight">Connect your first account</h1>
             <p className="mt-2 text-[15px] text-muted">Pick one to start. You can add the others later. We only read; we never post.</p>
@@ -107,18 +107,20 @@ export function OnboardingFlow() {
               <Button size="lg" onClick={() => setStep(3)} disabled={connected.length === 0}>Continue<ArrowRight className="h-5 w-5" aria-hidden="true" /></Button>
             </div>
           </div>
-        )}
-      </div>
-      {step === 3 && (
-        <div className="card p-6 sm:p-8">
-          <h1 className="text-[28px] leading-tight">Quick product tour</h1>
-          <p className="mt-2 text-[15px] text-muted">Short overview. Skip anytime.</p>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            {['Home','Content Library','Insights','Best times','Planner','Accounts'].map((x) => <div key={x} className="rounded-xl border border-line bg-app p-4"><p className="font-bold text-ink">{x}</p></div>)}
+        ) : null}
+        {step === 3 && (
+          <div className="card p-6 sm:p-8">
+            <h1 className="text-[28px] leading-tight">Quick product tour</h1>
+            <p className="mt-2 text-[15px] text-muted">Short overview. Skip anytime.</p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {['Home','Content Library','Insights','Best times','Planner','Accounts'].map((x) => <div key={x} className="rounded-xl border border-line bg-app p-4"><p className="font-bold text-ink">{x}</p></div>)}
+            </div>
+            {error && <Notice tone="bad" className="mt-5">{error}</Notice>}
+            <div className="mt-8 flex flex-wrap gap-3"><Button disabled={finishing} variant="ghost" onClick={() => void finish()}>Skip tour</Button><Button size="lg" onClick={() => void finish()} loading={finishing}>Finish setup<ArrowRight className="h-5 w-5" aria-hidden="true" /></Button></div>
           </div>
-          <div className="mt-8 flex gap-3"><Button variant="ghost" onClick={() => void finish()}>Skip tour</Button><Button size="lg" onClick={() => void finish()} loading={finishing}>Finish setup<ArrowRight className="h-5 w-5" aria-hidden="true" /></Button></div>
-        </div>
-      )}
+        )}
+
+      </div>
 
       {connecting && <ConnectModal platform={connecting} connection={connections.data?.find((c) => c.platform === connecting)} open onOpenChange={(o) => !o && setConnecting(null)} />}
     </div>
