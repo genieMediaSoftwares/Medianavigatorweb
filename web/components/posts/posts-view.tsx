@@ -100,7 +100,10 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
   if (perf.isError) return <ErrorState error={perf.error} onRetry={() => void perf.refetch()} />;
 
   const allSrc = perf.data ? (kind === 'working' ? perf.data.top : perf.data.bottom) : [];
-  const tooFew = allSrc.length === 0 || (insufficient.size > 0 && allSrc.every((p) => insufficient.has(p.platform)))
+  // A ranking with posts on the other side means there is history; this measure just was not reported.
+  const otherSrc = perf.data ? (kind === 'working' ? perf.data.bottom : perf.data.top) : [];
+  const unmeasured = allSrc.length === 0 && otherSrc.length > 0;
+  const tooFew = (allSrc.length === 0 && !unmeasured) || (insufficient.size > 0 && allSrc.length > 0 && allSrc.every((p) => insufficient.has(p.platform)))
     || (channel !== 'all' && insufficient.has(channel));
   const filtering = Boolean(query.trim()) || format !== 'all';
 
@@ -121,6 +124,9 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
         <EmptyState icon={<LayoutGrid className="h-7 w-7" aria-hidden="true" />} title="We need a few more posts before we can say"
           description="Once you have at least five posts on a channel, we can show what is working and what could be better, compared with your own usual."
           action={<LinkButton href="/connections" variant="secondary">Manage connections</LinkButton>} />
+      ) : unmeasured ? (
+        <EmptyState icon={<Search className="h-7 w-7" aria-hidden="true" />} title="Not enough posts with this number to rank"
+          description="Your channels don't report this number for enough posts yet. Try ranking by Best engagement." />
       ) : list.length === 0 ? (
         <EmptyState icon={<Search className="h-7 w-7" aria-hidden="true" />} title={filtering ? 'No posts match your search' : 'Nothing to show here yet'} description={filtering ? 'Try a different word, or clear the format filter.' : 'Check back after your next update.'} />
       ) : (

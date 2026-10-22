@@ -413,7 +413,11 @@ export class AnalyticsEngine {
   }
 
   getBottomPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views', platform?: string): PerformerAnalysis[] {
-    const { measured: activeMedia, comparison, order } = this.rankingPool(sortBy, platform);
+    // Views are often not reported (photos, many Facebook posts). When too few posts carry the chosen
+    // measure, rank by engagement instead so Opportunities is not left empty.
+    let pool = this.rankingPool(sortBy, platform);
+    if (pool.measured.length < 2 && sortBy !== 'engagement') pool = this.rankingPool('engagement', platform);
+    const { measured: activeMedia, comparison, order } = pool;
     if (activeMedia.length < 2) return [];
 
     const sorted = [...activeMedia].sort((a, b) => order(b, a));
