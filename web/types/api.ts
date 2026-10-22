@@ -178,8 +178,9 @@ export interface DiagnosisBaseline {
 
 export interface DiagnosisResult {
   summary: string;
-  limitations: string[];
-  confidence: { level: 'high' | 'medium' | 'low'; reason: string };
+  /** A result saved by an older version may not have every field, so the reader must treat them as optional. */
+  limitations?: string[];
+  confidence?: { level: 'high' | 'medium' | 'low'; reason: string };
   /** Top performers. */
   threeLine?: { whatWorked: string; performanceProof: string; strategicTakeaway: string };
   insights?: DiagnosisInsight[];
@@ -293,7 +294,7 @@ export interface TopicPerformance {
 export interface Summary {
   calcVersion: number;
   scope: string;
-  platformsIncluded: Platform[];
+  platformsIncluded?: Platform[];
   platformsConnectedWithoutData: Platform[];
   dataPeriod: { days: number; current: PeriodStats; previous: PeriodStats };
   periodComparison: { engagementRateMedianChangePct: number | null; viewsMedianChangePct: number | null; comparable: boolean };
@@ -393,7 +394,8 @@ export interface Performer {
   engagementRate: number;
   baselineComparison: string;
   isTopPerformer: boolean;
-  possibleFactors: string[];
+  /** A response from an older deployment may not carry every field, so the reader treats it as optional. */
+  possibleFactors?: string[];
   patternToReplicateOrImprove: string;
   alternativeApproach?: string;
   uncertaintyNote?: string;

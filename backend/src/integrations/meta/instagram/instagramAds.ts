@@ -31,6 +31,7 @@ export async function fetchInstagramAds(creds: ProviderCredentials, instagramId:
    */
   const mediaKeys = new Set<string>();
   for (const id of mediaIds) {
+    if (typeof id !== 'string' || id === '') continue;
     mediaKeys.add(id);
     const bare = id.replace(/^[a-z]+_/i, '');
     if (bare) mediaKeys.add(bare);
@@ -90,9 +91,14 @@ export async function fetchInstagramAds(creds: ProviderCredentials, instagramId:
           if (typeof ad.id !== 'string') { incomplete = true; continue; }
           const item: InstagramAd = {
             id: ad.id, adAccountId: account.id, name: ad.name || 'Untitled ad', campaign: ad.campaign?.name || '', adSet: ad.adset?.name || '', status: ad.effective_status || 'UNKNOWN',
-            // A creative that points at an Instagram post is a boosted post, whether or not that post is
-            // in this account's library; `matched` says whether it is one of ours.
-            category: source || effective ? 'boosted_post' : 'ad', sourceMediaId: source || effective || null,
+            // A boosted post is the promotion of a post that already exists on this profile. Meta's
+            // `effective_instagram_media_id` is the ad's own creative, which is a different post, so
+            // only a media id that is one of ours counts as a boost.
+            category: matched ? 'boosted_post' : 'ad',
+            /** The post of ours this ad promotes, when there is one. */
+            sourceMediaId: matched,
+            /** The Instagram media the ad used, which may be a post outside this library. */
+            creativeMediaId: source ?? effective,
             currency: typeof account.currency === 'string' ? account.currency : null,
             impressions: null, reach: null, clicks: null, spend: null, dateStart: null, dateStop: null, syncedAt: checkedAt,
           };

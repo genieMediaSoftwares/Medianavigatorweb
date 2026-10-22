@@ -65,7 +65,11 @@ export function AdsBoosts() {
         <option value="all">All ads and boosts</option><option value="boosted_post">Promoted posts / Boosts</option><option value="ad">Ads</option>
       </Select>
     </label>
-    <p className="text-xs text-muted">Promoted posts / Boosts use an existing Instagram post. Meta may not identify whether the promotion was created with the Boost button or Ads Manager. Missing metrics are shown as unavailable.</p>
+    <p className="text-xs text-muted">
+      A <strong>boost</strong> promotes a post that already exists in your library, so it is counted here and marked as boosted on that post.
+      An <strong>ad</strong> runs its own creative instead. Meta does not always say which one it was, so a promotion of a post that is not in your
+      library is shown as an ad. Missing metrics are shown as unavailable rather than guessed.
+    </p>
     {nextBoosts.length > 0 && (
       <section aria-label="Recommended next boosts">
         <h3 className="mb-1 flex items-center gap-2 text-[15px] font-bold uppercase tracking-wider text-brand-600">
@@ -80,11 +84,25 @@ export function AdsBoosts() {
         </div>
       </section>
     )}
-    {!items.length ? <EmptyState title={blocked ? 'Advertising access is needed' : status?.status === 'ready' ? 'No matching ads returned' : 'No paid data available yet'} description={blocked ? 'Your current connection can still sync regular posts. Update its advertising access to retrieve paid results.' : 'Only ads Meta attributes to your connected Instagram profile are shown. Try syncing or choose another category.'} /> :
+    {!items.length ? <EmptyState
+      title={blocked ? 'Advertising access is needed' : category === 'boosted_post' ? 'No boosts of your posts' : status?.status === 'ready' ? 'No matching ads returned' : 'No paid data available yet'}
+      description={blocked
+        ? 'Your current connection can still sync regular posts. Update its advertising access to retrieve paid results.'
+        : category === 'boosted_post'
+          ? 'Meta returned ads that run their own creative rather than promoting a post from your library. Choose “Ads” to see them.'
+          : 'Only ads Meta attributes to your connected Instagram profile are shown. Try syncing or choose another category.'} /> :
       <div className="grid gap-5 lg:grid-cols-2">{items.map(ad => <article key={`${ad.adAccountId}:${ad.id}`} className="min-w-0 rounded-2xl border border-line bg-surface p-5">
-        <div className="flex flex-wrap gap-2 text-xs text-muted"><span className="rounded-md bg-brand-50 px-2 py-1 text-brand-700">{ad.category === 'boosted_post' ? 'Promoted post / Boost' : 'Ad'}</span><span className="py-1">{ad.status.replaceAll('_', ' ')}</span></div>
+        <div className="flex flex-wrap gap-2 text-xs text-muted">
+          <span className={`rounded-md px-2 py-1 font-semibold ${ad.category === 'boosted_post' ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-brand-50 text-brand-700'}`}>
+            {ad.category === 'boosted_post' ? 'Boost of a post' : 'Ad (own creative)'}
+          </span>
+          <span className="py-1">{ad.status.replaceAll('_', ' ')}</span>
+        </div>
         <h3 className="mt-3 break-words text-lg">{ad.name}</h3>
         <p className="mt-1 break-words text-sm text-muted">{[ad.campaign, ad.adSet].filter(Boolean).join(' · ') || 'Campaign details unavailable'}</p>
+        {ad.category === 'boosted_post' && ad.sourceMediaId && (
+          <p className="mt-1 text-[13px] text-muted">Promotes one of your posts (media {ad.sourceMediaId}).</p>
+        )}
         <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">{[
           ['Impressions', count(ad.impressions)], ['Reach', count(ad.reach)], ['Clicks', count(ad.clicks)],
           ['Spend', ad.spend === null ? 'Not available' : `${ad.currency ?? ''} ${ad.spend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],

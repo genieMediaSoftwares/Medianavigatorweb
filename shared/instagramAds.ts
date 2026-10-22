@@ -6,7 +6,10 @@ export interface InstagramAd {
   adSet: string;
   status: string;
   category: 'boosted_post' | 'ad';
+  /** The post of ours this ad promotes, when there is one. */
   sourceMediaId: string | null;
+  /** The Instagram media the ad used, which may be a post outside this library. */
+  creativeMediaId?: string | null;
   currency: string | null;
   impressions: number | null;
   reach: number | null;

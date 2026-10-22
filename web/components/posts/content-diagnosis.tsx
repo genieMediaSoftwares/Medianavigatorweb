@@ -196,7 +196,7 @@ function DiagnosticCard({ diagnostic }: { diagnostic: DiagnosisDiagnostic }) {
 
 /** The measured numbers of this post against the account's own median. */
 function EvidenceTable({ diagnosis }: { diagnosis: DiagnosisResponse }) {
-  const rows = diagnosis.baseline.rows.filter((r) => r.post !== null || r.median !== null);
+  const rows = (diagnosis.baseline.rows ?? []).filter((r) => r.post !== null || r.median !== null);
   if (rows.length === 0) return null;
   const fmt = (v: number | null, key: string) => {
     if (v === null) return 'Not available';
@@ -287,10 +287,10 @@ function DeepAnalysis({ diagnosis }: { diagnosis: DiagnosisResponse }) {
               </ul>
             </div>
           )}
-          {r.limitations.length > 0 && (
+          {(r.limitations ?? []).length > 0 && (
             <div>
               <h4 className="text-sm font-bold uppercase tracking-wider text-muted">Limitations</h4>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-muted">{r.limitations.map((l, i) => <li key={i}>{l}</li>)}</ul>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-muted">{(r.limitations ?? []).map((l, i) => <li key={i}>{l}</li>)}</ul>
             </div>
           )}
         </div>
@@ -505,10 +505,10 @@ export function ContentDiagnosis({ mediaId, thumbnailUrl, title, platform, conte
         <p className="mt-3 text-[12px] text-subtle">{d.baseline.method}</p>
       </section>
 
-      {d.result.limitations.length > 0 && (
+      {(d.result.limitations ?? []).length > 0 && (
         <details className="rounded-xl border border-line p-4">
           <summary className="cursor-pointer text-[13px] font-semibold text-muted">Limitations and what was not measured</summary>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-muted">{d.result.limitations.map((l, i) => <li key={i}>{l}</li>)}</ul>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-muted">{(d.result.limitations ?? []).map((l, i) => <li key={i}>{l}</li>)}</ul>
         </details>
       )}
 
