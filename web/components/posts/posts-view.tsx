@@ -72,7 +72,7 @@ function RankedCard({ p, kind, rank, onOpen, onOpenWhy, boosted }: { p: Performe
           <p>{plainComparison(p.baselineComparison)}</p>
           <p><strong>Suggested experiment:</strong> {p.patternToReplicateOrImprove}</p>
           {p.uncertaintyNote && <p>{p.uncertaintyNote}</p>}
-          {p.possibleFactors.length > 0 && <ul className="list-disc space-y-1 pl-4">{p.possibleFactors.map(f => <li key={f}>{f}</li>)}</ul>}
+          {(p.possibleFactors ?? []).length > 0 && <ul className="list-disc space-y-1 pl-4">{(p.possibleFactors ?? []).map(f => <li key={f}>{f}</li>)}</ul>}
         </div>
       </details>
     </article>
