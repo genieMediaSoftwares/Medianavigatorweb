@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { config } from '../../config/env.js';
+import { hasMeaningfulDenominator } from '../../services/ai/engagementRate.js';
 import { httpFetch } from '../../lib/http.js';
 import { ConnectError } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
@@ -147,7 +148,7 @@ export class LinkedInClient {
       const clicks = post.totalShareStatistics?.clickCount || 0;
 
       const interactions = likes + comments + shares + clicks;
-      const engagementRate = impressions > 0 ? Number(((interactions / impressions) * 100).toFixed(2)) : 0;
+      const engagementRate = hasMeaningfulDenominator(impressions) ? Number(((interactions / impressions) * 100).toFixed(2)) : 0;
 
       let tier: PerformanceTier = 'Average';
       if (engagementRate > 3.0 || interactions > 50) tier = 'Strong';

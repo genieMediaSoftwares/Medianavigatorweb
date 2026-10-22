@@ -1,3 +1,5 @@
+import { fetchInstagramAds } from '../meta/instagram/instagramAds.js';
+import { config } from '../../config/env.js';
 import { httpFetch } from '../../lib/http.js';
 import { ConnectError } from '../../lib/errors.js';
 import { MetaApiError } from '../meta/metaErrors.js';
@@ -77,6 +79,7 @@ export const instagramAdapter: ProviderAdapter = {
   },
 
   async fetchContent(creds, account, ctx) {
+    const startedAt = Date.now();
     const info = await clientFor(creds).resolveAccount(token(creds), creds.accountId || account.providerAccountId);
     const listing = { complete: false };
     const items = await clientFor(creds).fetchMedia(token(creds), info.id, info, ctx.existing, listing);
@@ -86,10 +89,12 @@ export const instagramAdapter: ProviderAdapter = {
     const partialReason = listing.complete ? undefined
       : `Instagram stopped returning posts after ${items.length}. The posts already received were saved; sync again to read the rest.`;
     const insights = creds.instagramLogin ? await loginClient.fetchAccountInsights(token(creds), info.id) : undefined;
+    const paidAds = await fetchInstagramAds(creds, info.id, new Set([...ctx.existing.values(), ...items].map(i => i.platformContentId)), Math.max(0, Math.min(45_000, config.sync.timeoutMs - (Date.now() - startedAt) - 2000)));
     return {
-      items, partialReason,
+      items, partialReason, paidAds,
       accountInfo: {
         id: info.id, username: info.username, name: info.name, followersCount: info.followersCount, followsCount: info.followsCount, mediaCount: info.mediaCount,
+        ads: paidAds.sync,
         mediaListComplete: listing.complete,
         // How many posts Instagram's API returned for this account, known only when every page was read.
         accessibleMediaCount: listing.complete ? items.length : null,

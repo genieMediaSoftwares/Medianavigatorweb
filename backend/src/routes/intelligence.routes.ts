@@ -1,3 +1,4 @@
+import { adsQuery } from '../services/instagramAds.service.js';
 import multer from 'multer';
 import { config } from '../config/env.js';
 import { Router } from 'express';
@@ -9,6 +10,7 @@ import { intelligence as v } from '../validators/index.js';
 
 export const intelligenceRouter = Router();
 intelligenceRouter.use(authenticate);
+intelligenceRouter.get('/ads', validate({ query: adsQuery }), c.ads);
 intelligenceRouter.get('/status', c.status);
 intelligenceRouter.get('/overview', c.overview);
 intelligenceRouter.get('/timing', c.timing);

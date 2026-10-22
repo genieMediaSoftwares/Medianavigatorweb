@@ -91,6 +91,7 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
         ) : (<>
         {oauth && <Button size="lg" className="w-full" loading={busy} onClick={() => void startOAuth()}>Continue with {name}</Button>}
         {manualMeta && <Notice>Paste a Meta access token with permission to read your posts and insights. Use a professional Instagram account or a Facebook Page you manage. An app secret is not an access token.</Notice>}
+        {platform === 'instagram' && <Notice>To include Ads / Boosts, use a Facebook Graph API access token with ads_read and access to the advertising account, alongside your Instagram permissions. Instagram Login tokens cannot read ads.</Notice>}
         {!oauth && !manualMeta && <Notice>One-click sign-in with {name} isn&apos;t set up on this server yet. You can still connect with an access token below.</Notice>}
 
         {oauth && (

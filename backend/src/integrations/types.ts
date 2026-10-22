@@ -1,3 +1,4 @@
+import type { InstagramAdsBatch, InstagramAdsSync } from '../../../shared/instagramAds.js';
 import type { NormalizedMedia, PlatformType } from '../../../shared/types.js';
 import type { ConnectFailureReason } from '../lib/errors.js';
 
@@ -44,11 +45,13 @@ export interface ResolvedAccount {
     /** Whether the last sync read the platform's media listing to its last page, and when. */
     mediaListComplete?: boolean;
     mediaListCheckedAt?: string;
+    ads?: InstagramAdsSync;
     insights?: { since: string; until: string; fetchedAt: string; metrics: Record<string, number>; unavailable: string[] } };
   credentialsPatch?: Partial<ProviderCredentials>;
 }
 
 export interface FetchContentResult {
+  paidAds?: InstagramAdsBatch;
   items: NormalizedMedia[];
   accountInfo?: ResolvedAccount['accountInfo'];
   /** Items the provider could not return because of missing permissions. */

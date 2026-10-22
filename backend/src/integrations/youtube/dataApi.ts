@@ -1,3 +1,4 @@
+import { hasMeaningfulDenominator } from '../../services/ai/engagementRate.js';
 import { config } from '../../config/env.js';
 import { httpFetch } from '../../lib/http.js';
 import { describeGoogleError, parseExactChannel, YouTubeApiError, type ChannelReference } from './errors.js';
@@ -268,7 +269,7 @@ export class YouTubeDataApi {
       const contentType: NormalizedMedia['contentType'] = isShort ? 'short' : 'video';
 
       const interactions = likes + comments;
-      const engagementRate = views > 0 ? Number(((interactions / views) * 100).toFixed(2)) : 0;
+      const engagementRate = hasMeaningfulDenominator(views) ? Number(((interactions / views) * 100).toFixed(2)) : 0;
 
       let tier: PerformanceTier = 'Average';
       if (engagementRate > 6.0 || views > 50000) tier = 'Strong';
