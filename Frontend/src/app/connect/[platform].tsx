@@ -26,6 +26,9 @@ import type { Connection, ConnectInput, Platform } from '@/types/api';
 
 type Phase = 'idle' | 'validating' | 'authorizing';
 
+// Same as the website: Instagram and Facebook connect with a Meta access token, never the OAuth sign-in.
+const isMetaPlatform = (platform: Platform) => platform === 'instagram' || platform === 'facebook';
+
 function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
   platform: Platform;
   connection: Connection;
@@ -42,7 +45,8 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
   const [error, setError] = useState<string | null>(null);
   const [errorTitle, setErrorTitle] = useState<string | undefined>(undefined);
   // With one-tap sign-in available, the manual token form is a fallback the user opens on purpose.
-  const [manual, setManual] = useState(!connection.oauthAvailable);
+  const oauth = !isMetaPlatform(platform) && Boolean(connection.oauthAvailable);
+  const [manual, setManual] = useState(!oauth);
 
   const extraRequired = mode.extra !== undefined && !mode.extra.label.includes('(optional)');
   const ready = secret.trim().length > 0 && (!extraRequired || extra.trim().length > 0);
@@ -87,7 +91,16 @@ function ConnectForm({ platform, connection, onConnected, onOAuthReturn }: {
     <>
       {error && !manual ? <Notice variant="error" message={error} /> : null}
 
-      {connection.oauthAvailable ? (
+      {isMetaPlatform(platform) ? (
+        <>
+          <Notice variant="info" message="Paste a Meta access token with permission to read your posts and insights. Use a professional Instagram account or a Facebook Page you manage. An app secret is not an access token." />
+          {platform === 'instagram' ? (
+            <Notice variant="info" message="To include Ads / Boosts, use a Facebook Graph API access token with ads_read and access to the advertising account, alongside your Instagram permissions. Instagram Login tokens cannot read ads." />
+          ) : null}
+        </>
+      ) : null}
+
+      {oauth ? (
         <View className="mb-xl">
           <Button title={`Continue with ${name}`} onPress={() => void signIn()} loading={phase === 'authorizing'} disabled={phase !== 'idle'} />
           <Text className="mt-sm text-center text-[12px] text-neutral-500">{`Sign in with ${name} to connect.`}</Text>
@@ -304,7 +317,7 @@ export default function ConnectPlatformScreen() {
                   <YouTubeAnalyticsSection connection={connection} onReturn={() => void afterOAuth()} />
                 </View>
               ) : null}
-              {showForm && platform !== 'youtube' ? <ConnectForm platform={platform} connection={connection} onConnected={setSuccess} onOAuthReturn={() => void afterOAuth()} /> : null}
+              {showForm && platform !== 'youtube' ? <ConnectForm platform={platform} connection={connection} onConnected={(c) => { setSuccess(c); void sync.start(platform); }} onOAuthReturn={() => void afterOAuth()} /> : null}
             </>
           )}
         </ScrollView>
