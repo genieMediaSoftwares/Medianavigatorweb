@@ -1,4 +1,5 @@
 import { config } from '../../../config/env.js';
+import { hasMeaningfulDenominator } from '../../../services/ai/engagementRate.js';
 import { httpFetch } from '../../../lib/http.js';
 import { ConnectError, type ConnectFailureReason } from '../../../lib/errors.js';
 import { MetaClient } from '../metaClient.js';
@@ -397,10 +398,11 @@ export class InstagramClient extends MetaClient {
             contentType = 'carousel';
           }
 
-          // Engagement rate = interactions / reach (or / views) × 100, only when that denominator was measured.
+          // Engagement rate = interactions / reach (or / views) × 100, only when that denominator was measured
+          // and is large enough for the rate to mean anything.
           const divisor = !missingInsights.includes('reach') && reach > 0 ? reach : !missingInsights.includes('views') && views > 0 ? views : 0;
-          const engagementRate = divisor > 0 ? Number(((interactions / divisor) * 100).toFixed(2)) : 0;
-          if (divisor === 0 && !missingInsights.includes('engagementRate')) missingInsights.push('engagementRate');
+          const engagementRate = hasMeaningfulDenominator(divisor) ? Number(((interactions / divisor) * 100).toFixed(2)) : 0;
+          if (!hasMeaningfulDenominator(divisor) && !missingInsights.includes('engagementRate')) missingInsights.push('engagementRate');
 
           let tier: PerformanceTier = 'Average';
           if (engagementRate > 5.5 || interactions > 250 || views > 10000) tier = 'Strong';
