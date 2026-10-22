@@ -35,8 +35,6 @@ export default function TermsPage() {
       <h2>Changes and ending the service</h2>
       <p>We may improve or change the service and these terms. If a change matters, we will tell you in the app. If you delete your account, your data is removed as described in the Privacy Policy.</p>
 
-      <h2>Contact</h2>
-      <p>The operator’s name and contact details are shown in the box at the top of this page.</p>
     </LegalLayout>
   );
 }
