@@ -41,7 +41,7 @@ export async function listInstagramAds(userId: string, query: z.infer<typeof ads
   const items = docs.slice(0, 24).map(d => d.record);
 
   // Every post that is running as a boost or an ad, so the post lists can mark them.
-  const boostedDocs = await InstagramAd.find({ userId, connectedAccountId: account._id, 'record.sourceMediaId': { $ne: null } })
+  const boostedDocs = await InstagramAd.find({ userId, connectedAccountId: account._id, 'record.sourceMediaId': { $type: 'string' } })
     .select({ 'record.sourceMediaId': 1 }).lean();
   const boostedMediaIds = [...new Set(boostedDocs.map(d => toLocalMediaId(d.record?.sourceMediaId)).filter((id): id is string => Boolean(id)))];
 

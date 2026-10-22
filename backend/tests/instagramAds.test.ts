@@ -60,8 +60,23 @@ describe('Instagram ads and boosted posts', () => {
   it('imports the ads that belong to this Instagram profile and leaves the other clients\' ads out', async () => {
     const res = await fetchInstagramAds({ accessToken: 'token' } as any, '111', new Set<string>(), 30_000);
     expect(res.items.map((a) => a.id)).toEqual(['ad_2']);
-    expect(res.items[0].category).toBe('boosted_post');
-    expect(res.items[0].sourceMediaId).toBe('555');
+    // Its creative is not one of our posts, so it is an ad that runs its own creative, not a boost.
+    expect(res.items[0].category).toBe('ad');
+    expect(res.items[0].sourceMediaId).toBeNull();
+    expect(res.items[0].creativeMediaId).toBe('555');
+  });
+
+  it('does not import another client\' ads', async () => {
+    const res = await fetchInstagramAds({ accessToken: 'token' } as any, '111', new Set(['ig_999']), 30_000);
+    expect(res.items.find((a) => a.id === 'ad_1')).toBeUndefined();
+  });
+
+  it('keeps the creative media id so an ad that promotes a post outside the library is still explained', async () => {
+    const res = await fetchInstagramAds({ accessToken: 'token' } as any, '111', new Set(['ig_999']), 30_000);
+    const ad = res.items.find((a) => a.id === 'ad_2')!;
+    // The creative media id is kept, but it is not claimed as one of our posts.
+    expect(ad.creativeMediaId).toBe('555');
+    expect(ad.sourceMediaId).toBeNull();
   });
 
   it('matches a boosted post to the media id this app stores, in either form', async () => {
