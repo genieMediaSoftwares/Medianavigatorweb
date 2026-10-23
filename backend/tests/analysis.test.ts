@@ -41,6 +41,17 @@ describe('per-platform post rankings', () => {
     expect([...yt.top, ...yt.bottom].every((p: any) => p.platform === 'youtube')).toBe(true);
   });
 
+  it('serves the mobile Needs Attention list per platform, by measured reach/views, independent of sortBy', async () => {
+    const u = await twoPlatforms();
+    const get = async (q: string) => (await api().get(`/api/v1/intelligence/performers?${q}`).set(u.auth)).body.data;
+    const ig = await get('sortBy=views&platform=instagram');
+    expect(ig.needsAttention.length).toBeGreaterThan(0);
+    expect(ig.needsAttention.every((p: any) => p.platform === 'instagram' && /^-\d+% reach vs your median \([\d,]+\)$/.test(p.baselineComparison))).toBe(true);
+    expect((await get('sortBy=likes&platform=instagram')).needsAttention).toEqual(ig.needsAttention);
+    const yt = await get('sortBy=views&platform=youtube');
+    expect(yt.needsAttention.every((p: any) => p.platform === 'youtube' && /views vs your median/.test(p.baselineComparison))).toBe(true);
+  });
+
   it('leaves out posts whose ranking metric was not measured', async () => {
     const u = await twoPlatforms();
     const res = (await api().get('/api/v1/intelligence/performers?sortBy=views&platform=instagram').set(u.auth)).body.data;
@@ -62,6 +73,6 @@ describe('per-platform post rankings', () => {
     await twoPlatforms();
     const other = await registerUser('other-rank@test.example');
     const res = (await api().get('/api/v1/intelligence/performers?platform=instagram').set(other.auth)).body.data;
-    expect(res).toEqual({ top: [], bottom: [] });
+    expect(res).toEqual({ top: [], bottom: [], needsAttention: [] });
   });
 });
