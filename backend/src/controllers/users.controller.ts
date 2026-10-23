@@ -22,7 +22,7 @@ export const usersController = {
     const user = await userRepository.findByIdWithPassword(req.auth!.userId);
     if (!user) throw unauthorized('Account is no longer available');
     if (!(await bcrypt.compare(req.body.password, user.passwordHash))) throw invalidCredentials('Password is incorrect');
-    await userService.deleteAccount(req.auth!.userId);
-    ok(res, { deleted: true });
+    const result = await userService.deleteAccount(req.auth!.userId);
+    ok(res, result);
   }),
 };

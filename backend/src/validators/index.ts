@@ -4,9 +4,11 @@ import { pageQuery } from '../lib/pagination.js';
 import { isObjectId } from '../lib/ids.js';
 import { isValidLocalDate } from '../lib/zonedTime.js';
 import { ALL_PLAN_FORMATS, REMINDER_OFFSETS } from '../services/planner/plans.js';
+import { passwordFitsBcrypt, PASSWORD_BYTE_MESSAGE } from '../../../shared/passwordPolicy.js';
 
 const email = z.string().trim().toLowerCase().email().max(254);
 export const password = z.string().min(8, 'Password must be at least 8 characters').max(128)
+  .refine(passwordFitsBcrypt, PASSWORD_BYTE_MESSAGE)
   .refine((v) => /[A-Za-z]/.test(v) && /\d/.test(v), 'Password must contain at least one letter and one number');
 const mfaCode = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code');
 const secondFactor = { mfaCode: mfaCode.optional(), recoveryCode: z.string().trim().min(8).max(20).optional() };

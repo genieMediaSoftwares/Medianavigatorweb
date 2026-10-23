@@ -5,7 +5,7 @@ import { DocumentScreen } from '@/components/DocumentScreen';
 export default function PrivacyPolicyScreen() {
   return (
     <DocumentScreen
-      updated="September 30, 2026"
+      updated="October 22, 2026"
       intro="This policy explains what Media Navigator stores, why, who it is shared with, and how to delete it."
       sections={[
         {
@@ -27,6 +27,7 @@ export default function PrivacyPolicyScreen() {
           title: 'AI processing',
           paragraphs: [
             'To generate insights and answers, Media Navigator sends Google’s Gemini API your account’s metrics (followers, per-post likes, comments, views and similar), format and timing statistics, and captions shortened to 280 characters.',
+            'When you request a content analysis of a post, its caption and its images or video are sent to Gemini for that analysis. Video files uploaded for analysis are deleted from Gemini once the analysis finishes.',
             'Gemini never receives your email, password, session tokens or platform access tokens.',
           ],
         },
@@ -39,14 +40,14 @@ export default function PrivacyPolicyScreen() {
         {
           title: 'Retention and deletion',
           paragraphs: [
-            'Disconnecting an account immediately deletes its access token and all of its synced data. Cached AI results expire after 7 days. Expired sessions are removed a week after they expire.',
-            'Deleting your account (Profile → Security) permanently deletes your profile, sessions, connected accounts, tokens, synced content, AI results, notifications and uploaded files.',
+            'Disconnecting an account immediately deletes its stored access token and stops future imports. Previously imported posts and analysis remain until you delete your Media Navigator account. Cached AI results expire automatically. Expired sessions are removed a week after they expire.',
+            'Deleting your account (Profile → Security) signs you out everywhere and removes your profile, connected accounts, tokens, imported content, analytics, AI results, plans, notifications and uploaded files. If file storage is temporarily unavailable, removal of uploaded files is retried automatically until it completes. An anonymized account record and administrative audit and credit-adjustment records remain for accountability. Deletion cannot be undone.',
           ],
         },
         {
           title: 'Security',
           paragraphs: [
-            'Passwords are hashed with PBKDF2, platform tokens are encrypted before storage, access tokens never leave the server, and the app talks to the server over HTTPS in production.',
+            'Passwords are hashed with bcrypt, platform tokens are encrypted before storage, access tokens never leave the server, and the app talks to the server over HTTPS in production.',
           ],
         },
         {

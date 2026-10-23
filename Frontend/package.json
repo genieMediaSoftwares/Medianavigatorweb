@@ -4,15 +4,15 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
-    "expo": "~57.0.25",
+    "expo": "~57.0.31",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.19",
     "expo-font": "~57.0.4",
     "expo-image": "~57.0.5",
     "expo-linear-gradient": "~57.0.2",
-    "expo-linking": "~57.0.11",
-    "expo-notifications": "~57.0.23",
-    "expo-router": "~57.0.23",
+    "expo-linking": "~57.0.13",
+    "expo-notifications": "~57.0.24",
+    "expo-router": "~57.0.29",
     "expo-secure-store": "~57.0.4",
     "expo-status-bar": "~57.0.1",
     "expo-web-browser": "~57.0.3",
@@ -34,7 +34,7 @@
     "eslint-config-expo": "~57.0.2",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.3",
-    "vitest": "^3.2.7"
+    "vitest": "5.0.5"
   },
   "scripts": {
     "start": "expo start",

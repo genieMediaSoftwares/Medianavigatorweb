@@ -1,0 +1,28 @@
+# EAS builds only the mobile application and its shared modules.
+/*
+!/Frontend
+!/shared
+
+# Never upload local dependencies, generated native projects, or credentials.
+**/node_modules/
+**/.env
+**/.env.*
+**/*.jks
+**/*.keystore
+**/*.p8
+**/*.p12
+**/*.key
+**/*.pem
+**/credentials.json
+**/*.tsbuildinfo
+**/*.log
+/Frontend/.expo
+/Frontend/.claude
+/Frontend/.legacy-backup
+/Frontend/android
+/Frontend/ios
+/Frontend/dist
+/Frontend/dist-launch
+/Frontend/dist-ci
+/Frontend/web-build
+/Frontend/coverage

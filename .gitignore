@@ -17,3 +17,12 @@ backend/data/
 backend/.env
 backend/dist/
 backend/coverage/
+
+# Local artifacts that must never be committed (archives, wheels, ad-hoc scripts, signing material)
+*.tgz
+*.whl
+/scratchpad/
+*.apk
+*.aab
+*.jks
+*.keystore

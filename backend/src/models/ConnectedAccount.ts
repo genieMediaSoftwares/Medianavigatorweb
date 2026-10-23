@@ -66,8 +66,9 @@ const schema = new Schema<ConnectedAccountDoc>(
 );
 // One connection document per user per platform (reconnecting reuses it).
 schema.index({ userId: 1, platform: 1 }, { unique: true });
-// A provider account may be connected by many users; keep a non-unique index for lookups.
-schema.index({ platform: 1, providerAccountId: 1 }, { partialFilterExpression: { active: true } });
+// Database enforcement also protects simultaneous claims by different API instances.
+// A new name lets this coexist with the previous non-unique lookup index (MongoDB 5+).
+schema.index({ platform: 1, providerAccountId: 1 }, { name: 'one_live_provider_owner', unique: true, partialFilterExpression: { active: true } });
 schema.index({ active: 1, nextSyncAt: 1 });
 schema.index({ status: 1, updatedAt: -1 });
 

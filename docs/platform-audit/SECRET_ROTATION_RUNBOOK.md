@@ -31,14 +31,14 @@ Status: **prepared, not executed.** Every step that changes a deployed system, r
 
 1. **Confirm usage.** On each environment, the operator compares hashes of the deployed values with the exposed ones (for example `printf %s "$VALUE" | sha256sum`), never printing values. Record which environments are affected.
 2. **Database user.** In MongoDB Atlas, rotate the exposed user's password or delete the user. Update `MONGODB_URI` wherever that user is used. Rollback: restore the previous URI if a service fails to connect, then fix forward.
-3. **JWT secret.** Generate one (`openssl rand -base64 48`), set `JWT_SECRET`, restart the API. Expect one silent refresh per client. Rollback: restore the old value (only while it is still considered safe).
+3. **JWT secret.** Generate one (`openssl rand -base64 48`), set `JWT_SECRET` on the API and the worker, restart both. Expect one silent refresh per client. Rollback: restore the old value (only while it is still considered safe).
 4. **Encryption key.**
    1. Generate a new key: `openssl rand -base64 32`.
-   2. Set the new key as `CREDENTIAL_ENCRYPTION_KEY` and the old one as `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS`. Restart the API. Everything stays readable.
+   2. Set the new key as `CREDENTIAL_ENCRYPTION_KEY` and the old one as `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` on the API and the worker. Restart both. Everything stays readable.
    3. Run `npx tsx scripts/reencrypt-secrets.ts` (dry run) and check that `unreadable` is 0.
    4. Run it with `--apply`. Run the dry run again: `toMove` and `unreadable` must both be 0.
    5. Trigger one sync per platform (admin panel → Social connections → Sync) and confirm success.
-   6. Remove `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` and restart.
+   6. Remove `CREDENTIAL_ENCRYPTION_KEY_PREVIOUS` from the API and the worker and restart both.
    - Rollback: until step 6, setting the old key back as current keeps everything readable, because re-encrypted values are readable through `_PREVIOUS`, so swap the two. After step 6, the old key alone cannot read re-encrypted values. Keep it in the secret store until the rotation is confirmed.
 5. **Repository.** Delete the remote branch `claude/stoic-euler-ye2hf6`, purge `backend/.env` from history (`git filter-repo --path backend/.env --invert-paths`), force-push the affected refs, and ask collaborators to re-clone. If the repository was ever public, ask GitHub Support to clear cached views. This rewrites history and needs team coordination.
 6. **Local cleanup.** Remove the commented credential lines from local `backend/.env` files.

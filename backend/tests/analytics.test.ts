@@ -117,7 +117,7 @@ describe('analytics API', () => {
     expect((await get('/trends')).body.data.trends).toEqual([]);
     expect((await get('/recommendations')).body.data.items).toEqual([]);
     expect((await get('/intelligence/signals')).body.data.insights).toEqual([]);
-    expect((await get('/intelligence/performers')).body.data).toEqual({ top: [], bottom: [] });
+    expect((await get('/intelligence/performers')).body.data).toEqual({ top: [], bottom: [], needsAttention: [] });
     expect((await get('/media')).body.data).toEqual([]);
     expect((await get('/alerts')).body.data).toEqual([]);
     expect((await get('/planner')).body.data).toEqual([]);

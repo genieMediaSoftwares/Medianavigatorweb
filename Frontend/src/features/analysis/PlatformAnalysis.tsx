@@ -203,7 +203,19 @@ function RankedPlatform({ kind, sort, platform, connection, limit, onOpen }: { k
   if (state.status === 'loading') return <LoadingState message={`Ranking your ${name} posts…`} />;
   if (state.status !== 'success') return <ErrorState message={state.message} onRetry={reload} />;
   const [perf, summary] = state.data;
-  const all = kind === 'top' ? perf.top : perf.bottom;
+  // Never substitute the old metric-sorted list: a server without needsAttention has not been updated yet.
+  if (kind === 'bottom' && !perf.needsAttention) return <ErrorState message="Needs Attention requires the latest Media Navigator server update. Please try again later." onRetry={reload} />;
+  const all = kind === 'top' ? perf.top : perf.needsAttention ?? [];
+  if (kind === 'bottom' && all.length === 0 && !summary.insufficientHistory.includes(platform)) {
+    return (
+      <EmptyState
+        icon="checkmark-circle-outline"
+        title="No posts need attention right now"
+        message={`None of your measurable ${name} posts are below your usual reach. Posts from the last three days are left out while they are still reaching people.`}
+        compact
+      />
+    );
+  }
   if (summary.insufficientHistory.includes(platform) || all.length === 0) {
     return (
       <EmptyState
@@ -216,6 +228,7 @@ function RankedPlatform({ kind, sort, platform, connection, limit, onOpen }: { k
   }
   const shown = limit ? all.slice(0, limit) : all;
   const sortLabel = RANK_SORTS.find((r) => r.value === sort)?.label.toLowerCase() ?? sort;
+  const rankText = (i: number) => (kind === 'top' ? `#${i + 1} of ${all.length} on ${name} by ${sortLabel}` : `#${i + 1} of ${all.length} needing attention on ${name}`);
   return (
     <View>
       <View className="flex-row flex-wrap justify-between">
@@ -233,7 +246,7 @@ function RankedPlatform({ kind, sort, platform, connection, limit, onOpen }: { k
               badge={kind === 'top' ? { label: `#${i + 1} · Above usual`, tone: 'good' } : { label: `#${i + 1} · Below usual`, tone: 'warn' }}
               comparison={cap(sentence(plainComparison(p.baselineComparison)))}
               actions={[
-                { label: kind === 'top' ? 'Why Top?' : 'Why Bottom?', icon: 'help-circle-outline', onPress: () => nav.why(p.mediaId, kind, `#${i + 1} of ${all.length} on ${name} by ${sortLabel}`) },
+                { label: kind === 'top' ? 'Why Top?' : 'Why Bottom?', icon: 'help-circle-outline', onPress: () => nav.why(p.mediaId, kind, rankText(i)) },
                 { label: 'Deep Analysis', icon: video ? 'videocam-outline' : 'search-outline', primary: true, onPress: () => nav.deep(p.mediaId) },
               ]}
             />
@@ -257,14 +270,17 @@ function Ranked({ kind, scope, connections, onScope }: { kind: 'top' | 'bottom';
           ? 'These posts did better than your usual on that account. See what they have in common and do more of it.'
           : 'Every account has quieter posts. These are the ones with the most room to grow, compared with your usual on that account.'}
       </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-md">
-        <Text className="mr-sm self-center text-[12px] font-semibold text-navy">Rank by</Text>
-        {RANK_SORTS.map((s) => (
-          <Pressable key={s.value} onPress={() => setSort(s.value)} accessibilityRole="radio" accessibilityState={{ selected: s.value === sort }} className={`mr-xs min-h-9 justify-center rounded-full px-md ${s.value === sort ? 'bg-navy' : 'bg-neutral-100'}`}>
-            <Text className={`text-[12px] ${s.value === sort ? 'font-semibold text-white' : 'text-navy'}`}>{s.label}</Text>
-          </Pressable>
-        ))}
-      </ScrollView>
+      {/* Needs Attention has one fixed order (weakest measured reach/views first), so only Top Performing offers ranking options. */}
+      {kind === 'top' ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-md">
+          <Text className="mr-sm self-center text-[12px] font-semibold text-navy">Rank by</Text>
+          {RANK_SORTS.map((s) => (
+            <Pressable key={s.value} onPress={() => setSort(s.value)} accessibilityRole="radio" accessibilityState={{ selected: s.value === sort }} className={`mr-xs min-h-9 justify-center rounded-full px-md ${s.value === sort ? 'bg-navy' : 'bg-neutral-100'}`}>
+              <Text className={`text-[12px] ${s.value === sort ? 'font-semibold text-white' : 'text-navy'}`}>{s.label}</Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+      ) : null}
       {targets.map((p) => {
         const connection = connections.find((c) => c.platform === p)!;
         return (

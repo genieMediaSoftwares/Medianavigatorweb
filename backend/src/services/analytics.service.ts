@@ -42,10 +42,13 @@ export const analyticsService = {
     return { ...engine.getTimingData(), timezone };
   },
   async signals(userId: string) { return (await loadAnalyticsContext(userId)).engine.getInsights(); },
-  /** Best and weakest posts. With `platform`, ranked and compared within that platform's account only. */
+  /**
+   * Best and weakest posts by `sortBy` (website), plus the mobile app's Needs Attention list: weakest measurable
+   * reach/views first, independent of `sortBy`. With `platform`, ranked and compared within that platform's account only.
+   */
   async performers(userId: string, sortBy: 'views' | 'engagement' | 'likes' | 'comments', platform?: PlatformType) {
     const { engine } = await loadAnalyticsContext(userId);
-    return { top: engine.getTopPerformers(sortBy, platform), bottom: engine.getBottomPerformers(sortBy, platform) };
+    return { top: engine.getTopPerformers(sortBy, platform), bottom: engine.getBottomPerformers(sortBy, platform), needsAttention: engine.getNeedsAttention(platform) };
   },
   async patterns(userId: string) { return (await loadAnalyticsContext(userId)).engine.getContentPatterns(); },
   async archive(userId: string) { return (await loadAnalyticsContext(userId)).engine.getComprehensiveArchiveAnalysis(); },

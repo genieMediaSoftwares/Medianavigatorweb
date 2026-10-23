@@ -16,3 +16,21 @@ it('does not retry permission failures or exhausted budgets', async () => {
     expect(call).toHaveBeenCalledTimes(1);
   }
 });
+it('rejects a provider call that never settles once the budget is spent, without a retry past the deadline', async () => {
+  vi.useFakeTimers();
+  const call = vi.fn((_remainingMs: number) => new Promise<never>(() => {}));
+  const result = retryTransient(call, 10000);
+  const settled = expect(result).rejects.toMatchObject({ name: 'TimeoutError', status: 504 });
+  await vi.advanceTimersByTimeAsync(10000);
+  await settled;
+  expect(call.mock.calls.map(c => c[0])).toEqual([10000]);
+});
+it('bounds the retry of a transient failure to the remaining budget', async () => {
+  vi.useFakeTimers();
+  const call = vi.fn().mockRejectedValueOnce({ status: 503 }).mockImplementation(() => new Promise<never>(() => {}));
+  const result = retryTransient(call, 10000);
+  const settled = expect(result).rejects.toMatchObject({ name: 'TimeoutError' });
+  await vi.advanceTimersByTimeAsync(10000); // 750 ms back-off + the 9250 ms that remained
+  await settled;
+  expect(call.mock.calls.map(c => c[0])).toEqual([10000, 9250]);
+});

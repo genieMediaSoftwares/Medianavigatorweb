@@ -92,11 +92,11 @@ export async function uploadVideo(bytes: Uint8Array, mimeType: string, timeoutMs
     return ms;
   };
   try {
-    let file = await ai.files.upload({ file: new Blob([bytes as BlobPart], { type: mimeType }), config: { mimeType } });
+    let file = await ai.files.upload({ file: new Blob([bytes as BlobPart], { type: mimeType }), config: { mimeType, httpOptions: { timeout: remaining() } } });
     name = file.name;
     while (file.state === FileState.PROCESSING) {
       await new Promise((r) => setTimeout(r, Math.min(1500, remaining())));
-      file = await ai.files.get({ name: file.name! });
+      file = await ai.files.get({ name: file.name!, config: { httpOptions: { timeout: remaining() } } });
     }
     if (file.state !== FileState.ACTIVE || !file.uri || !file.name) throw new AiFailedError('The analysis service could not process the video.', 'provider_error');
     return { name: file.name, uri: file.uri, mimeType: file.mimeType ?? mimeType };
@@ -129,7 +129,7 @@ async function generateMultimodalJsonImpl<T>(opts: { system: string; parts: Part
     text = res.text;
   } catch (err) {
     if (err instanceof AiFailedError) throw err;
-    logger.warn('gemini multimodal request failed', { operation: 'ai', provider: 'gemini', status: (err as { status?: number }).status, error: err });
+    logger.warn('gemini multimodal request failed', { operation: 'ai', provider: 'gemini', status: (err as { status?: number }).status });
     if (/DEADLINE_EXCEEDED|"code":\s*504/.test(String((err as Error)?.message))) throw new AiFailedError('The analysis request timed out.', 'timeout');
     throw new AiFailedError('The analysis request failed.', 'provider_error');
   }
