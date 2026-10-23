@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 
 // All keys persisted in the device keychain/keystore. Add new keys here.
 export const SecureStorageKey = {
+  /** The last handwritten dashboard prompt selected on this device. */
+  DailyIdea: 'daily_idea',
   /** Short-lived JWT sent as `Authorization: Bearer`. */
   AccessToken: 'access_token',
   /** Opaque, rotating token exchanged at POST /api/v1/auth/refresh for a new pair. */

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { ComponentProps, useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -11,45 +11,15 @@ import { colors } from '@/constants/colors';
 import { useAuth } from '@/features/auth/auth-context';
 import { DashboardData, fetchDashboard } from '@/features/connections/dashboard';
 import { PlatformDashboardCard } from '@/features/connections/PlatformDashboardCard';
+import { DashboardMoments } from '@/features/dashboard/DashboardMoments';
 import { useApiResource } from '@/hooks/useApiResource';
 import type { Platform } from '@/types/api';
-
-type IconName = ComponentProps<typeof Ionicons>['name'];
 
 // Reference layout: Instagram / YouTube on the first row, Facebook / LinkedIn on the second.
 const GRID: [Platform, Platform][] = [
   ['instagram', 'youtube'],
   ['facebook', 'linkedin'],
 ];
-
-function InfoCard({ icon, iconColor, iconBackground, eyebrow, title, message, onPress }: {
-  icon: IconName;
-  iconColor: string;
-  iconBackground: string;
-  eyebrow: string;
-  title: string;
-  message: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${title}. ${message}`}
-      className="mb-md flex-row items-center rounded-[18px] border border-neutral-100 bg-neutral-50 px-lg py-lg active:opacity-80"
-    >
-      <View className="h-[52px] w-[52px] items-center justify-center rounded-full" style={{ backgroundColor: iconBackground }}>
-        <Ionicons name={icon} size={26} color={iconColor} />
-      </View>
-      <View className="ml-lg flex-1">
-        <Text className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">{eyebrow}</Text>
-        <Text className="mt-[2px] text-[16px] font-bold leading-[21px] text-navy">{title}</Text>
-        <Text className="mt-[3px] text-[12px] leading-[17px] text-neutral-500">{message}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.navy} style={{ marginLeft: 8 }} />
-    </Pressable>
-  );
-}
 
 function GridSkeleton() {
   return (
@@ -116,7 +86,7 @@ export default function DashboardScreen() {
   );
 
   const firstName = auth.status === 'authenticated' ? auth.me.profile?.fullName.trim().split(/\s+/)[0] : undefined;
-  const anyConnected = state.status === 'success' && state.data.connections.some((c) => c.connected);
+  const connections = useMemo(() => state.status === 'success' ? { status: 'success' as const, data: state.data.connections } : state, [state]);
 
   const openConnect = (platform: Platform) => router.push({ pathname: '/connect/[platform]', params: { platform } });
 
@@ -175,30 +145,12 @@ export default function DashboardScreen() {
           <ErrorState message={state.message} onRetry={reload} />
         )}
 
-        <View className="mt-sm">
-          <InfoCard
-            icon="bulb-outline"
-            iconColor={colors.violet}
-            iconBackground={colors.violetLight}
-            eyebrow="Get started"
-            title="Unlock intelligent insights"
-            message={
-              anyConnected
-                ? 'See your performance, what’s working, what to improve and new content ideas.'
-                : 'Connect at least one social media account to see your performance, AI analysis and content ideas.'
-            }
-            onPress={() => router.push('/connected-accounts')}
-          />
-          <InfoCard
-            icon="locate-outline"
-            iconColor={colors.success}
-            iconBackground={colors.successLight}
-            eyebrow="Our goal"
-            title="Turn your content into growth"
-            message="We analyze your content, find what works, and give you data-backed ideas to perform better."
-            onPress={() => router.push('/settings/help')}
-          />
-        </View>
+        <DashboardMoments
+          connections={connections}
+          userId={auth.status === 'authenticated' ? auth.me.user.id : ''}
+          timezone={auth.status === 'authenticated' ? auth.me.profile?.timezone : undefined}
+          onRetry={reload}
+        />
       </ScrollView>
     </SafeAreaView>
   );
