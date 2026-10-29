@@ -1,4 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { AppState } from 'react-native';
 
 import { ApiError, clearTokens, hasStoredSession, setUnauthorizedHandler, storeTokens } from '@/lib/api/client';
 import type { Me, Profile } from '@/types/api';
@@ -93,6 +94,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = useCallback((profile: Profile) => {
     setState((current) => (current.status === 'authenticated' ? { status: 'authenticated', me: { ...current.me, profile } } : current));
   }, []);
+
+  const authenticatedId = state.status === 'authenticated' ? state.me.user.id : null;
+  useEffect(() => {
+    if (!authenticatedId) return;
+    let active = true;
+    const subscription = AppState.addEventListener('change', (next) => {
+      if (next !== 'active') return;
+      void fetchMe().then((me) => {
+        if (active) setState((current) => current.status === 'authenticated' && current.me.user.id === authenticatedId ? { status: 'authenticated', me } : current);
+      }, () => undefined); // Network failures preserve the session; 401 uses the global sign-out handler.
+    });
+    return () => { active = false; subscription.remove(); };
+  }, [authenticatedId]);
 
   const value = useMemo(
     () => ({ state, signIn, signUp, signOut, restoreSession, updateProfile }),

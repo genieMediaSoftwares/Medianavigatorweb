@@ -17,3 +17,24 @@ backend/data/
 backend/.env
 backend/dist/
 backend/coverage/
+
+# Local artifacts that must never be committed (archives, wheels, ad-hoc scripts, signing material)
+*.tgz
+*.whl
+/scratchpad/
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# Local audit reports and temporary investigation records
+**/audit-*.json
+**/finish-*.json
+**/*registry-versions.json
+AGENTS.md
+*.pem
+*.key
+*.p8
+*.p12
+credentials.json
+.vercel/

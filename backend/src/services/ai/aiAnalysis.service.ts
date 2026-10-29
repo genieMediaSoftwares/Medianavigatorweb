@@ -36,7 +36,7 @@ const itemSchema = z.object({
 const meta = (status: AiMeta['status'], extra: Partial<AiMeta> = {}): AiMeta => ({ status, model: null, promptVersion: PROMPT_VERSION, generatedAt: null, ...extra });
 
 /** Runs (or reuses) one AI step. Never throws for AI problems: the caller still gets deterministic content plus an honest status. */
-async function aiStep<T>(args: { userId: Types.ObjectId; type: string; subject: string; dataVersion: string; system: string; prompt: string; schema: z.ZodType<T, z.ZodTypeDef, unknown>; video?: () => Promise<VideoInput> }): Promise<{ data: T | null; ai: AiMeta }> {
+async function aiStep<T>(args: { userId: Types.ObjectId; type: string; subject: string; dataVersion: string; system: string; prompt: string; schema: z.ZodType<T, unknown>; video?: () => Promise<VideoInput> }): Promise<{ data: T | null; ai: AiMeta }> {
   if (!aiAvailable()) return { data: null, ai: meta('unavailable', { reason: 'AI analysis is not available on this server' }) };
   const key = cacheKey({ userId: args.userId, type: args.type, subject: args.subject, dataVersion: args.dataVersion });
   const hit = await getCached<T>(args.userId, key);

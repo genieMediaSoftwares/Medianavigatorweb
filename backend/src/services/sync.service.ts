@@ -20,6 +20,8 @@ import type { ConnectedAccountDoc } from '../models/ConnectedAccount.js';
 import type { SyncRunDoc, SyncType } from '../models/SyncRun.js';
 import { analyticsService } from './analytics.service.js';
 import { notificationService } from './notification.service.js';
+import { User } from '../models/User.js';
+import { SyncRun } from '../models/SyncRun.js';
 
 export type FailureKind = 'expired' | 'permission' | 'transient' | 'timeout' | 'fatal';
 
@@ -69,7 +71,7 @@ export const syncService = {
 
   /** Executes a claimed run end-to-end. Never throws: every outcome is recorded on the run and the account. */
   async execute(run: SyncRunDoc, owner: string): Promise<void> {
-    const beat = setInterval(() => { void syncRunRepository.heartbeat(run._id, owner, config.sync.leaseSeconds); }, Math.max(1000, (config.sync.leaseSeconds * 1000) / 3));
+    const beat = setInterval(() => { void syncRunRepository.heartbeat(run._id, owner, config.sync.leaseSeconds).catch(() => logger.warn('sync lease renewal failed')); }, Math.max(1000, (config.sync.leaseSeconds * 1000) / 3));
     const started = Date.now();
     const log = (msg: string, f: Record<string, unknown> = {}) => logger.info(msg, { operation: 'sync', provider: run.platform, syncRunId: String(run._id), ...f });
     try {
@@ -106,6 +108,17 @@ export const syncService = {
       }
 
       const fetched = await withTimeout(adapter.fetchContent(creds, resolved, { existing }), config.sync.timeoutMs);
+      // Never persist an in-flight provider response after disconnect, deletion or lease loss.
+      const [currentAccount, currentRun, currentUser] = await Promise.all([
+        connectionRepository.findByIdWithCredentials(account._id),
+        SyncRun.exists({ _id: run._id, status: 'running', leaseOwner: owner }),
+        User.exists({ _id: account.userId, status: 'active', deletedAt: null }),
+      ]);
+      if (!currentRun) return; // another worker owns the run now
+      if (!currentAccount?.active || !currentAccount.credentialsEnc || !currentUser) {
+        await syncRunRepository.finish(run._id, 'cancelled', { errorKind: 'not_connected', errorSummary: 'Account was disconnected during sync' });
+        return;
+      }
       const syncedAt = new Date();
       const docs = fetched.items
         .map((n) => toContentItem(n, { userId: account.userId, connectedAccountId: account._id, capabilities: adapter.capabilities, syncedAt }))

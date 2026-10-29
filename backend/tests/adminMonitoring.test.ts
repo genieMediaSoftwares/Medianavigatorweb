@@ -28,8 +28,26 @@ describe('shared admin monitoring', () => {
     expect(res.body.data.ai.calls).toEqual(expect.arrayContaining([expect.objectContaining({ _id: 'succeeded', count: 1 }), expect.objectContaining({ _id: 'failed', count: 1 })]));
     expect(res.body.data.ai.tokens).toBeNull(); expect(res.body.data.ai.cost).toBeNull();
     expect(res.body.data.billing.subscriptionsImplemented).toBe(false);
+    expect(res.body.data.billing.chargingEnabled).toBe(false);
+    expect(res.body.data.billing.creditRules).toBeNull();
     expect(res.body.data.analytics.snapshots).toBe(0);
     expect(res.body.data.analytics.latestSnapshot).toBeNull();
+    expect(res.body.data.workers).toMatchObject({ tasks: [], pendingAccountCleanups: 0, oldestPendingCleanupAt: null });
+  });
+  it('reports the latest worker heartbeat per task and pending account cleanups', async () => {
+    const admin = await registerAdmin();
+    const { WorkerHeartbeat } = await import('../src/models/WorkerHeartbeat.js');
+    const { AccountDeletion } = await import('../src/models/AccountDeletion.js');
+    const older = new Date(Date.now() - 600_000), newer = new Date(Date.now() - 5_000);
+    await WorkerHeartbeat.create([{ instance: 'web-1', task: 'deep_analysis', lastSucceededAt: older }, { instance: 'worker-1', task: 'deep_analysis', lastSucceededAt: newer }, { instance: 'worker-1', task: 'social_sync', lastSucceededAt: older }]);
+    await AccountDeletion.create([{ userId: admin.id, status: 'queued' }, { userId: (await registerUser('gone@monitor.example')).id, status: 'complete' }]);
+    const { workers } = (await api().get('/api/v1/admin/monitoring').set(admin.auth)).body.data;
+    expect(workers.tasks).toEqual([
+      { task: 'deep_analysis', lastSucceededAt: newer.toISOString(), instances: 2 },
+      { task: 'social_sync', lastSucceededAt: older.toISOString(), instances: 1 },
+    ]);
+    expect(workers.pendingAccountCleanups).toBe(1);
+    expect(JSON.stringify(workers)).not.toContain(admin.id);
   });
   it('returns metadata-only error records', async () => {
     const admin = await registerAdmin();

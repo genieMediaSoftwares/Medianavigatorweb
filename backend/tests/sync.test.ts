@@ -87,6 +87,23 @@ describe('connecting a platform', () => {
 });
 
 describe('sync engine', () => {
+  it('discards an in-flight provider response when the account is disconnected mid-sync and closes the run', async () => {
+    const u = await registerUser('mid-sync@test.example');
+    await connect(u);
+    const adapter = getAdapter('instagram');
+    const original = adapter.fetchContent;
+    adapter.fetchContent = vi.fn(async (...args: Parameters<typeof original>) => {
+      const result = await original(...args);
+      expect((await api().post('/api/v1/connections/instagram/disconnect').set(u.auth)).status).toBe(200);
+      return result;
+    });
+    try { await drain(); } finally { adapter.fetchContent = original; }
+    expect(await ContentItem.countDocuments({ userId: toObjectId(u.id) })).toBe(0);
+    const run = await SyncRun.findOne({ userId: toObjectId(u.id) }).lean();
+    expect(run).toMatchObject({ status: 'cancelled', errorKind: 'not_connected' });
+    expect(run!.active).toBeUndefined();
+  });
+
   it('runs the first sync end to end and stores normalized content, a snapshot and a notification', async () => {
     const u = await registerUser('s1@test.example');
     await connect(u);

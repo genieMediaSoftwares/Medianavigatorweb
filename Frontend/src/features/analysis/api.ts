@@ -13,12 +13,12 @@ export const saveDeepAction = (jobId: string, actionId: string, saved: boolean) 
 
 /** Twelve-section creative review of actual media; no metrics or ranking input. */
 export function fetchDeepReport(mediaId: string, reanalyze = false): Promise<DeepReport> {
-  return apiRequest<DeepReport>('/intelligence/deep-report', { method: 'POST', auth: true, json: { mediaId, ...(reanalyze ? { reanalyze: true } : {}) } });
+  return apiRequest<DeepReport>('/intelligence/deep-report', { method: 'POST', auth: true, timeoutMs: 240_000, json: { mediaId, ...(reanalyze ? { reanalyze: true } : {}) } });
 }
 
 /** App-only seven-part report; neither performance metrics nor ranking are sent to the AI. */
 export function fetchCreativeReport(mediaId: string, type: 'why_top' | 'why_bottom', reanalyze = false): Promise<CreativeReport> {
-  return apiRequest<CreativeReport>('/intelligence/creative-report', { method: 'POST', auth: true, json: { mediaId, type, ...(reanalyze ? { reanalyze: true } : {}) } });
+  return apiRequest<CreativeReport>('/intelligence/creative-report', { method: 'POST', auth: true, timeoutMs: 240_000, json: { mediaId, type, ...(reanalyze ? { reanalyze: true } : {}) } });
 }
 
 // The same endpoints the web client uses (web/lib/api/endpoints.ts). Rankings, baselines and AI text
@@ -49,6 +49,7 @@ export function fetchSummary(platform: Platform): Promise<Summary> {
  */
 export function fetchContentAnalysis(mediaId: string, type: ContentAnalysisType, opts: { reanalyze?: boolean; rank?: string } = {}): Promise<ContentAnalysis> {
   return apiRequest<ContentAnalysis>('/intelligence/content-analysis', {
+    timeoutMs: 240_000,
     method: 'POST',
     auth: true,
     json: { mediaId, type, ...(opts.reanalyze ? { reanalyze: true } : {}), ...(opts.rank ? { rank: opts.rank } : {}) },

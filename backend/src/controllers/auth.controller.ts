@@ -21,7 +21,7 @@ export const authController = {
   }),
   forgotPassword: asyncHandler(async (req, res) => {
     await authService.forgotPassword(req.body.email);
-    ok(res, { message: 'If an account exists for that email, a reset link has been sent.' }, 202);
+    ok(res, { message: 'If an active account matches that email, you’ll receive a reset link. Check your inbox and spam folder. If it doesn’t arrive, try again in a minute.' }, 202);
   }),
   resetPassword: asyncHandler(async (req, res) => { await authService.resetPassword(req.body.token, req.body.newPassword); ok(res, { reset: true }); }),
   reauth: asyncHandler(async (req, res) => ok(res, await authService.reauth(req.auth!.userId, req.auth!.sessionId, req.body, { ...client(req), requestId: req.requestId }))),

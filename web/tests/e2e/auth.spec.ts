@@ -6,13 +6,13 @@ test('private pages send signed-out visitors to sign in, then back', async ({ pa
   await expect(page).toHaveURL(/\/sign-in\?next=%2Fposts/);
   await signIn(page);
   await page.goto('/posts');
-  await expect(page.getByRole('heading', { name: 'Posts', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your content', level: 1 })).toBeVisible();
 });
 
 test('a wrong password gets a kind message that does not reveal whether the email exists', async ({ page }) => {
   await page.goto('/sign-in');
   await page.getByLabel('Email').fill('nobody@example.com');
-  await page.getByLabel('Password').fill('not-the-password');
+  await page.getByLabel('Password', { exact: true }).fill('not-the-password');
   await page.getByRole('button', { name: 'Sign in' }).click();
   await expect(page.getByText(/email and password don.t match/i)).toBeVisible();
 });
@@ -31,11 +31,11 @@ test('sign-up validates as you type and creates an account that starts onboardin
   await page.goto('/sign-up');
   await page.getByLabel('Your name').fill('E2E Tester');
   await page.getByLabel('Email').fill('not-an-email');
-  await page.getByLabel('Password').fill('short');
+  await page.getByLabel('Password', { exact: true }).fill('short');
   await page.getByLabel('Your name').click();
   await expect(page.getByText(/Add an @/)).toBeVisible();
   await page.getByLabel('Email').fill(`e2e+${stamp}@example.com`);
-  await page.getByLabel('Password').fill(`Passw0rd-${stamp}`);
+  await page.getByLabel('Password', { exact: true }).fill(`Passw0rd-${stamp}`);
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/onboarding/);

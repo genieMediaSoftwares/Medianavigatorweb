@@ -27,7 +27,7 @@ export function plainComparison(text: string): string {
     const metric = (m[3] ?? 'views').toLowerCase();
     const detail = m[5] ? ` of ${m[5].replace(/,?\s*n=\d+/i, '').trim()}` : '';
     if (n < 1) return `About the same ${metric} as your usual${detail}`;
-    return `${m[2]}% ${below ? 'fewer' : 'more'} ${metric === 'engagement' ? 'engagement' : metric} than your usual${detail}`.replace('fewer engagement', 'less engagement');
+    return `${m[2]}% ${below ? 'fewer' : 'more'} ${metric === 'engagement' ? 'engagement' : metric} than your usual${detail}`.replace('fewer engagement', 'less engagement').replace('fewer reach', 'lower reach');
   }
   return t.replace(/\byour median\b/gi, 'your usual').replace(/\bmedian\b/gi, 'typical').replace(/\bavg\b|\baverage\b/gi, 'usual').replace(/\bbaseline\b/gi, 'usual').replace(/,?\s*n=\d+/g, '');
 }

@@ -91,8 +91,8 @@ export const connectionService = {
       stage = 'account';
       const account = await adapter.resolveAccount(creds);
 
-      // A provider account may be connected by more than one Media Navigator user, so we no longer block reuse.
-      // (Historical ownership conflicts are intentionally not enforced.)
+      const otherOwner = await ConnectedAccount.exists({ platform, providerAccountId: account.providerAccountId, active: true, userId: { $ne: uid } });
+      if (otherOwner) throw conflict('This social account is already connected to another Media Navigator account. Disconnect it there before connecting it here.');
 
       // Reconnecting must never leave the previous channel's media in the analysis: when the resolved channel
       // differs from the stored one, its content and daily snapshots are cleared before the new sync runs.
@@ -120,6 +120,9 @@ export const connectionService = {
       await auditRepository.record({ actorId: uid, action: 'connection.connect', targetType: 'connected_account', targetId: String(doc._id), requestId, meta: { platform } });
       return { connection: toPlatformConnection(platform, doc), syncRun: syncRunView(run) };
     } catch (err) {
+      if ((err as { code?: number; keyPattern?: { providerAccountId?: number } })?.code === 11000 && (err as { keyPattern?: { providerAccountId?: number } }).keyPattern?.providerAccountId) {
+        throw conflict('This social account is already connected to another Media Navigator account.');
+      }
       throw connectFailure(platform, err, stage, requestId);
     }
   },

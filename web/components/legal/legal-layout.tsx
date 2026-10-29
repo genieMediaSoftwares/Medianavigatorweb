@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Wordmark } from '@/components/brand/logo';
+import { getEnv } from '@/env';
 
 export function Operator() {
+  // Production config validation guarantees both values; development shows that they are missing instead of inventing them.
+  const { OPERATOR_NAME, SUPPORT_EMAIL } = getEnv();
   return (
     <div className="my-8 rounded-xl border-2 border-dashed border-brand-200 bg-brand-50 p-5 text-[15px]">
-      <p className="font-semibold text-ink">Operator: [to be added by the owner]</p>
-      <p className="mt-1 font-semibold text-ink">Contact: [to be added by the owner]</p>
+      <p className="font-semibold text-ink">Operator: {OPERATOR_NAME ?? 'not configured (set OPERATOR_NAME)'}</p>
+      <p className="mt-1 font-semibold text-ink">Contact: {SUPPORT_EMAIL ? <a href={`mailto:${SUPPORT_EMAIL}`} className="text-brand-600 hover:underline">{SUPPORT_EMAIL}</a> : 'not configured (set SUPPORT_EMAIL)'}</p>
     </div>
   );
 }

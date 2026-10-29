@@ -13,12 +13,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { z } from 'zod';
+import { secureDatabaseTransport } from './databaseTransport.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-// backend/src/config -> backend/.env. Real environment variables win over the file.
-dotenv.config({ path: path.resolve(here, '../../.env'), quiet: true });
+// Always backend/.env: this module runs from backend/src/config (tsx, tests) or bundled into backend/dist.
+// Never a repository-root or other file. Real environment variables (Render) win over the file.
+export const ENV_FILE = path.resolve(here, path.basename(here) === 'dist' ? '..' : '../..', '.env');
+dotenv.config({ path: ENV_FILE, quiet: true });
 
-const required = (name: string) => z.string({ required_error: `${name} is required` }).trim().min(1, `${name} must not be empty`);
+const required = (name: string) => z.string({ error: (issue) => issue.input === undefined ? `${name} is required` : 'Expected a string' }).trim().min(1, `${name} must not be empty`);
 const int = (name: string, min = 0) =>
   required(name).regex(/^-?\d+$/, `${name} must be an integer`).transform(Number).refine((n) => n >= min, `${name} must be >= ${min}`);
 const bool = (name: string) =>
@@ -35,7 +38,7 @@ const optionalText = z.string().trim().optional().transform((v) => (v === '' ? u
 
 const schema = z.object({
   // --- server ---
-  NODE_ENV: z.enum(['development', 'test', 'production'], { errorMap: () => ({ message: 'NODE_ENV must be development, test or production' }) }),
+  NODE_ENV: z.enum(['development', 'test', 'production'], { error: 'NODE_ENV must be development, test or production' }),
   SERVER_PORT: int('SERVER_PORT', 1),
   API_BASE_URL: url('API_BASE_URL'),
   WEB_APP_URL: url('WEB_APP_URL'),
@@ -100,6 +103,8 @@ const schema = z.object({
   SYNC_WORKER_POLL_MS: int('SYNC_WORKER_POLL_MS', 100),
   SYNC_SCHEDULER_ENABLED: bool('SYNC_SCHEDULER_ENABLED'),
   JOBS_TRIGGER_SECRET: optionalText,
+  DEEP_ANALYSIS_WORKER_ENABLED: optionalText.refine((v) => v === undefined || v === 'true' || v === 'false', 'DEEP_ANALYSIS_WORKER_ENABLED must be true or false'),
+  ACCOUNT_CLEANUP_WORKER_ENABLED: optionalText.refine((v) => v === undefined || v === 'true' || v === 'false', 'ACCOUNT_CLEANUP_WORKER_ENABLED must be true or false'),
 
   // --- AI limits (the Gemini key itself is an optional group, see below) ---
   AI_TIMEOUT_MS: int('AI_TIMEOUT_MS', 1000),
@@ -130,6 +135,7 @@ const schema = z.object({
   SMTP_USER: optionalText,
   SMTP_PASSWORD: optionalText,
   EMAIL_FROM: optionalText,
+  RESEND_API_KEY: optionalText,
 
   // --- providers; each group is all-or-nothing ---
   INSTAGRAM_APP_ID: optionalText,
@@ -176,16 +182,22 @@ export function buildConfig(source: Record<string, string | undefined>) {
 
   const gemini = group(raw, 'Gemini', ['GEMINI_API_KEY', 'GEMINI_MODEL'], problems);
   const r2 = group(raw, 'Cloudflare R2', ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET', 'R2_ENDPOINT'], problems);
-  const smtp = group(raw, 'SMTP', ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'EMAIL_FROM'], problems);
+  const smtp = group(raw, 'SMTP', ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD'], problems);
   const instagram = group(raw, 'Instagram Login', ['INSTAGRAM_APP_ID', 'INSTAGRAM_APP_SECRET', 'INSTAGRAM_REDIRECT_URI'], problems);
   const meta = group(raw, 'Meta (Instagram/Facebook)', ['META_APP_ID', 'META_APP_SECRET', 'META_REDIRECT_URI'], problems);
   const youtube = group(raw, 'YouTube', ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET', 'YOUTUBE_REDIRECT_URI'], problems);
   const linkedin = group(raw, 'LinkedIn', ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET', 'LINKEDIN_REDIRECT_URI'], problems);
 
-  if (smtp && !/^\d+$/.test(smtp.SMTP_PORT)) problems.push('SMTP_PORT must be an integer');
+  if (smtp && (!/^\d+$/.test(smtp.SMTP_PORT) || Number(smtp.SMTP_PORT) < 1 || Number(smtp.SMTP_PORT) > 65535)) problems.push('SMTP_PORT must be an integer between 1 and 65535');
+  if ((smtp || raw.RESEND_API_KEY) && !raw.EMAIL_FROM) problems.push('EMAIL_FROM is required when SMTP or RESEND_API_KEY is configured');
+  if (raw.EMAIL_FROM && (!/^(?:[^<>\r\n]+\s*<)?[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>?$/.test(raw.EMAIL_FROM) || /[\r\n]/.test(raw.EMAIL_FROM))) problems.push('EMAIL_FROM must be an email address, optionally with a display name');
+  if (raw.EMAIL_FROM && !smtp && !raw.RESEND_API_KEY) problems.push('EMAIL_FROM requires either RESEND_API_KEY or complete SMTP settings');
+  if (smtp && raw.RESEND_API_KEY) problems.push('Configure either SMTP or Resend, not both');
   if (raw.R2_PUBLIC_BASE_URL && !r2) problems.push('R2_PUBLIC_BASE_URL is set but the R2 group is not configured');
   if (raw.NODE_ENV === 'production') {
+    if (!secureDatabaseTransport(raw.MONGODB_URI)) problems.push('MONGODB_URI must enable TLS with certificate and hostname validation in production');
     if (!raw.API_BASE_URL.startsWith('https://')) problems.push('API_BASE_URL must use https in production');
+    if (!raw.WEB_APP_URL.startsWith('https://')) problems.push('WEB_APP_URL must use https in production');
     if (raw.CORS_ALLOWED_ORIGINS.includes('*')) problems.push('CORS_ALLOWED_ORIGINS must not contain * in production');
   }
   if (problems.length > 0) throw new ConfigError(problems);
@@ -252,6 +264,8 @@ export function buildConfig(source: Record<string, string | undefined>) {
       workerPollMs: raw.SYNC_WORKER_POLL_MS,
       schedulerEnabled: raw.SYNC_SCHEDULER_ENABLED,
       triggerSecret: raw.JOBS_TRIGGER_SECRET,
+      deepWorkerEnabled: raw.DEEP_ANALYSIS_WORKER_ENABLED !== 'false',
+      cleanupWorkerEnabled: raw.ACCOUNT_CLEANUP_WORKER_ENABLED !== 'false',
     },
     ai: {
       enabled: Boolean(gemini),
@@ -280,7 +294,9 @@ export function buildConfig(source: Record<string, string | undefined>) {
         publicBaseUrl: raw.R2_PUBLIC_BASE_URL,
       },
     },
-    email: smtp && { host: smtp.SMTP_HOST, port: Number(smtp.SMTP_PORT), user: smtp.SMTP_USER, password: smtp.SMTP_PASSWORD, from: smtp.EMAIL_FROM },
+    email: raw.RESEND_API_KEY && raw.EMAIL_FROM
+      ? { provider: 'resend' as const, apiKey: raw.RESEND_API_KEY, from: raw.EMAIL_FROM }
+      : smtp && raw.EMAIL_FROM ? { provider: 'smtp' as const, host: smtp.SMTP_HOST, port: Number(smtp.SMTP_PORT), user: smtp.SMTP_USER, password: smtp.SMTP_PASSWORD, from: raw.EMAIL_FROM } : undefined,
   });
 }
 
