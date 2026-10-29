@@ -301,6 +301,8 @@ export interface Performer {
 export interface PerformersResponse {
   top: Performer[];
   bottom: Performer[];
+  /** Needs Attention: below the account's usual on measured reach (or views where reach is not reported), weakest first. Absent on older servers. */
+  needsAttention?: Performer[];
 }
 
 export type PerformerSort = 'views' | 'engagement' | 'likes' | 'comments';

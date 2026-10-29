@@ -14,6 +14,23 @@ export interface EngineOptions {
  * Legacy fields keep their original "avg" names for client compatibility.
  */
 const cap = (v: string) => v.charAt(0).toUpperCase() + v.slice(1);
+
+type AudienceMetric = 'reach' | 'views';
+/**
+ * Audience metric used for Needs Attention, in order of preference, per platform. Instagram and Facebook report
+ * per-post reach (and flag it when missing). YouTube does not provide reach. LinkedIn's "reach" is a copy of
+ * impressions that is not flagged when impressions are missing, so impressions (views) are used directly.
+ */
+const NEEDS_ATTENTION_METRICS: Record<string, AudienceMetric[]> = {
+  instagram: ['reach', 'views'],
+  facebook: ['reach', 'views'],
+  youtube: ['views'],
+  linkedin: ['views'],
+};
+/** A post this new is still collecting its first audience, so it is not yet judged. */
+export const NEEDS_ATTENTION_MIN_AGE_HOURS = 72;
+/** Same threshold as the summary's insufficient-history rule: fewer measured posts give no reliable "usual". */
+const MIN_POSTS_FOR_USUAL = 5;
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString()} ${n === 1 ? one : many}`;
 
 export class AnalyticsEngine {
@@ -473,7 +490,11 @@ export class AnalyticsEngine {
   }
 
   getBottomPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views', platform?: string): PerformerAnalysis[] {
-    const { measured: activeMedia, comparison, order, isBelowMedian } = this.rankingPool(sortBy, platform);
+    // Views are often not reported (photos, many Facebook posts). When too few posts carry the chosen
+    // measure, rank by engagement instead so Opportunities is not left empty.
+    let pool = this.rankingPool(sortBy, platform);
+    if (pool.measured.length < 2 && sortBy !== 'engagement') pool = this.rankingPool('engagement', platform);
+    const { measured: activeMedia, comparison, order, isBelowMedian } = pool;
     if (activeMedia.length < 2) return [];
 
     const sortedAll = [...activeMedia].sort((a, b) => order(b, a));
@@ -515,6 +536,70 @@ export class AnalyticsEngine {
         mediaUrl: item.mediaUrl,
       };
     });
+  }
+
+  /**
+   * Mobile Needs Attention: measurable posts that reached fewer people than the account's usual, weakest first.
+   * (The website's Opportunities list is getBottomPerformers and is not affected.)
+   *
+   * - One audience metric per platform, chosen from what that platform really measures (NEEDS_ATTENTION_METRICS):
+   *   reach where it is reported per post, otherwise views. A post whose metric was not returned is left out, never
+   *   ranked as zero.
+   * - Each platform is compared only with its own median, over posts old enough to have finished their first
+   *   distribution (posts younger than NEEDS_ATTENTION_MIN_AGE_HOURS are still collecting reach and are excluded).
+   * - Only posts strictly below that median are listed. Order: lowest share of the usual first (so 0 reach leads),
+   *   then lower measured engagement, which also orders several platforms fairly against each other.
+   */
+  getNeedsAttention(platform?: string, now: Date = new Date()): PerformerAnalysis[] {
+    const platforms = platform && platform !== 'all' ? [platform] : [...new Set(this.getMedia().map((m) => m.platform))];
+    const missing = (m: NormalizedMedia) => [...((m as { unavailableMetrics?: string[] }).unavailableMetrics ?? []), ...(m.missingMetrics ?? [])];
+    const matureBefore = now.getTime() - NEEDS_ATTENTION_MIN_AGE_HOURS * 3_600_000;
+    const candidates: Array<{ item: NormalizedMedia; metric: AudienceMetric; value: number; typical: number }> = [];
+
+    for (const p of platforms) {
+      const mature = this.getMedia(p).filter((m) => { const t = Date.parse(m.publishedAt); return Number.isFinite(t) && t <= matureBefore; });
+      // The first metric this platform measured on enough posts to have a meaningful "usual".
+      for (const metric of NEEDS_ATTENTION_METRICS[p] ?? ['views']) {
+        const measured = mature.filter((m) => !missing(m).includes(metric));
+        if (measured.length < MIN_POSTS_FOR_USUAL) continue;
+        const values = measured.map((m) => m[metric]).sort((a, b) => a - b);
+        const mid = Math.floor(values.length / 2);
+        const typical = values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+        if (typical > 0) for (const m of measured) if (m[metric] < typical) candidates.push({ item: m, metric, value: m[metric], typical });
+        break;
+      }
+    }
+
+    const engagement = (m: NormalizedMedia) => (missing(m).includes('engagementRate') ? Number.POSITIVE_INFINITY : m.engagementRate);
+    candidates.sort((a, b) => a.value / a.typical - b.value / b.typical || engagement(a.item) - engagement(b.item) || a.item.id.localeCompare(b.item.id));
+
+    return candidates.slice(0, 50).map(({ item, metric, value, typical }) => ({
+      id: `bot_${item.id}`,
+      mediaId: item.id,
+      title: item.title,
+      caption: item.caption,
+      platform: item.platform,
+      contentType: item.contentType,
+      views: item.views,
+      reach: item.reach,
+      likes: item.likes,
+      comments: item.comments,
+      shares: item.shares,
+      engagementRate: item.engagementRate,
+      baselineComparison: `-${Math.round(((typical - value) / typical) * 100)}% ${metric} vs your median (${Math.round(typical).toLocaleString('en-US')})`,
+      isTopPerformer: false,
+      possibleFactors: [
+        'Possible: the cover or opening seconds did not stand out in the feed (not measurable from the data available)',
+        'Possible: the caption or call-to-action did not prompt comments or shares',
+        'Possible: the publishing time was less favourable than your strongest window',
+      ],
+      patternToReplicateOrImprove: 'Refine the opening line and lead with the most surprising fact or punchline before testing this topic again.',
+      alternativeApproach: `Repackage this topic into a fast-paced 30-second Reel or high-contrast carousel with bold headline overlays.`,
+      uncertaintyNote: 'Weaker performance can reflect normal variation rather than lack of interest in the topic. Test again before drawing conclusions.',
+      publishedAt: item.publishedAt,
+      thumbnailUrl: item.thumbnailUrl,
+      mediaUrl: item.mediaUrl,
+    }));
   }
 
   // -------------------------------------------------------------
