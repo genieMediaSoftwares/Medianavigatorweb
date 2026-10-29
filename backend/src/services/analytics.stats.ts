@@ -48,7 +48,11 @@ function hasMeasuredRate(item: Pick<NormalizedMedia, 'engagementRate'> & { unava
 export function baselineFor(items: Array<Pick<NormalizedMedia, 'engagementRate' | 'views'> & { unavailableMetrics?: string[]; missingMetrics?: string[] }>): Baseline {
   const measured = items.filter(hasMeasuredRate);
   const eng = measured.map((i) => i.engagementRate);
-  const views = items.map((i) => i.views);
+  const measuredViews = items.filter((i) => {
+    const missing = [...(i.unavailableMetrics ?? []), ...(i.missingMetrics ?? [])];
+    return !missing.includes('views');
+  });
+  const views = measuredViews.map((i) => i.views);
   return {
     sampleSize: measured.length,
     medianEngagementRate: round(median(eng)),

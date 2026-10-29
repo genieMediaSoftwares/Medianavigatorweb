@@ -88,20 +88,23 @@ export async function uploadVideo(bytes: Uint8Array, mimeType: string, timeoutMs
   const started = Date.now();
   let name: string | undefined;
   try {
-    let file = await ai.files.upload({ file: new Blob([bytes as BlobPart], { type: mimeType }), config: { mimeType, httpOptions: { timeout: timeoutMs } } });
+    // Do not pass httpOptions inside files.upload config: @google/genai overwrites its internal upload baseUrl and 404s.
+    let file = await ai.files.upload({ file: new Blob([bytes as BlobPart], { type: mimeType }), config: { mimeType } });
     name = file.name;
     while (file.state === FileState.PROCESSING) {
       const remaining = timeoutMs - (Date.now() - started);
       if (remaining <= 0) throw new AiFailedError('Video processing timed out', 'timeout');
       await new Promise((r) => setTimeout(r, Math.min(2000, remaining)));
       if (Date.now() - started >= timeoutMs) throw new AiFailedError('Video processing timed out', 'timeout');
-      file = await ai.files.get({ name: name!, config: { httpOptions: { timeout: timeoutMs - (Date.now() - started) } } });
+      file = await ai.files.get({ name: name! });
     }
     if (file.state !== FileState.ACTIVE || !file.uri || !file.name) throw new AiFailedError('The analysis service could not process the video.', 'provider_error');
     return { name: file.name, uri: file.uri, mimeType: file.mimeType ?? mimeType };
   } catch (error) {
     if (name) await deleteUploaded(name);
-    throw error;
+    if (error instanceof AiFailedError || error instanceof AiUnavailableError) throw error;
+    logger.warn('gemini video upload failed', { operation: 'ai', provider: 'gemini', status: (error as { status?: number })?.status });
+    throw new AiFailedError('The analysis service could not process the video.', 'provider_error');
   }
 }
 

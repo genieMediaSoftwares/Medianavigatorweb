@@ -262,7 +262,7 @@ export function diagnosisFailureMessage(err: unknown): string {
     if (err.reason === 'invalid_response') return 'The AI returned an incomplete analysis. Please try again.';
     return err.message || 'The AI service could not complete the analysis. Please try again.';
   }
-  if (err instanceof Error) return err.message || 'The analysis could not be completed.';
+  if (err instanceof Error && err.message && !err.message.trim().startsWith('{')) return err.message;
   return 'The analysis could not be completed.';
 }
 
@@ -348,10 +348,8 @@ export const diagnosisService = {
     const cls = classifyFor(evidence, ctx);
     const baseline = baselineFor(evidence, ctx, cls);
 
-    const saved = await ContentAnalysis.findOne({ userId: uid, mediaId, analysisType: 'diagnosis', analysisVersion: DIAGNOSIS_VERSION }).lean<ContentAnalysisDoc>();
-    const ageHours = saved?.analyzedAt ? (Date.now() - saved.analyzedAt.getTime()) / 3_600_000 : Infinity;
-    const stale = Boolean(saved?.result) && ageHours > config.ai.contentAnalysis.staleHours;
-    if (saved?.result && !stale && !opts.reanalyze) return toResponse(saved, cls, baseline, true, false);
+    const saved = await ContentAnalysis.findOne({ userId: uid, mediaId, analysisType: 'diagnosis', analysisVersion: DIAGNOSIS_VERSION, result: { $ne: null } }).sort({ analyzedAt: -1 }).lean<ContentAnalysisDoc>();
+    if (saved?.result && !opts.reanalyze) return toResponse(saved, cls, baseline, true, false);
 
     const flightKey = `${userId}:${mediaId}`;
     const running = inFlight.get(flightKey);
@@ -397,14 +395,12 @@ export const diagnosisService = {
     const uid = toObjectId(userId);
     const doc = await mediaRepository.findByIdOrLegacy(uid, mediaId);
     if (!doc) throw notFound('Media not found');
-    const saved = await ContentAnalysis.findOne({ userId: uid, mediaId, analysisType: 'diagnosis', analysisVersion: DIAGNOSIS_VERSION }).lean<ContentAnalysisDoc>();
+    const saved = await ContentAnalysis.findOne({ userId: uid, mediaId, analysisType: 'diagnosis', analysisVersion: DIAGNOSIS_VERSION, result: { $ne: null } }).sort({ analyzedAt: -1 }).lean<ContentAnalysisDoc>();
     if (!saved?.result) return null;
     const ctx = await loadAnalyticsContext(uid);
     const evidence = await gatherPostEvidence(uid, mediaId);
     const cls = classifyFor(evidence, ctx);
     const baseline = baselineFor(evidence, ctx, cls);
-    const ageHours = saved.analyzedAt ? (Date.now() - saved.analyzedAt.getTime()) / 3_600_000 : Infinity;
-    const stale = ageHours > config.ai.contentAnalysis.staleHours;
-    return toResponse(saved, cls, baseline, true, stale);
+    return toResponse(saved, cls, baseline, true, false);
   },
 };

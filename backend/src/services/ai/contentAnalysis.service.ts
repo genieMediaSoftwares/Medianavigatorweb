@@ -382,7 +382,7 @@ function failureMessage(err: unknown): string {
     if (err.reason === 'invalid_response') return 'The AI returned an incomplete analysis. Please try again.';
     return err.message || 'The AI service could not complete the analysis. Please try again.';
   }
-  if (err instanceof Error) return err.message || 'The analysis could not be completed.';
+  if (err instanceof Error && err.message && !err.message.trim().startsWith('{')) return err.message;
   return 'The analysis could not be completed.';
 }
 

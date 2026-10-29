@@ -57,11 +57,22 @@ export function toContentItem(
 export function toNormalized(doc: any): NormalizedMedia & { unavailableMetrics: string[]; contentTypeBasis: string } {
   const norm = doc?.normalized ?? {};
   const pub = doc?.publishedAt ? (doc.publishedAt instanceof Date ? doc.publishedAt.toISOString() : String(doc.publishedAt)) : (norm.publishedAt ?? new Date().toISOString());
-  const unavail = Array.isArray(doc?.unavailableMetrics) ? doc.unavailableMetrics : Array.isArray(norm.unavailableMetrics) ? norm.unavailableMetrics : [];
+  const platform = doc?.platform ?? norm.platform ?? 'instagram';
+  const views = typeof doc?.views === 'number' ? doc.views : (typeof norm.views === 'number' ? norm.views : 0);
+  const reach = typeof doc?.reach === 'number' ? doc.reach : (typeof norm.reach === 'number' ? norm.reach : 0);
+  const likes = typeof doc?.likes === 'number' ? doc.likes : (typeof norm.likes === 'number' ? norm.likes : 0);
+  const comments = typeof doc?.comments === 'number' ? doc.comments : (typeof norm.comments === 'number' ? norm.comments : 0);
+  const shares = typeof doc?.shares === 'number' ? doc.shares : (typeof norm.shares === 'number' ? norm.shares : 0);
+  const unavailSet = new Set<string>(Array.isArray(doc?.unavailableMetrics) ? doc.unavailableMetrics : Array.isArray(norm.unavailableMetrics) ? norm.unavailableMetrics : []);
+  // Older Instagram/non-Facebook static posts that recorded reach or interactions without a views metric stored views as 0.
+  if (platform !== 'facebook' && views <= 0 && (reach > 0 || likes > 0 || comments > 0 || shares > 0)) {
+    unavailSet.add('views');
+  }
+  const unavail = [...unavailSet];
   return {
     ...norm,
     id: doc?.legacyId || norm.id || String(doc?._id ?? ''),
-    platform: doc?.platform ?? norm.platform ?? 'instagram',
+    platform,
     platformContentId: doc?.providerMediaId ?? norm.platformContentId ?? '',
     contentType: doc?.contentType ?? norm.contentType ?? 'post',
     contentTypeBasis: doc?.contentTypeBasis ?? norm.contentTypeBasis ?? 'provider',
@@ -70,11 +81,11 @@ export function toNormalized(doc: any): NormalizedMedia & { unavailableMetrics: 
     thumbnailUrl: doc?.thumbnailUrl !== undefined && doc?.thumbnailUrl !== null ? doc.thumbnailUrl : (norm.thumbnailUrl ?? ''),
     mediaUrl: doc?.mediaUrl !== undefined ? doc.mediaUrl : norm.mediaUrl,
     publishedAt: pub,
-    views: typeof doc?.views === 'number' ? doc.views : (typeof norm.views === 'number' ? norm.views : 0),
-    reach: typeof doc?.reach === 'number' ? doc.reach : (typeof norm.reach === 'number' ? norm.reach : 0),
-    likes: typeof doc?.likes === 'number' ? doc.likes : (typeof norm.likes === 'number' ? norm.likes : 0),
-    comments: typeof doc?.comments === 'number' ? doc.comments : (typeof norm.comments === 'number' ? norm.comments : 0),
-    shares: typeof doc?.shares === 'number' ? doc.shares : (typeof norm.shares === 'number' ? norm.shares : 0),
+    views,
+    reach,
+    likes,
+    comments,
+    shares,
     saves: doc?.saves !== undefined ? doc.saves : (norm.saves ?? null),
     watchTimeMinutes: doc?.watchTimeMinutes !== undefined ? doc.watchTimeMinutes : (norm.watchTimeMinutes ?? null),
     durationSeconds: doc?.durationSeconds !== undefined ? doc.durationSeconds : (norm.durationSeconds ?? null),

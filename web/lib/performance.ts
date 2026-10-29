@@ -25,7 +25,7 @@ export function tagFor(post: { id: string; platform: Platform; unavailableMetric
   return 'typical';
 }
 
-type Metric = 'views' | 'likes' | 'comments' | 'reach' | 'shares';
+type Metric = 'views' | 'likes' | 'comments' | 'reach' | 'shares' | 'engagementRate';
 /** True when the platform did not give us this number for this post, so it must read "N/A", never 0. */
 export function isUnavailable(item: Pick<MediaItem, 'unavailableMetrics' | 'missingMetrics'> | undefined | null, metric: Metric): boolean {
   if (!item) return false;

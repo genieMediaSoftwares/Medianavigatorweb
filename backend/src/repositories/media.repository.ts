@@ -25,7 +25,7 @@ export const mediaRepository = {
     ContentItem.find({ userId, connectedAccountId: { $in: accountIds } })
       .sort({ publishedAt: -1 })
       .limit(config.database.analyticsMaxItems)
-      .select('normalized legacyId platform contentType publishedAt engagementRate views likes comments unavailableMetrics syncedAt')
+      .select('normalized legacyId platform contentType publishedAt engagementRate views reach likes comments shares unavailableMetrics syncedAt')
       .lean<ContentItemDoc[]>(),
 
   /** Posts of the given accounts published since `from`, with the fields the planner needs. */

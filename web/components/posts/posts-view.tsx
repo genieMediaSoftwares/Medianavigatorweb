@@ -19,18 +19,18 @@ import { useBoostedMediaIds } from '@/lib/hooks/useAds';
 import { tagFor } from '@/lib/performance';
 import { platformName, typeLabel } from '@/lib/platforms';
 import type { ContentType, MediaItem, Performer, PerformerSort, Platform } from '@/types/api';
-import { AdsBoosts } from './ads-boosts';
 import { PostCard, PostThumb } from './post-card';
 import { PostDetailDrawer } from './post-detail-drawer';
 import { plainComparison } from './plain-language';
 import { WhyPerformerModal } from '@/components/insights/why-performer-modal';
 import { DeepVideoAnalysisModal } from '@/components/insights/deep-video-analysis-modal';
 
-type Tab = 'all' | 'working' | 'attention' | 'ads';
-const TABS = [{ id: 'all', label: 'All posts' }, { id: 'working', label: 'Top performers' }, { id: 'attention', label: 'Opportunities' }, { id: 'ads', label: 'Ads / Boosts' }];
+type Tab = 'all' | 'working' | 'attention';
+const TABS = [{ id: 'all', label: 'All posts' }, { id: 'working', label: 'Top performers' }, { id: 'attention', label: 'Opportunities' }];
 type AllSort = 'newest' | 'views' | 'engagement';
 const ALL_SORTS: Array<{ value: AllSort; label: string }> = [{ value: 'newest', label: 'Newest' }, { value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }];
-const RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }, { value: 'likes', label: 'Most likes' }, { value: 'comments', label: 'Most comments' }];
+const TOP_RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }, { value: 'likes', label: 'Most likes' }, { value: 'comments', label: 'Most comments' }];
+const BOTTOM_RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Fewest views' }, { value: 'engagement', label: 'Lowest engagement' }, { value: 'likes', label: 'Fewest likes' }, { value: 'comments', label: 'Fewest comments' }];
 const RANK_PAGE = 9;
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -58,7 +58,11 @@ function RankedCard({ p, kind, rank, onOpen, onOpenWhy, boosted }: { p: Performe
           </div>
           <h3 className="line-clamp-2 text-base leading-relaxed sm:text-lg"><button onClick={onOpen} className="text-left hover:text-brand-600">{p.title || p.caption || 'Untitled post'}</button></h3>
           <dl className="mt-4 grid grid-cols-3 gap-3">
-            {[['Views', compact(p.views)], ['Likes', compact(p.likes)], ['Engagement', percent(p.engagementRate)]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted">{label}</dt><dd className="mt-1 text-base font-semibold tabular text-ink sm:text-xl">{value}</dd></div>)}
+            {[
+              ['Views', p.platform !== 'facebook' && p.views <= 0 && (p.likes > 0 || p.comments > 0 || p.reach > 0) ? 'N/A' : compact(p.views)],
+              ['Likes', compact(p.likes)],
+              ['Engagement', p.engagementRate <= 0 && p.views <= 0 && p.reach <= 0 ? 'N/A' : percent(p.engagementRate)],
+            ].map(([label, value]) => <div key={label}><dt className="text-xs text-muted">{label}</dt><dd className="mt-1 text-base font-semibold tabular text-ink sm:text-xl">{value}</dd></div>)}
           </dl>
         </div>
       </div>
@@ -83,7 +87,7 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
   const [sort, setSort] = useState<PerformerSort>('views');
   const [shown, setShown] = useState(RANK_PAGE);
   const summary = useSummary(channel, 365);
-  const perf = usePerformers(sort);
+  const perf = usePerformers(sort, channel);
   const insufficient = useMemo(() => new Set(summary.data?.insufficientHistory ?? []), [summary.data]);
   const boostedIds = useBoostedMediaIds();
 
@@ -113,7 +117,7 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
         </p>
         <label className="flex items-center gap-2 text-sm font-semibold text-ink">Rank by
           <Select value={sort} onChange={(e) => { setSort(e.target.value as PerformerSort); setShown(RANK_PAGE); }} className="w-auto pr-10">
-            {RANK_SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            {(kind === 'working' ? TOP_RANK_SORTS : BOTTOM_RANK_SORTS).map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </Select>
         </label>
       </div>
@@ -198,7 +202,7 @@ export function PostsView() {
   const pathname = usePathname();
   const params = useSearchParams();
   const tabParam = params.get('tab');
-  const tab: Tab = tabParam === 'working' || tabParam === 'attention' || tabParam === 'ads' ? tabParam : 'all';
+  const tab: Tab = tabParam === 'working' || tabParam === 'attention' ? tabParam : 'all';
   const { channel, setChannel } = useChannel();
   const connections = useConnections();
   const [search, setSearch] = useState('');
@@ -233,7 +237,7 @@ export function PostsView() {
     body = (
       <div className="space-y-6">
         <TabBar label="Post views" tabs={TABS} value={tab} onChange={setTab} />
-        {tab !== 'ads' && <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-3">
           <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-subtle" aria-hidden="true" />
             <Input type="search" aria-label="Search posts" placeholder="Search your posts" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
@@ -246,8 +250,8 @@ export function PostsView() {
             <Segmented<Platform | 'all'> label="Channel" value={channel} onChange={setChannel}
               options={[{ value: 'all', label: 'All' }, ...connected.map((c) => ({ value: c.platform, label: platformName(c.platform) }))]} />
           )}
-        </div>}
-        {tab === 'ads' ? <AdsBoosts /> : tab === 'all'
+        </div>
+        {tab === 'all'
           ? <AllPosts channel={channel} query={query} format={format} onOpen={setOpen} />
           : <RankedList kind={tab} channel={channel} query={query} format={format} onOpen={setOpen} onOpenWhy={(item, type) => setWhyModal({ open: true, item, type })} />}
       </div>

@@ -75,7 +75,7 @@ export function PostCard({ item, tag, onOpen, boosted }: { item: MediaItem; tag:
           <Metric icon={MessageCircle} label="comments" value={item.comments} na={isUnavailable(item, 'comments')} platform={item.platform} />
         </div>
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-line dark:border-slate-800/80 pt-3">
-          <span className="text-[13px] text-muted">Engagement <strong className="font-bold text-ink tabular">{percent(item.engagementRate)}</strong></span>
+          <span className="text-[13px] text-muted">Engagement <strong className="font-bold text-ink tabular">{isUnavailable(item, 'engagementRate') ? 'N/A' : percent(item.engagementRate)}</strong></span>
           <Badge tone={TAG_TONE[tag]}>{TAG_LABEL[tag]}</Badge>
         </div>
       </div>

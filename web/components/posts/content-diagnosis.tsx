@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Activity, AlertTriangle, ArrowRight, BarChart3, CheckCircle2, ChevronDown, CircleHelp, Eye, Gauge,
   Hash, Layers, Lightbulb, MessageCircle, Palette, Play, Quote, RefreshCw, Sparkles, Target, TrendingUp, Zap,
@@ -72,11 +72,11 @@ function InsightButton({ insight, active, onSelect }: { insight: DiagnosisInsigh
         active ? `${s.bg} ${s.border} shadow-sm` : 'border-line bg-surface hover:border-line-strong hover:bg-app'
       }`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${active ? 'bg-surface/70' : 'bg-app'}`}>
           <Icon className={`h-4 w-4 ${active ? s.text : 'text-muted'}`} aria-hidden="true" />
         </span>
-        <span className="min-w-0 flex-1 text-[14px] font-semibold leading-tight text-ink">{insight.title || insight.key}</span>
+        <span className="min-w-0 flex-1 break-words text-[13px] font-semibold leading-snug text-ink">{insight.title || insight.key}</span>
       </div>
       <SignalTag signal={insight.signal} />
       {insight.metric && <p className="truncate text-[12px] text-muted">{insight.metric}</p>}
@@ -228,13 +228,13 @@ function EvidenceTable({ diagnosis }: { diagnosis: DiagnosisResponse }) {
   );
 }
 
-/** The six insights and the detail of the selected one, side by side on wide screens. */
+/** The six insights and the detail of the selected one. */
 function InsightGrid({ insights }: { insights: DiagnosisInsight[] }) {
   const [selected, setSelected] = useState<string>(insights[0]?.key ?? '');
   const active = insights.find((i) => i.key === selected) ?? insights[0];
   return (
-    <div className="grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 md:grid-cols-3">
         {insights.map((i) => (
           <InsightButton key={i.key} insight={i} active={active?.key === i.key} onSelect={() => setSelected(i.key)} />
         ))}
@@ -447,8 +447,15 @@ function DiagnosisBody({ diagnosis }: { diagnosis: DiagnosisResponse }) {
  * understand a post: the same component answers differently for a top, average or bottom performer.
  */
 export function ContentDiagnosis({ mediaId, thumbnailUrl, title, platform, contentType }: { mediaId: string; thumbnailUrl?: string; title?: string; platform: Platform; contentType: ContentType }) {
+  const qc = useQueryClient();
   // The API saves every diagnosis per post, so opening the same post again is served from the saved result.
   const query = useQuery({ queryKey: ['diagnosis', mediaId], queryFn: () => api.diagnosis(mediaId), staleTime: 5 * 60_000, retry: 1 });
+  const refresh = useMutation({
+    mutationFn: () => api.diagnosis(mediaId, true),
+    onSuccess: (fresh) => {
+      qc.setQueryData(['diagnosis', mediaId], fresh);
+    },
+  });
   const d = query.data;
 
   if (query.isPending) {
@@ -487,7 +494,7 @@ export function ContentDiagnosis({ mediaId, thumbnailUrl, title, platform, conte
             {title && <p className="mt-1 line-clamp-1 text-[14px] font-semibold text-ink">{title}</p>}
           </div>
         </div>
-        <Button size="sm" variant="ghost" onClick={() => void query.refetch()} loading={query.isFetching}>
+        <Button size="sm" variant="ghost" onClick={() => void refresh.mutate()} loading={query.isFetching || refresh.isPending}>
           <RefreshCw className="h-4 w-4" aria-hidden="true" />Refresh
         </Button>
       </div>

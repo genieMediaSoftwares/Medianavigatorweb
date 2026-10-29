@@ -19,8 +19,8 @@ export function usePostsFeed(platform: Platform | 'all') {
 }
 
 /** Ranked best and weakest posts, ordered by the chosen measure. */
-export const usePerformers = (sortBy: PerformerSort, enabled = true) =>
-  useQuery({ queryKey: qk.performers(sortBy), queryFn: () => api.performers(sortBy), staleTime: 60_000, enabled });
+export const usePerformers = (sortBy: PerformerSort, platform: Platform | 'all' = 'all', enabled = true) =>
+  useQuery({ queryKey: qk.performers(sortBy, platform), queryFn: () => api.performers(sortBy, platform === 'all' ? undefined : platform), staleTime: 60_000, enabled });
 
 /** One full post, for thumbnails and the detail drawer. */
 export const useMediaItem = (id: string | null | undefined) =>

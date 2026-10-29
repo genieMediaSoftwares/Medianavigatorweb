@@ -10,6 +10,6 @@ interface Props { open: boolean; onOpenChange: (open: boolean) => void; item: Pe
  */
 export function WhyPerformerModal({ open, onOpenChange, item, type, onOpenFullDetail }: Props) {
   return <Modal open={open} onOpenChange={onOpenChange} title={type === 'top' ? 'Why this post ranks near the top' : 'Why this post ranks near the bottom'} description="Actual content, measured performance and specific improvements." className="max-w-2xl max-h-[90vh] overflow-y-auto">
-    {open && item && <div className="space-y-5"><h3 className="text-base">{item.title || item.caption}</h3><ContentDiagnosis key={item.mediaId} mediaId={item.mediaId} thumbnailUrl={item.thumbnailUrl} title={item.title || item.caption} platform={item.platform} contentType={item.contentType as ContentType} />{onOpenFullDetail && <Button variant="secondary" onClick={() => { onOpenChange(false); onOpenFullDetail(item.mediaId); }}>Open post details</Button>}</div>}
+    {open && item && <div className="space-y-5"><ContentDiagnosis key={item.mediaId} mediaId={item.mediaId} thumbnailUrl={item.thumbnailUrl} title={item.title || item.caption} platform={item.platform} contentType={item.contentType as ContentType} />{onOpenFullDetail && <Button variant="secondary" onClick={() => { onOpenChange(false); onOpenFullDetail(item.mediaId); }}>Open post details</Button>}</div>}
   </Modal>;
 }
