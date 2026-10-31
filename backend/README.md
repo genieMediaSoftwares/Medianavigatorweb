@@ -49,6 +49,7 @@ Optional feature groups (Gemini, R2, SMTP, each OAuth provider) must be **all se
 | `SYNC_INTERVAL_MINUTES`, `SYNC_TIMEOUT_MS`, `SYNC_LEASE_SECONDS`, `SYNC_MAX_ATTEMPTS` | yes | Scheduled-sync cadence, per-run timeout, worker lease, retry budget |
 | `SYNC_WORKER_ENABLED`, `SYNC_SCHEDULER_ENABLED` | yes | `true`/`false`: run the queue worker / due-account scheduler inside this process |
 | `SYNC_WORKER_POLL_MS` | yes | Worker poll interval |
+| `DEEP_ANALYSIS_WORKER_ENABLED`, `ACCOUNT_CLEANUP_WORKER_ENABLED` | no | Default `true`. Set `false` to stop running deep-analysis jobs / account-deletion cleanup in the web process (the dedicated `npm run worker` always runs them) |
 | `JOBS_TRIGGER_SECRET` | no | Enables `POST /api/v1/internal/jobs/run` for an external scheduler (Render Cron Job) |
 | `AI_TIMEOUT_MS`, `AI_MAX_INPUT_CHARS`, `AI_CACHE_TTL_HOURS` | yes | AI limits and cache lifetime |
 | `CONTENT_ANALYSIS_TIMEOUT_MS`, `CONTENT_ANALYSIS_MAX_MEDIA_MB`, `CONTENT_ANALYSIS_STALE_HOURS` | yes | Six-point content analysis: time allowed per analysis (videos need ~1–3 min), largest image/video downloaded, and how long a saved analysis stays fresh |

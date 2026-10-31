@@ -41,6 +41,7 @@ function Stat({ icon: Icon, label, children }: { icon: typeof Users; label: stri
 
 /** Fixed text per failure reason from the OAuth callback; the URL never carries a message. */
 const OAUTH_FAILURE: Record<string, string> = {
+  already_connected: 'Account already connected. This social account is already connected to another Media Navigator account or session. Please sign in to the account where it is connected, or disconnect it there before trying again.',
   token_invalid: 'The sign-in returned a token Meta then refused. Please try again.',
   token_expired: 'The sign-in expired before it finished. Please try again.',
   permission_missing: 'Some permissions were not granted. Sign in again and allow every permission Media Navigator asks for.',

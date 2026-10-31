@@ -1,6 +1,7 @@
 import { getApiBaseUrl } from '@/config/env';
 import { deleteSecureItem, getSecureItem, SecureStorageKey, setSecureItem } from '@/lib/storage/secure-storage';
 import type { ApiErrorDetail, PageMeta, TokenPair } from '@/types/api';
+import { DEFAULT_REQUEST_TIMEOUT_MS, requestTimeoutMs } from '../../../../shared/requestPolicy';
 
 /** Field name → message, built from the server's 422 `details`. */
 export type FieldErrors = Record<string, string>;
@@ -36,6 +37,8 @@ type Envelope<T> =
 type Query = Record<string, string | number | boolean | null | undefined>;
 
 export interface ApiRequestOptions {
+  /** Longer only for synchronous media analysis. Ordinary requests fail promptly when offline. */
+  timeoutMs?: number;
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
   query?: Query;
   /** Serialized as the JSON request body. */
@@ -87,18 +90,23 @@ function buildUrl(path: string, query?: Query): string {
   return `${base}${API_PREFIX}${path}${qs ? `?${qs}` : ''}`;
 }
 
-async function send<T>(url: string, init: RequestInit): Promise<{ response: Response; envelope: Envelope<T> }> {
+async function send<T>(url: string, init: RequestInit, timeoutMs = DEFAULT_REQUEST_TIMEOUT_MS): Promise<{ response: Response; envelope: Envelope<T> }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let response: Response;
   try {
-    response = await fetch(url, init);
-  } catch {
-    throw new ApiError('Unable to reach the server. Check your connection and try again.', 0, 'NETWORK_ERROR');
-  }
-  try {
-    return { response, envelope: (await response.json()) as Envelope<T> };
-  } catch {
-    throw new ApiError(`Unexpected response from the server (status ${response.status}).`, response.status, 'INVALID_RESPONSE');
-  }
+    try {
+      response = await fetch(url, { ...init, signal: controller.signal });
+    } catch {
+      throw new ApiError(controller.signal.aborted ? 'The server took too long to respond. Please try again.' : 'Unable to reach the server. Check your connection and try again.', 0, controller.signal.aborted ? 'REQUEST_TIMEOUT' : 'NETWORK_ERROR');
+    }
+    try {
+      return { response, envelope: (await response.json()) as Envelope<T> };
+    } catch {
+      if (controller.signal.aborted) throw new ApiError('The server took too long to respond. Please try again.', 0, 'REQUEST_TIMEOUT');
+      throw new ApiError(`Unexpected response from the server (status ${response.status}).`, response.status, 'INVALID_RESPONSE');
+    }
+  } finally { clearTimeout(timeout); }
 }
 
 function toError(response: Response, envelope: Envelope<unknown>): ApiError {
@@ -150,7 +158,7 @@ async function request<T>(path: string, options: ApiRequestOptions): Promise<{ d
       const token = await getSecureItem(SecureStorageKey.AccessToken);
       if (token) headers.Authorization = `Bearer ${token}`;
     }
-    return send<T>(url, { method, headers, body: json === undefined ? undefined : JSON.stringify(json) });
+    return send<T>(url, { method, headers, body: json === undefined ? undefined : JSON.stringify(json) }, options.timeoutMs ?? requestTimeoutMs(path));
   };
 
   let { response, envelope } = await attempt();

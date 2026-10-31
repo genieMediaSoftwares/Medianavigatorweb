@@ -695,11 +695,12 @@ export interface AdminSystem {
   storage: { configured: boolean; files: number; bytes: number };
   features: {
     ai: { configured: boolean; model: string | null };
-    email: { configured: boolean };
+    email: { configured: boolean; provider?: 'smtp' | 'resend' | null };
     syncWorker: boolean;
     syncScheduler: boolean;
     oauth: Record<string, boolean>;
   };
+  configurationChecks?: { id: string; label: string; ready: boolean }[];
 }
 export interface AdminConnection {
   id: string;

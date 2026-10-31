@@ -1,14 +1,12 @@
-import { config } from './config/env.js';
 import { connectDatabase, disconnectDatabase, ensureIndexes } from './db/client.js';
 import { startJobs } from './jobs/index.js';
 import { logger } from './lib/logger.js';
 
 /** Separate always-on worker entry point. Exposes no public HTTP listener. */
 async function main() {
-  if (!config.sync.workerEnabled && !config.sync.schedulerEnabled && !config.ai.workerEnabled) throw new Error('Enable at least one background job for the worker process.');
   await connectDatabase();
   await ensureIndexes();
-  const stop = startJobs();
+  const stop = startJobs({ dedicated: true });
   // Poll timers are unref'ed so HTTP shutdown can drain; a standalone worker needs its own keepalive.
   const keepalive = setInterval(() => undefined, 60_000);
   let closing = false;
@@ -26,4 +24,4 @@ async function main() {
   process.on('SIGTERM', () => void shutdown());
   logger.info('background worker started');
 }
-main().catch(error => { logger.error('worker startup failed', { error }); process.exit(1); });
+main().catch((error) => { logger.error('worker startup failed', { error }); process.exit(1); });

@@ -1,8 +1,11 @@
 import { z } from 'zod';
+import { passwordFitsBcrypt, PASSWORD_BYTE_MESSAGE } from '../../../shared/passwordPolicy';
 
 /** These mirror the API rules so people see the problem as they type, not after a round trip. */
 export const emailField = z.string().trim().min(1, 'Enter your email').pipe(z.email('Add an @ and a domain, like name@company.com'));
-export const passwordField = z.string().min(8, 'Use at least 8 characters').max(128, 'Use 128 characters or fewer');
+export const passwordField = z.string().min(8, 'Use at least 8 characters').max(128, 'Use 128 characters or fewer')
+  .refine(passwordFitsBcrypt, PASSWORD_BYTE_MESSAGE)
+  .refine((value) => /[A-Za-z]/.test(value) && /\d/.test(value), 'Include at least one letter and one number');
 
 export const signInSchema = z.object({ email: emailField, password: z.string().min(1, 'Enter your password') });
 export type SignInValues = z.infer<typeof signInSchema>;
@@ -22,5 +25,5 @@ export const resetSchema = z.object({ newPassword: passwordField, confirm: z.str
 
 export const passwordRules = [
   { id: 'len', label: 'At least 8 characters', test: (v: string) => v.length >= 8 },
-  { id: 'mix', label: 'A mix of letters and numbers (recommended)', test: (v: string) => /[a-zA-Z]/.test(v) && /\d/.test(v) },
+  { id: 'mix', label: 'At least one letter and one number', test: (v: string) => /[a-zA-Z]/.test(v) && /\d/.test(v) },
 ];

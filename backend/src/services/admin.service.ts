@@ -28,6 +28,7 @@ import { PLATFORMS } from '../integrations/registry.js';
 import { oauthEnabled } from './oauth.service.js';
 import type { ConnectedAccountDoc } from '../models/ConnectedAccount.js';
 import { isSuperAdmin, type Role } from '../../../shared/admin.js';
+import { releaseConfigurationChecks } from './releaseReadiness.js';
 
 interface Actor { userId: string; requestId?: string; ip?: string }
 
@@ -180,10 +181,11 @@ export const adminService = {
       storage: { configured: storageEnabled(), files: files[0]?.count ?? 0, bytes: files[0]?.bytes ?? 0 },
       features: {
         ai: { configured: aiAvailable(), model: aiModel() },
-        email: { configured: emailEnabled() },
+        email: { configured: emailEnabled(), provider: config.email?.provider ?? null },
         syncWorker: config.sync.workerEnabled, syncScheduler: config.sync.schedulerEnabled,
         oauth: Object.fromEntries(PLATFORMS.map((p) => [p, oauthEnabled(p)])),
       },
+      configurationChecks: releaseConfigurationChecks(config),
     };
   },
 };

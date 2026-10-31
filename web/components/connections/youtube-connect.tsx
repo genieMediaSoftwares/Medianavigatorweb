@@ -64,7 +64,11 @@ export function YouTubeConnect({ connection, onConnected, onError }: { connectio
       reset();
       await onConnected();
     } catch (e) {
-      onError(e instanceof ApiError && e.status === 409 ? 'That YouTube channel is already connected to another Media Navigator account.' : e instanceof ApiError ? e.message : 'We couldn’t connect YouTube. Please try again.');
+      if (e instanceof ApiError && (e.status === 409 || e.code === 'CONFLICT')) {
+        onError('Account already connected. This social account is already connected to another Media Navigator account or session. Please sign in to the account where it is connected, or disconnect it there before trying again.');
+      } else {
+        onError(e instanceof ApiError ? e.message : 'We couldn\u2019t connect YouTube. Please try again.');
+      }
     }
   });
 

@@ -171,7 +171,7 @@ export function connectErrorMessage(error: unknown, platformName: string): strin
     case 'NETWORK_ERROR':
       return 'Unable to reach Media Navigator. Check your connection and try again.';
     case 'CONFLICT':
-      return `That ${platformName} account is already connected to another Media Navigator account.`;
+      return 'Account already connected. This social account is already connected to another Media Navigator account or session. Please sign in to the account where it is connected, or disconnect it there before trying again.';
     case 'RATE_LIMITED':
       return 'Too many attempts. Please wait a moment and try again.';
     case 'VALIDATION_ERROR':

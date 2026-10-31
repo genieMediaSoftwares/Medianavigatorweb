@@ -50,6 +50,7 @@ function RootNavigator() {
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.white } }}>
       <Stack.Screen name="index" />
+      <Stack.Screen name="reset-password" options={{ headerShown: false }} />
       <Stack.Protected guard={isAuthenticated}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="connected-accounts" options={{ ...pushedScreenOptions, title: 'Connected accounts' }} />

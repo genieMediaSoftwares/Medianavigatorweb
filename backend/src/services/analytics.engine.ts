@@ -489,58 +489,8 @@ export class AnalyticsEngine {
     });
   }
 
-  getBottomPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views', platform?: string): PerformerAnalysis[] {
-    // Views are often not reported (photos, many Facebook posts). When too few posts carry the chosen
-    // measure, rank by engagement instead so Opportunities is not left empty.
-    let pool = this.rankingPool(sortBy, platform);
-    if (pool.measured.length < 2 && sortBy !== 'engagement') pool = this.rankingPool('engagement', platform);
-    const { measured: activeMedia, comparison, order, isBelowMedian } = pool;
-    if (activeMedia.length < 2) return [];
-
-    const sortedAll = [...activeMedia].sort((a, b) => order(b, a));
-    const filtered = sortedAll.filter(isBelowMedian);
-    const sorted = filtered.length > 0 ? filtered : sortedAll;
-    const bottomCount = Math.max(1, Math.min(50, Math.floor(activeMedia.length * 0.4)));
-    const bottomItems = sorted.slice(0, bottomCount);
-
-    return bottomItems.map((item) => {
-      const baselineComparison = comparison(item);
-
-      const possibleFactors = [
-        'Possible: the cover or opening seconds did not stand out in the feed (not measurable from the data available)',
-        'Possible: the caption or call-to-action did not prompt comments or shares',
-        'Possible: the publishing time was less favourable than your strongest window',
-      ];
-
-      return {
-        id: `bot_${item.id}`,
-        mediaId: item.id,
-        title: item.title,
-        caption: item.caption,
-        platform: item.platform,
-        contentType: item.contentType,
-        views: item.views,
-        reach: item.reach,
-        likes: item.likes,
-        comments: item.comments,
-        shares: item.shares,
-        engagementRate: item.engagementRate,
-        baselineComparison,
-        isTopPerformer: false,
-        possibleFactors,
-        patternToReplicateOrImprove: 'Refine the opening line and lead with the most surprising fact or punchline before testing this topic again.',
-        alternativeApproach: `Repackage this topic into a fast-paced 30-second Reel or high-contrast carousel with bold headline overlays.`,
-        uncertaintyNote: 'Weaker performance can reflect normal variation rather than lack of interest in the topic. Test again before drawing conclusions.',
-        publishedAt: item.publishedAt,
-        thumbnailUrl: item.thumbnailUrl,
-        mediaUrl: item.mediaUrl,
-      };
-    });
-  }
-
   /**
-   * Mobile Needs Attention: measurable posts that reached fewer people than the account's usual, weakest first.
-   * (The website's Opportunities list is getBottomPerformers and is not affected.)
+   * Needs Attention: measurable posts that reached fewer people than the account's usual, weakest first.
    *
    * - One audience metric per platform, chosen from what that platform really measures (NEEDS_ATTENTION_METRICS):
    *   reach where it is reported per post, otherwise views. A post whose metric was not returned is left out, never
@@ -573,33 +523,56 @@ export class AnalyticsEngine {
     const engagement = (m: NormalizedMedia) => (missing(m).includes('engagementRate') ? Number.POSITIVE_INFINITY : m.engagementRate);
     candidates.sort((a, b) => a.value / a.typical - b.value / b.typical || engagement(a.item) - engagement(b.item) || a.item.id.localeCompare(b.item.id));
 
-    return candidates.slice(0, 50).map(({ item, metric, value, typical }) => ({
-      id: `bot_${item.id}`,
-      mediaId: item.id,
-      title: item.title,
-      caption: item.caption,
-      platform: item.platform,
-      contentType: item.contentType,
-      views: item.views,
-      reach: item.reach,
-      likes: item.likes,
-      comments: item.comments,
-      shares: item.shares,
-      engagementRate: item.engagementRate,
-      baselineComparison: `-${Math.round(((typical - value) / typical) * 100)}% ${metric} vs your median (${Math.round(typical).toLocaleString('en-US')})`,
-      isTopPerformer: false,
-      possibleFactors: [
+    return candidates.slice(0, 50).map(({ item, metric, value, typical }) =>
+      this.bottomPerformer(item, `-${Math.round(((typical - value) / typical) * 100)}% ${metric} vs your median (${Math.round(typical).toLocaleString('en-US')})`));
+  }
+
+  /** Website "Opportunities": the weakest posts by the selected metric (unchanged; the mobile app uses getNeedsAttention). */
+  getBottomPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views', platform?: string): PerformerAnalysis[] {
+    // Views are often not reported (photos, many Facebook posts). When too few posts carry the chosen
+    // measure, rank by engagement instead so Opportunities is not left empty.
+    let pool = this.rankingPool(sortBy, platform);
+    if (pool.measured.length < 2 && sortBy !== 'engagement') pool = this.rankingPool('engagement', platform);
+    const { measured: activeMedia, comparison, order, isBelowMedian } = pool;
+    if (activeMedia.length < 2) return [];
+
+    const sortedAll = [...activeMedia].sort((a, b) => order(b, a));
+    const filtered = sortedAll.filter(isBelowMedian);
+    const sorted = filtered.length > 0 ? filtered : sortedAll;
+    const bottomCount = Math.max(1, Math.min(50, Math.floor(activeMedia.length * 0.4)));
+    return sorted.slice(0, bottomCount).map((item) => this.bottomPerformer(item, comparison(item)));
+  }
+
+  private bottomPerformer(item: NormalizedMedia, baselineComparison: string): PerformerAnalysis {
+      const possibleFactors = [
         'Possible: the cover or opening seconds did not stand out in the feed (not measurable from the data available)',
         'Possible: the caption or call-to-action did not prompt comments or shares',
         'Possible: the publishing time was less favourable than your strongest window',
-      ],
-      patternToReplicateOrImprove: 'Refine the opening line and lead with the most surprising fact or punchline before testing this topic again.',
-      alternativeApproach: `Repackage this topic into a fast-paced 30-second Reel or high-contrast carousel with bold headline overlays.`,
-      uncertaintyNote: 'Weaker performance can reflect normal variation rather than lack of interest in the topic. Test again before drawing conclusions.',
-      publishedAt: item.publishedAt,
-      thumbnailUrl: item.thumbnailUrl,
-      mediaUrl: item.mediaUrl,
-    }));
+      ];
+
+      return {
+        id: `bot_${item.id}`,
+        mediaId: item.id,
+        title: item.title,
+        caption: item.caption,
+        platform: item.platform,
+        contentType: item.contentType,
+        views: item.views,
+        reach: item.reach,
+        likes: item.likes,
+        comments: item.comments,
+        shares: item.shares,
+        engagementRate: item.engagementRate,
+        baselineComparison,
+        isTopPerformer: false,
+        possibleFactors,
+        patternToReplicateOrImprove: 'Refine the opening line and lead with the most surprising fact or punchline before testing this topic again.',
+        alternativeApproach: `Repackage this topic into a fast-paced 30-second Reel or high-contrast carousel with bold headline overlays.`,
+        uncertaintyNote: 'Weaker performance can reflect normal variation rather than lack of interest in the topic. Test again before drawing conclusions.',
+        publishedAt: item.publishedAt,
+        thumbnailUrl: item.thumbnailUrl,
+        mediaUrl: item.mediaUrl,
+      };
   }
 
   // -------------------------------------------------------------
