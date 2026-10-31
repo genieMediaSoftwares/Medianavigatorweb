@@ -37,6 +37,8 @@ export function refreshTokens(refreshToken: string, requestId: string): Promise<
     }
   })();
   inflight.set(refreshToken, run);
-  void run.finally(() => setTimeout(() => inflight.delete(refreshToken), 10_000));
+  // The result is kept for a while, so requests that were already in flight when the rotation
+  // happened reuse the same fresh pair instead of starting a second rotation.
+  void run.finally(() => setTimeout(() => inflight.delete(refreshToken), 30_000));
   return run;
 }

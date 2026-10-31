@@ -40,8 +40,6 @@ export default function PrivacyPage() {
 
       <p>See our <Link href="/data-deletion">data deletion instructions</Link> for the steps and what is removed.</p>
 
-      <h2>Contact</h2>
-      <p>The operator’s name and contact details are shown in the box at the top of this page.</p>
     </LegalLayout>
   );
 }

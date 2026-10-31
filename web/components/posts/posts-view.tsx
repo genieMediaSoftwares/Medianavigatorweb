@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutGrid, Search, Sparkles } from 'lucide-react';
+import { LayoutGrid, Megaphone, Search, Sparkles } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 import { Button, LinkButton } from '@/components/ui/button';
@@ -15,6 +15,7 @@ import { useChannel } from '@/lib/hooks/useChannel';
 import { usePerformers, usePostsFeed } from '@/lib/hooks/usePosts';
 import { useConnections, useSummary } from '@/lib/hooks/useQueries';
 import { useSync } from '@/lib/hooks/useSync';
+import { useBoostedMediaIds } from '@/lib/hooks/useAds';
 import { tagFor } from '@/lib/performance';
 import { platformName, typeLabel } from '@/lib/platforms';
 import type { ContentType, MediaItem, Performer, PerformerSort, Platform } from '@/types/api';
@@ -28,7 +29,8 @@ type Tab = 'all' | 'working' | 'attention';
 const TABS = [{ id: 'all', label: 'All posts' }, { id: 'working', label: 'Top performers' }, { id: 'attention', label: 'Opportunities' }];
 type AllSort = 'newest' | 'views' | 'engagement';
 const ALL_SORTS: Array<{ value: AllSort; label: string }> = [{ value: 'newest', label: 'Newest' }, { value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }];
-const RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }, { value: 'likes', label: 'Most likes' }, { value: 'comments', label: 'Most comments' }];
+const TOP_RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Most views' }, { value: 'engagement', label: 'Best engagement' }, { value: 'likes', label: 'Most likes' }, { value: 'comments', label: 'Most comments' }];
+const BOTTOM_RANK_SORTS: Array<{ value: PerformerSort; label: string }> = [{ value: 'views', label: 'Fewest views' }, { value: 'engagement', label: 'Lowest engagement' }, { value: 'likes', label: 'Fewest likes' }, { value: 'comments', label: 'Fewest comments' }];
 const RANK_PAGE = 9;
 
 function useDebounced<T>(value: T, ms: number): T {
@@ -40,7 +42,7 @@ function useDebounced<T>(value: T, ms: number): T {
 const KNOWN_TYPES: ContentType[] = ['reel', 'short', 'video', 'post', 'article', 'carousel'];
 const asType = (t: string): ContentType => KNOWN_TYPES.find((k) => k === t) ?? 'post';
 
-function RankedCard({ p, kind, rank, onOpen, onOpenWhy }: { p: Performer; kind: 'working' | 'attention'; rank: number; onOpen: () => void; onOpenWhy: (p: Performer, type: 'top' | 'bottom') => void }) {
+function RankedCard({ p, kind, rank, onOpen, onOpenWhy, boosted }: { p: Performer; kind: 'working' | 'attention'; rank: number; onOpen: () => void; onOpenWhy: (p: Performer, type: 'top' | 'bottom') => void; boosted?: boolean }) {
   return (
     <article className="rounded-2xl border border-line bg-surface p-5 transition-colors hover:border-brand-200 sm:p-6">
       <div className="flex items-start gap-4 sm:gap-6">
@@ -50,12 +52,17 @@ function RankedCard({ p, kind, rank, onOpen, onOpenWhy }: { p: Performer; kind: 
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted">
             <span className="rounded-md bg-brand-50 px-2 py-1 font-semibold text-brand-700">#{rank}</span>
+            {boosted && <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/15 px-2 py-1 font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"><Megaphone className="h-3.5 w-3.5" aria-hidden="true" />Boosted</span>}
             <PlatformIcon platform={p.platform} className="h-4 w-4" /><span>{typeLabel(p.contentType)}</span>
             <span aria-hidden="true">·</span><span>{dateShort(p.publishedAt)}</span>
           </div>
           <h3 className="line-clamp-2 text-base leading-relaxed sm:text-lg"><button onClick={onOpen} className="text-left hover:text-brand-600">{p.title || p.caption || 'Untitled post'}</button></h3>
           <dl className="mt-4 grid grid-cols-3 gap-3">
-            {[['Views', compact(p.views)], ['Likes', compact(p.likes)], ['Engagement', percent(p.engagementRate)]].map(([label, value]) => <div key={label}><dt className="text-xs text-muted">{label}</dt><dd className="mt-1 text-base font-semibold tabular text-ink sm:text-xl">{value}</dd></div>)}
+            {[
+              ['Views', p.platform !== 'facebook' && p.views <= 0 && (p.likes > 0 || p.comments > 0 || p.reach > 0) ? 'N/A' : compact(p.views)],
+              ['Likes', compact(p.likes)],
+              ['Engagement', p.engagementRate <= 0 && p.views <= 0 && p.reach <= 0 ? 'N/A' : percent(p.engagementRate)],
+            ].map(([label, value]) => <div key={label}><dt className="text-xs text-muted">{label}</dt><dd className="mt-1 text-base font-semibold tabular text-ink sm:text-xl">{value}</dd></div>)}
           </dl>
         </div>
       </div>
@@ -69,7 +76,7 @@ function RankedCard({ p, kind, rank, onOpen, onOpenWhy }: { p: Performer; kind: 
           <p>{plainComparison(p.baselineComparison)}</p>
           <p><strong>Suggested experiment:</strong> {p.patternToReplicateOrImprove}</p>
           {p.uncertaintyNote && <p>{p.uncertaintyNote}</p>}
-          {p.possibleFactors.length > 0 && <ul className="list-disc space-y-1 pl-4">{p.possibleFactors.map(f => <li key={f}>{f}</li>)}</ul>}
+          {(p.possibleFactors ?? []).length > 0 && <ul className="list-disc space-y-1 pl-4">{(p.possibleFactors ?? []).map(f => <li key={f}>{f}</li>)}</ul>}
         </div>
       </details>
     </article>
@@ -80,8 +87,9 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
   const [sort, setSort] = useState<PerformerSort>('views');
   const [shown, setShown] = useState(RANK_PAGE);
   const summary = useSummary(channel, 365);
-  const perf = usePerformers(sort);
+  const perf = usePerformers(sort, channel);
   const insufficient = useMemo(() => new Set(summary.data?.insufficientHistory ?? []), [summary.data]);
+  const boostedIds = useBoostedMediaIds();
 
   const list = useMemo(() => {
     const src = perf.data ? (kind === 'working' ? perf.data.top : perf.data.bottom) : [];
@@ -91,11 +99,16 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
       && (!q || `${p.title} ${p.caption ?? ''}`.toLowerCase().includes(q)));
   }, [perf.data, kind, channel, insufficient, format, query]);
 
-  if (perf.isLoading || summary.isLoading) return <div className="space-y-4" role="status" aria-label="Loading"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div>;
+  // The ranking is what this tab is about, so it renders as soon as it arrives. The account summary is
+  // slower and only decides which posts are left out, so it must never hold the list back.
+  if (perf.isLoading) return <div className="space-y-4" role="status" aria-label="Loading"><Skeleton className="h-48 rounded-xl" /><Skeleton className="h-48 rounded-xl" /></div>;
   if (perf.isError) return <ErrorState error={perf.error} onRetry={() => void perf.refetch()} />;
 
   const allSrc = perf.data ? (kind === 'working' ? perf.data.top : perf.data.bottom) : [];
-  const tooFew = allSrc.length === 0 || (insufficient.size > 0 && allSrc.every((p) => insufficient.has(p.platform)))
+  // A ranking with posts on the other side means there is history; this measure just was not reported.
+  const otherSrc = perf.data ? (kind === 'working' ? perf.data.bottom : perf.data.top) : [];
+  const unmeasured = allSrc.length === 0 && otherSrc.length > 0;
+  const tooFew = (allSrc.length === 0 && !unmeasured) || (insufficient.size > 0 && allSrc.length > 0 && allSrc.every((p) => insufficient.has(p.platform)))
     || (channel !== 'all' && insufficient.has(channel));
   const filtering = Boolean(query.trim()) || format !== 'all';
 
@@ -107,7 +120,7 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
         </p>
         <label className="flex items-center gap-2 text-sm font-semibold text-ink">Rank by
           <Select value={sort} onChange={(e) => { setSort(e.target.value as PerformerSort); setShown(RANK_PAGE); }} className="w-auto pr-10">
-            {RANK_SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+            {(kind === 'working' ? TOP_RANK_SORTS : BOTTOM_RANK_SORTS).map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </Select>
         </label>
       </div>
@@ -116,11 +129,14 @@ function RankedList({ kind, channel, query, format, onOpen, onOpenWhy }: { kind:
         <EmptyState icon={<LayoutGrid className="h-7 w-7" aria-hidden="true" />} title="We need a few more posts before we can say"
           description="Once you have at least five posts on a channel, we can show what is working and what could be better, compared with your own usual."
           action={<LinkButton href="/connections" variant="secondary">Manage connections</LinkButton>} />
+      ) : unmeasured ? (
+        <EmptyState icon={<Search className="h-7 w-7" aria-hidden="true" />} title="Not enough posts with this number to rank"
+          description="Your channels don't report this number for enough posts yet. Try ranking by Best engagement." />
       ) : list.length === 0 ? (
         <EmptyState icon={<Search className="h-7 w-7" aria-hidden="true" />} title={filtering ? 'No posts match your search' : 'Nothing to show here yet'} description={filtering ? 'Try a different word, or clear the format filter.' : 'Check back after your next update.'} />
       ) : (
         <>
-          <div className="grid gap-5 xl:grid-cols-2">{list.slice(0, shown).map((p, i) => <RankedCard key={p.id} p={p} kind={kind} rank={i + 1} onOpen={() => onOpen(p.mediaId)} onOpenWhy={onOpenWhy} />)}</div>
+          <div className="grid gap-5 xl:grid-cols-2">{list.slice(0, shown).map((p, i) => <RankedCard key={p.id} p={p} kind={kind} rank={i + 1} onOpen={() => onOpen(p.mediaId)} onOpenWhy={onOpenWhy} boosted={boostedIds?.has(p.mediaId)} />)}</div>
           {list.length > shown && <div className="flex justify-center"><Button variant="secondary" onClick={() => setShown((n) => n + RANK_PAGE)}>Show more</Button></div>}
         </>
       )}
@@ -134,6 +150,7 @@ function AllPosts({ channel, query, format, onOpen }: { channel: Platform | 'all
   const summary = useSummary(channel, 365);
   const sync = useSync();
   const all = useMemo<MediaItem[]>(() => feed.data?.pages.flatMap((p) => p.items) ?? [], [feed.data]);
+  const boostedIds = useBoostedMediaIds();
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -177,7 +194,7 @@ function AllPosts({ channel, query, format, onOpen }: { channel: Platform | 'all
           action={feed.hasNextPage ? <Button variant="secondary" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>Show more posts</Button> : undefined} />
       ) : (
         <div className="grid gap-6 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
-          {items.map((p, idx) => <PostCard key={p.id || `post-${idx}`} item={p} tag={tagFor(p, summary.data)} onOpen={() => onOpen(p.id)} />)}
+          {items.map((p, idx) => <PostCard key={p.id || `post-${idx}`} item={p} tag={tagFor(p, summary.data)} onOpen={() => onOpen(p.id)} boosted={boostedIds?.has(p.id)} />)}
         </div>
       )}
       {feed.hasNextPage && items.length > 0 && <div className="flex justify-center"><Button variant="secondary" loading={feed.isFetchingNextPage} onClick={() => void feed.fetchNextPage()}>Show more</Button></div>}

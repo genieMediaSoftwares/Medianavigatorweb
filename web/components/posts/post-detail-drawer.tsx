@@ -19,6 +19,7 @@ import { TAG_LABEL, TAG_TONE, isUnavailable, tagFor } from '@/lib/performance';
 import { platformName, typeLabel } from '@/lib/platforms';
 import type { AiMeta, CompareResult, DiagnosePostResult, MediaItem, PostClass } from '@/types/api';
 import { DeepVideoAnalysisModal } from '@/components/insights/deep-video-analysis-modal';
+import { ContentDiagnosis } from './content-diagnosis';
 import { PostThumb } from './post-card';
 import { metricWords, plainClass, plainComparison, plainDifference } from './plain-language';
 
@@ -286,15 +287,24 @@ function PostDetailBody({ item }: { item: MediaItem }) {
         )}
       </Block>
 
-      <Block step="3" title="What it may mean">
+      <Block step="3" title="Performance diagnosis" hint={
+        <HelpPopover>
+          <p>This compares the post with your own results on {name}, then explains it in the way that matches: what worked if it performed well, or what to change if it did not. Nothing is changed on {name}.</p>
+        </HelpPopover>
+      }>
+        <ContentDiagnosis mediaId={item.id} thumbnailUrl={item.thumbnailUrl} title={item.title || item.caption} platform={item.platform} contentType={item.contentType} />
         {!d && (
-          <div className="space-y-3">
-            <p className="text-[15px] text-muted">Press the button to see what these numbers may mean and a few things you could try. Nothing is changed on {name}.</p>
+          <div className="mt-4 border-t border-line pt-4">
+            <p className="text-[15px] text-muted">Press the button for a shorter explanation of these numbers alone, without reviewing the content itself.</p>
             {diagnose.isError && <ErrorState error={diagnose.error} onRetry={() => diagnose.mutate()} title="We couldn't explain this post" />}
-            <Button variant="primary" loading={diagnose.isPending} onClick={() => diagnose.mutate()}><Sparkles className="h-4 w-4" aria-hidden="true" />Explain this post</Button>
+            <Button className="mt-3" variant="secondary" loading={diagnose.isPending} onClick={() => diagnose.mutate()}><Sparkles className="h-4 w-4" aria-hidden="true" />Explain the numbers only</Button>
           </div>
         )}
-        {d && <DiagnoseView d={d} />}
+        {d && (
+          <div className="mt-4 border-t border-line pt-4">
+            <DiagnoseView d={d} />
+          </div>
+        )}
       </Block>
 
       <div className="flex flex-wrap gap-3">

@@ -35,11 +35,26 @@ export interface Baseline {
   p75Views: number;
 }
 
-export function baselineFor(items: Array<Pick<NormalizedMedia, 'engagementRate' | 'views'>>): Baseline {
-  const eng = items.map((i) => i.engagementRate);
-  const views = items.map((i) => i.views);
+/**
+ * The engagement rate is only usable when the platform measured it on a large enough audience.
+ * A post whose rate could not be measured is left out of the baseline entirely, so it never
+ * drags the median down and never makes an unreliable post look like an outlier.
+ */
+function hasMeasuredRate(item: Pick<NormalizedMedia, 'engagementRate'> & { unavailableMetrics?: string[]; missingMetrics?: string[] }): boolean {
+  const missing = [...(item.unavailableMetrics ?? []), ...(item.missingMetrics ?? [])];
+  return !missing.includes('engagementRate');
+}
+
+export function baselineFor(items: Array<Pick<NormalizedMedia, 'engagementRate' | 'views'> & { unavailableMetrics?: string[]; missingMetrics?: string[] }>): Baseline {
+  const measured = items.filter(hasMeasuredRate);
+  const eng = measured.map((i) => i.engagementRate);
+  const measuredViews = items.filter((i) => {
+    const missing = [...(i.unavailableMetrics ?? []), ...(i.missingMetrics ?? [])];
+    return !missing.includes('views');
+  });
+  const views = measuredViews.map((i) => i.views);
   return {
-    sampleSize: items.length,
+    sampleSize: measured.length,
     medianEngagementRate: round(median(eng)),
     p25EngagementRate: round(percentile(eng, 0.25)),
     p75EngagementRate: round(percentile(eng, 0.75)),
@@ -55,8 +70,10 @@ export function baselineFor(items: Array<Pick<NormalizedMedia, 'engagementRate' 
  * TYPICAL : everything else. INSUFFICIENT_DATA : fewer than MIN_HISTORY_FOR_CLASSIFICATION items to compare against.
  * The baseline is the user's own history on the same platform, so there are no global hardcoded thresholds.
  */
-export function classify(item: Pick<NormalizedMedia, 'engagementRate'>, b: Baseline): PerformanceClass {
+export function classify(item: Pick<NormalizedMedia, 'engagementRate'> & { unavailableMetrics?: string[]; missingMetrics?: string[] }, b: Baseline): PerformanceClass {
   if (b.sampleSize < MIN_HISTORY_FOR_CLASSIFICATION) return 'INSUFFICIENT_DATA';
+  // Without a measured rate there is nothing to compare, so the post is not classified.
+  if (!hasMeasuredRate(item)) return 'INSUFFICIENT_DATA';
   const e = item.engagementRate;
   if (e >= b.p75EngagementRate && e >= b.medianEngagementRate * 1.25 && e > 0) return 'TOP';
   if (e <= b.p25EngagementRate && e <= b.medianEngagementRate * 0.75) return 'LOW';

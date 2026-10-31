@@ -79,6 +79,7 @@ export const intelligence = {
     rank: z.string().max(80).optional(),
   }).strict(),
   contentAnalysisQuery: z.object({ mediaId: z.string().min(1).max(200), type: z.enum(['deep', 'why_top', 'why_bottom']) }).strict(),
+  diagnosis: z.object({ mediaId: z.string().min(1).max(200), reanalyze: z.boolean().optional() }).strict(),
 };
 
 const localDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').refine(isValidLocalDate, 'Not a real calendar date');

@@ -5,6 +5,8 @@ export interface SessionDoc {
   userId: Types.ObjectId;
   refreshTokenHash: string;
   previousRefreshTokenHash?: string | null;
+  /** Until when the previous refresh token may still be presented (a concurrent refresh). */
+  previousRefreshTokenValidUntil?: Date | null;
   userAgent?: string;
   ip?: string;
   expiresAt: Date;
@@ -21,6 +23,7 @@ const schema = new Schema<SessionDoc>(
     userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     refreshTokenHash: { type: String, required: true },
     previousRefreshTokenHash: { type: String, default: null },
+    previousRefreshTokenValidUntil: { type: Date, default: null },
     userAgent: { type: String, maxlength: 300 },
     ip: { type: String, maxlength: 64 },
     expiresAt: { type: Date, required: true },

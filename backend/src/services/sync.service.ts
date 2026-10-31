@@ -1,3 +1,4 @@
+import { InstagramAd } from '../models/InstagramAd.js';
 import crypto from 'node:crypto';
 import type { Types } from 'mongoose';
 import type { NormalizedMedia } from '../../../shared/types.js';
@@ -71,18 +72,18 @@ export const syncService = {
 
   /** Executes a claimed run end-to-end. Never throws: every outcome is recorded on the run and the account. */
   async execute(run: SyncRunDoc, owner: string): Promise<void> {
-    const beat = setInterval(() => { void syncRunRepository.heartbeat(run._id, owner, config.sync.leaseSeconds).catch(() => logger.warn('sync lease renewal failed')); }, Math.max(1000, (config.sync.leaseSeconds * 1000) / 3));
+    const beat = setInterval(() => { void syncRunRepository.heartbeat(run._id, owner, config.sync.leaseSeconds).catch(() => logger.warn('sync heartbeat failed', { syncRunId: String(run._id) })); }, Math.max(1000, (config.sync.leaseSeconds * 1000) / 3));
     const started = Date.now();
     const log = (msg: string, f: Record<string, unknown> = {}) => logger.info(msg, { operation: 'sync', provider: run.platform, syncRunId: String(run._id), ...f });
     try {
       const account = await connectionRepository.findByIdWithCredentials(run.connectedAccountId);
       if (!account || !account.active || !account.credentialsEnc) {
-        await syncRunRepository.finish(run._id, 'cancelled', { errorKind: 'not_connected', errorSummary: 'Account is no longer connected' });
+        await syncRunRepository.finish(run._id, 'cancelled', { errorKind: 'not_connected', errorSummary: 'Account is no longer connected' }, owner);
         return;
       }
       if (account.status === 'connection_expired') {
         // Known-bad credentials: do not call the provider again until the user reconnects.
-        await syncRunRepository.finish(run._id, 'failed', { errorKind: 'expired', errorSummary: 'Connection expired; reconnect required' });
+        await syncRunRepository.finish(run._id, 'failed', { errorKind: 'expired', errorSummary: 'Connection expired; reconnect required' }, owner);
         return;
       }
 
@@ -111,12 +112,12 @@ export const syncService = {
       // Never persist an in-flight provider response after disconnect, deletion or lease loss.
       const [currentAccount, currentRun, currentUser] = await Promise.all([
         connectionRepository.findByIdWithCredentials(account._id),
-        SyncRun.exists({ _id: run._id, status: 'running', leaseOwner: owner }),
+        syncRunRepository.ownsLease(run._id, owner),
         User.exists({ _id: account.userId, status: 'active', deletedAt: null }),
       ]);
       if (!currentRun) return; // another worker owns the run now
-      if (!currentAccount?.active || !currentAccount.credentialsEnc || !currentUser) {
-        await syncRunRepository.finish(run._id, 'cancelled', { errorKind: 'not_connected', errorSummary: 'Account was disconnected during sync' });
+      if (!currentAccount?.active || !currentAccount.credentialsEnc || currentAccount.providerAccountId !== account.providerAccountId || !currentUser) {
+        await syncRunRepository.finish(run._id, 'cancelled', { errorKind: 'not_connected', errorSummary: 'Account was disconnected during sync' }, owner);
         return;
       }
       const syncedAt = new Date();
@@ -125,6 +126,13 @@ export const syncService = {
         .filter((d): d is NonNullable<typeof d> => d !== null);
       const skipped = fetched.items.length - docs.length;
       const upserted = await mediaRepository.bulkUpsert(docs);
+      if (fetched.paidAds?.items.length) {
+        await InstagramAd.bulkWrite(fetched.paidAds.items.map(record => ({ updateOne: {
+          filter: { userId: account.userId, connectedAccountId: account._id, instagramAccountId: account.providerAccountId, adKey: `${record.adAccountId}:${record.id}` },
+          update: { $set: { record } }, upsert: true,
+        } })));
+      }
+      // Keep historical paid records (and their timestamps) when Meta stops exposing an ad.
       // Only a provably complete list may remove anything: the analysis then shows exactly what is on the account.
       let removed = 0;
       if (fetched.authoritative && !fetched.permissionError) {
@@ -167,27 +175,28 @@ export const syncService = {
       await syncRunRepository.finish(run._id, outcome, {
         itemsFetched: fetched.items.length, itemsCreated: upserted.created, itemsUpdated: upserted.updated, itemsSkipped: skipped, itemsFailed: 0,
         errorKind: permissionBlocked ? 'permission' : null, errorSummary: permissionBlocked ? fetched.permissionError!.message : fetched.partialReason ?? null,
-      });
+      }, owner);
       log('sync finished', { outcome, fetched: fetched.items.length, created: upserted.created, removed, durationMs: Date.now() - started });
     } catch (err) {
-      await syncService.recordFailure(run, err);
+      await syncService.recordFailure(run, err, owner);
     } finally {
       clearInterval(beat);
     }
   },
 
-  async recordFailure(run: SyncRunDoc, err: unknown) {
+  async recordFailure(run: SyncRunDoc, err: unknown, owner?: string) {
+    if (owner && !await syncRunRepository.ownsLease(run._id, owner)) return;
     const kind = classifyFailure(err);
     const summary = safeMessage(err);
     logger.warn('sync failed', { operation: 'sync', provider: run.platform, syncRunId: String(run._id), failureKind: kind, error: summary });
     const account = await connectionRepository.findByIdWithCredentials(run.connectedAccountId);
-    if (!account) { await syncRunRepository.finish(run._id, 'failed', { errorKind: kind, errorSummary: summary }); return; }
+    if (!account) { await syncRunRepository.finish(run._id, 'failed', { errorKind: kind, errorSummary: summary }, owner); return; }
 
     const retryable = (kind === 'transient' || kind === 'timeout') && run.attempts < config.sync.maxAttempts;
     if (retryable) {
       // Exponential backoff with jitter; authentication/permission failures are never retried.
       const delay = Math.round(config.providers.retryBaseMs * 2 ** run.attempts * (0.5 + Math.random() / 2) * 10);
-      await syncRunRepository.requeue(run._id, delay, summary);
+      await syncRunRepository.requeue(run._id, delay, summary, owner);
       await connectionRepository.setStatus(account._id, 'syncing', `Temporary provider problem; retrying (attempt ${run.attempts}/${config.sync.maxAttempts}).`);
       return;
     }
@@ -204,7 +213,7 @@ export const syncService = {
       await notificationService.notify(account.userId, 'sync_failed', `${account.handle}: sync failed`, summary, 'medium', { platform: account.platform, syncRunId: String(run._id) });
     }
     await notificationService.refreshAlerts(account.userId);
-    await syncRunRepository.finish(run._id, 'failed', { errorKind: kind, errorSummary: summary });
+    await syncRunRepository.finish(run._id, 'failed', { errorKind: kind, errorSummary: summary }, owner);
   },
 
   /** Claims and executes at most one queued run. Returns false when the queue is empty. */

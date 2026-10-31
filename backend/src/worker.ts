@@ -2,18 +2,26 @@ import { connectDatabase, disconnectDatabase, ensureIndexes } from './db/client.
 import { startJobs } from './jobs/index.js';
 import { logger } from './lib/logger.js';
 
+/** Separate always-on worker entry point. Exposes no public HTTP listener. */
 async function main() {
   await connectDatabase();
   await ensureIndexes();
   const stop = startJobs({ dedicated: true });
-  logger.info('dedicated worker started');
+  // Poll timers are unref'ed so HTTP shutdown can drain; a standalone worker needs its own keepalive.
+  const keepalive = setInterval(() => undefined, 60_000);
   let closing = false;
-  const shutdown = () => {
+  const shutdown = async () => {
     if (closing) return;
-    closing = true; stop();
-    // Leased jobs recover after shutdown; do not pretend all in-flight AI work drained.
-    void disconnectDatabase().finally(() => process.exit(0));
+    closing = true;
+    const force = setTimeout(() => process.exit(1), 30_000);
+    force.unref();
+    await stop();
+    clearInterval(keepalive);
+    await disconnectDatabase();
+    clearTimeout(force);
   };
-  process.on('SIGTERM', shutdown); process.on('SIGINT', shutdown);
+  process.on('SIGINT', () => void shutdown());
+  process.on('SIGTERM', () => void shutdown());
+  logger.info('background worker started');
 }
-main().catch(() => { logger.error('dedicated worker startup failed'); process.exit(1); });
+main().catch((error) => { logger.error('worker startup failed', { error }); process.exit(1); });

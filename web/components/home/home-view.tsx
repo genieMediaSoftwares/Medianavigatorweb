@@ -24,7 +24,7 @@ function relative(pct: number | null, word: string): string {
 function headline(summary: Summary, channelLabel: string): string {
   const n = summary.dataPeriod.current.count;
   if (n === 0) return `You haven't published anything ${channelLabel} in the last 30 days.`;
-  const m = summary.platformsIncluded.length;
+  const m = summary.platformsIncluded?.length ?? 0;
   return `We looked at ${n} ${n === 1 ? 'post' : 'posts'} ${channelLabel === 'across all channels' ? `across ${m} ${m === 1 ? 'channel' : 'channels'}` : channelLabel} from the last 30 days.`;
 }
 

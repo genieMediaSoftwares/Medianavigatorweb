@@ -25,7 +25,7 @@ export const mediaRepository = {
     ContentItem.find({ userId, connectedAccountId: { $in: accountIds } })
       .sort({ publishedAt: -1 })
       .limit(config.database.analyticsMaxItems)
-      .select('normalized legacyId platform contentType publishedAt engagementRate views likes comments unavailableMetrics syncedAt')
+      .select('normalized legacyId platform contentType publishedAt engagementRate views reach likes comments shares unavailableMetrics syncedAt')
       .lean<ContentItemDoc[]>(),
 
   /** Posts of the given accounts published since `from`, with the fields the planner needs. */
@@ -38,6 +38,7 @@ export const mediaRepository = {
 
   findByLegacyId: (userId: Types.ObjectId, legacyId: string) =>
     ContentItem.findOne({ userId, legacyId }).lean<ContentItemDoc>(),
+  /** Accepts either the provider (legacy) id or the document id, so every client id resolves. */
   findByIdOrLegacy: (userId: Types.ObjectId, id: string) => {
     const filter: Record<string, unknown> = { userId };
     if (isObjectId(id)) filter.$or = [{ _id: toObjectId(id) }, { legacyId: id }];

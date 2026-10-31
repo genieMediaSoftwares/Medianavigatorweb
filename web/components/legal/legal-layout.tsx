@@ -19,8 +19,10 @@ export function LegalLayout({ title, updated, children }: { title: string; updat
     <div className="min-h-dvh bg-app">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex h-[72px] max-w-5xl items-center justify-between px-4 sm:px-6">
-          <Wordmark />
-          <Link href="/" className="text-sm font-semibold text-brand-600 hover:underline">Back to home</Link>
+          <Link href="/" className="inline-flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded">
+            <Wordmark />
+          </Link>
+          <Link href="/" className="text-sm font-semibold text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 rounded">Back to home</Link>
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -31,8 +33,12 @@ export function LegalLayout({ title, updated, children }: { title: string; updat
       </main>
       <footer className="border-t border-line bg-surface">
         <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm text-muted sm:px-6">
-          <span>Media Navigator</span>
-          <nav aria-label="Legal" className="flex gap-5 font-semibold"><Link href="/terms" className="hover:text-ink">Terms</Link><Link href="/privacy" className="hover:text-ink">Privacy</Link></nav>
+          <span>© {new Date().getFullYear()} Media Navigator</span>
+          <nav aria-label="Legal" className="flex gap-5 font-semibold">
+            <Link href="/terms" className="hover:text-ink">Terms</Link>
+            <Link href="/privacy" className="hover:text-ink">Privacy</Link>
+            <Link href="/data-deletion" className="hover:text-ink">Data Deletion</Link>
+          </nav>
         </div>
       </footer>
     </div>

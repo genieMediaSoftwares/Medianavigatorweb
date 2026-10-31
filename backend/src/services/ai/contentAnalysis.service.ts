@@ -6,19 +6,23 @@ import { AppError, mediaUnavailable, notFound, unavailable } from '../../lib/err
 import { toObjectId } from '../../lib/ids.js';
 import { logger } from '../../lib/logger.js';
 import { toNormalized } from '../../integrations/mapper.js';
-import { ContentAnalysis, type ContentAnalysisDoc, type ContentAnalysisType } from '../../models/ContentAnalysis.js';
+import { ContentAnalysis, type ContentAnalysisDoc } from '../../models/ContentAnalysis.js';
+
+/** The analysis types this service produces. The adaptive diagnosis has its own service and shape. */
+type ContentAnalysisType = 'deep' | 'why_top' | 'why_bottom';
 import { connectionRepository } from '../../repositories/connection.repository.js';
 import { mediaRepository } from '../../repositories/media.repository.js';
 import { loadAnalyticsContext } from '../analytics.service.js';
 import { readCredentials } from '../sync.service.js';
 import { thumbnailOnly, mp4DurationSeconds, collectMedia, compare, derivedMetrics, evidenceHash, fetchInstagramLive, syncedMetrics, type Comparison, type MediaEvidence, type MetricsSnapshot, type MetricValue } from './contentEvidence.js';
 import { AiFailedError, AiUnavailableError, aiAvailable, deleteUploaded, generateMultimodalJson, uploadVideo } from './geminiClient.js';
+import { gatherPostEvidence } from './postEvidence.js';
 import { INSTAGRAM_LOGIN_EXPIRED, loadFacebookVideo, loadVideoInput } from './videoInput.js';
 
 /** Bump when the prompt, evidence rules or output schema change: older saved analyses are then regenerated. */
-export const CONTENT_ANALYSIS_VERSION = 'content-v11';
+export const CONTENT_ANALYSIS_VERSION = 'content-v12';
 
-const FACTORS = ['Hook Effectiveness', 'Content Quality', 'Audience Engagement', 'Audience Psychology', 'Reach & Discoverability', 'Repeatable Success Factors'];
+const FACTORS = ['Hook Strength', 'Content Relevance', 'Visual Impact', 'Storytelling & Structure', 'Engagement Triggers', 'Performance Signals'];
 const TITLES: Record<ContentAnalysisType, string[]> = {
   deep: FACTORS,
   why_top: FACTORS,
@@ -28,19 +32,18 @@ const TITLES: Record<ContentAnalysisType, string[]> = {
 const LIMITED_TITLES = FACTORS;
 
 const FACTOR_GUIDE = [
-  'Hook Effectiveness: Analyze the first 3 seconds for Reels, first slide for Carousels, or visual/text hook for Posts. Identify the exact hook that grabs attention and why it works or fails.',
-  'Content Quality: Assess visuals, editing, storytelling, clarity, pacing, design, and audio. Highlight the strongest creative elements and any weaknesses.',
-  'Audience Engagement: Analyze likes, comments, shares, saves, engagement rate, and watch time. Identify which interactions are driving performance.',
-  'Audience Psychology: Explain the psychological triggers (emotions, relatability, curiosity, usefulness, entertainment, trust) supported by the content and audience evidence.',
-  'Reach & Discoverability: Analyze reach, non-follower reach, hashtags, keywords, caption, and distribution signals. Identify factors associated with higher (or lower) reach.',
-  'Repeatable Success Factors: Identify the strongest moments, CTA, format, topic, and timing. Give 2-3 specific actions to recreate successful elements or fix weak ones.',
+  'Hook Strength: the first 3 seconds for Reels, the first slide for Carousels, or the visual/text hook for Posts. Identify the exact hook that grabs attention and why it works or fails. Use early-retention numbers only when they are in the metrics.',
+  'Content Relevance: how the topic, message and audience problem align with the intended audience. Consider usefulness, relatability and topic clarity. Do not claim to know the audience beyond the supplied evidence.',
+  'Visual Impact: composition, subject, typography, colours, demonstration, lighting, editing rhythm and audio technique. Name the specific visual or audible element, not the genre of the post.',
+  'Storytelling & Structure: the message, sequence, pacing and payoff, including how each slide or scene leads to the next and where the CTA sits.',
+  'Engagement Triggers: which observable characteristics may encourage saves, shares or comments, and which measured interactions (likes, comments, shares, saves, watch time) support that. Never claim causation.',
+  'Performance Signals: the measured metrics that distinguish this content from its comparable baseline (views, reach, engagement rate, watch time, profile visits when available) and what the comparison does and does not prove.',
 ];
 const GUIDE: Record<ContentAnalysisType, string[]> = {
   deep: FACTOR_GUIDE,
   why_top: FACTOR_GUIDE,
   why_bottom: FACTOR_GUIDE,
 };
-
 const SYSTEM = `You are Media Navigator's Content Performance & Creative Intelligence Engine.
 
 You are an expert social media content strategist, visual content analyst, creative director, audience behavior analyst, and performance marketing specialist.
@@ -68,14 +71,12 @@ Rules you must follow:
 - Never present a hypothesis as fact. Never claim to know Instagram's private ranking or why it recommended a post. Correlation is not causation.
 - Use the exact numbers provided; only use metrics marked available.
 - Each of the six points answers its own question; do not repeat the same idea across points.
-- The six points must follow this exact order and these exact titles: 1. Hook Effectiveness, 2. Content Quality, 3. Audience Engagement, 4. Audience Psychology, 5. Reach & Discoverability, 6. Repeatable Success Factors. Each point must be 1-2 sentences, concise and specific, in the style of "What's Working?" bullet points.
-- Observations contain only concrete visible/audible evidence. Interpretation must explain a plausible viewer response and an exact edit to test, never paraphrase the observations.
-- In the hook point, quote the actual opening line or on-screen text if present, cite its timestamp, identify the promise and payoff, and propose a replacement opening with exact wording and timing.
-- In visual/audio technique findings, identify the specific cut, framing, text readability, speech/music balance or silence at a timestamp, then specify an actionable edit. Do not retell the plot.
-- Cover the full duration supplied, including middle and ending, rather than restricting analysis to the opening minute.
+- The six points must follow this exact order and these exact titles: 1. Hook Strength, 2. Content Relevance, 3. Visual Impact, 4. Storytelling & Structure, 5. Engagement Triggers, 6. Performance Signals. Each point must be 1-2 sentences, concise and specific, in the style of "What's Working?" bullet points.
+- Each point carries a "signal" judged only from that point's own evidence: "positive" (a demonstrated strength or a result clearly above the comparable baseline), "mixed" (uncertain, conflicting or incomplete evidence), "negative" (a demonstrated weakness or a result clearly below the comparable baseline), "unknown" (this dimension cannot be judged with the evidence available). Never colour a point positive because the post as a whole did well, and never colour a point negative because a hypothesis is unconfirmed.
+- Report a negative signal only when the evidence itself shows the weakness, not when a metric is merely low. A low metric is a measured result; the cause is a hypothesis and must be written as one.
+- Anti-generic rule: never write a point that could apply to any other post. Every point must name a concrete moment (timestamp + what is on screen / what is heard) and the exact edit to test. If you cannot name a concrete moment, say the evidence is missing instead of generalising.
 - No generic statements ("engaging", "attractive", "use trending music", "post consistently") unless tied to a specific observation or measured gap.
 - Be concise and specific. Plain English. No numerical confidence percentages.
-- Anti-generic rule: never write a point that could apply to any other post. Every point must name a concrete moment (timestamp + what is on screen / what is heard) and the exact edit to test. If you cannot name a concrete moment, say the evidence is missing instead of generalising.
 Return JSON only.`;
 
 // Long or over-full fields are trimmed rather than rejected; the six-point structure itself is strict.
@@ -95,6 +96,13 @@ const pointSchema = z.object({
   metricKeys: list(z.string().max(40), 8).default([]),
   interpretation: text(900),
   confidence: level,
+  /**
+   * The signal this point carries, judged only from its own evidence:
+   * positive (demonstrated strength or above-baseline result), mixed (uncertain, conflicting or
+   * incomplete evidence), negative (demonstrated weakness or a clearly below-baseline result),
+   * unknown (this dimension cannot be judged with the evidence available).
+   */
+  signal: z.enum(['positive', 'mixed', 'negative', 'unknown']).catch('unknown'),
 });
 const outputSchema = z.object({
   summary: text(600),
@@ -104,6 +112,12 @@ const outputSchema = z.object({
   limitations: list(text(400), 8).default([]),
   recommendations: list(text(400), 5).default([]),
   confidence: z.object({ level, reason: text(400) }),
+  /** One short sentence on what this content did, in plain language. Used as the three-line summary. */
+  takeaway: text(300).optional(),
+  /** The single most useful change to make next. Used for under-performing content. */
+  nextStep: text(400).optional(),
+  /** The existing creative elements worth repeating. Used for top-performing content. */
+  preserve: list(text(240), 4).default([]),
 });
 type ModelOutput = z.infer<typeof outputSchema>;
 
@@ -148,11 +162,9 @@ function sanitize(out: ModelOutput, type: ContentAnalysisType, basis: string, me
   let removed = 0;
   const points = [...out.points]
     .sort((a, b) => a.number - b.number)
-    .map((p, i) => ({
-      ...p,
-      title: ['thumbnail', 'none'].includes(basis) ? LIMITED_TITLES[i] : TITLES[type][i],
-      metricKeys: p.metricKeys.filter((k) => available.has(k)),
-      evidence: p.evidence.filter((e) => {
+    .map((p, i) => {
+      const metricKeys = p.metricKeys.filter((k) => available.has(k));
+      const evidence = p.evidence.filter((e) => {
         const fromVideo = e.source === 'video_frame' || e.source === 'audio';
         const ok =
           (!fromVideo || videoAllowed) &&
@@ -160,8 +172,15 @@ function sanitize(out: ModelOutput, type: ContentAnalysisType, basis: string, me
           (!e.timestamp || (videoAllowed && TIMESTAMP.test(e.timestamp) && (duration === null || seconds(e.timestamp) <= duration + 1)));
         if (!ok) removed += 1;
         return ok;
-      }),
-    }));
+      });
+      // A colour must be earned: without usable evidence the signal can only be "unknown", and an
+      // unconfirmed negative is a mixed signal, never a red failure.
+      const hasEvidence = evidence.length > 0 || metricKeys.length > 0;
+      let signal = p.signal;
+      if (!hasEvidence) signal = 'unknown';
+      else if (signal === 'negative' && p.confidence === 'low' && metricKeys.length === 0) signal = 'mixed';
+      return { ...p, signal, metricKeys, evidence, title: ['thumbnail', 'none'].includes(basis) ? LIMITED_TITLES[i] : TITLES[type][i] };
+    });
   const limitations = [...out.limitations];
   if (removed) limitations.push(`${removed} evidence reference(s) were removed because they referred to media or moments the analysis did not have.`);
   return { ...out, points, limitations };
@@ -196,11 +215,14 @@ JSON shape:
   "summary": "one or two sentences: the strongest evidence-based conclusion about this content and its performance",
   "audio": "speech | music | speech_and_music | sound_effects | silent | not_applicable",
   "points": [
-    { "number": 1, "title": "${titles[0]}", "observations": ["specific findings for this post"], "evidence": [{ "source": "video_frame|audio|on_screen_text|image|caption|metric|comparison", "timestamp": "mm:ss or null", "description": "what is actually present" }], "metricKeys": ["keys from the metrics list that support this point"], "interpretation": "what it means, labelled as observed / measured / hypothesis", "confidence": "high|medium|low" }
+    { "number": 1, "title": "${titles[0]}", "observations": ["specific findings for this post"], "evidence": [{ "source": "video_frame|audio|on_screen_text|image|caption|metric|comparison", "timestamp": "mm:ss or null", "description": "what is actually present" }], "metricKeys": ["keys from the metrics list that support this point"], "interpretation": "what it means, labelled as observed / measured / hypothesis", "confidence": "high|medium|low", "signal": "positive|mixed|negative|unknown" }
     ... exactly 6 points, numbered 1 to 6 ...
   ],
   "limitations": ["evidence that was missing or could not be analysed"],
   "recommendations": ["exactly 3 short scripts or hooks to try next, each tied to an observed strength or weakness; no generic advice"],
+  "takeaway": "one short plain-language sentence on what this content did",
+  "nextStep": "the single most useful change to make next, naming the actual text, visual, narrative or CTA to change",
+  "preserve": ["the existing creative elements worth repeating, each naming the specific element"],
   "confidence": { "level": "high|medium|low", "reason": "why" }
 }`;
 }
@@ -234,7 +256,7 @@ export interface ContentAnalysisResponse {
 function toResponse(doc: ContentAnalysisDoc, fromCache: boolean, stale: boolean, refreshError?: string): ContentAnalysisResponse {
   return {
     mediaId: doc.mediaId,
-    analysisType: doc.analysisType,
+    analysisType: doc.analysisType as ContentAnalysisType,
     analysisVersion: doc.analysisVersion,
     result: doc.result as ContentAnalysisResult,
     metrics: doc.metrics as MetricsSnapshot,
@@ -259,56 +281,14 @@ const inFlight = new Map<string, Promise<ContentAnalysisResponse>>();
 
 async function generate(userId: string, mediaId: string, type: ContentAnalysisType, listContext: string | null, uploadedVideo?: Uint8Array, allowLimitedReview = true) {
   const uid = toObjectId(userId);
-  const doc = await mediaRepository.findByLegacyId(uid, mediaId);
+  const doc = await mediaRepository.findByIdOrLegacy(uid, mediaId);
   if (!doc) throw notFound('Media not found');
-  const item = toNormalized(doc);
-  const ctx = await loadAnalyticsContext(uid);
-  const account = await connectionRepository.findByIdWithCredentials(doc.connectedAccountId);
 
-  // 1. Measured numbers: live from Instagram when possible, otherwise the last sync.
-  let metricItems: MetricValue[] = syncedMetrics(item);
-  let live = null;
-  let liveError: string | null = null;
-  let loginExpired = false;
-  if (item.platform === 'instagram') {
-    if (!account?.credentialsEnc) liveError = 'the Instagram connection has no stored access';
-    else {
-      try {
-        const r = await fetchInstagramLive(readCredentials(account), doc.providerMediaId);
-        live = r.live;
-        liveError = r.liveError;
-        loginExpired = r.loginExpired;
-        if (r.metrics.length) metricItems = r.metrics;
-      } catch (err) {
-        liveError = 'Instagram could not be reached';
-        logger.warn('content analysis live instagram fetch failed', { operation: 'content-analysis', error: err });
-      }
-    }
-  }
-  const metrics: MetricsSnapshot = { collectedAt: new Date().toISOString(), items: [...metricItems, ...derivedMetrics(metricItems)] };
-  const comparison = compare(item, ctx.media, metricItems);
-
-  // 2. The post's own media, fetched automatically. Without real visual evidence there is no content analysis.
-  let media: MediaEvidence = uploadedVideo ? {
-    basis: 'full_video', images: [], videos: [{ bytes: uploadedVideo, mimeType: 'video/mp4', label: 'User-provided original video', durationSeconds: mp4DurationSeconds(uploadedVideo) }], youtubeUrl: null,
-    durationSeconds: mp4DurationSeconds(uploadedVideo), failure: null,
-    notes: ['This analysis uses the video you uploaded alongside this post’s metrics. Its match to the published post has not been independently verified.'],
-  } : await collectMedia(item, live, liveError,
-    item.platform === 'instagram' ? { loadVideo: () => loadInstagramVideo(uid, mediaId) }
-      : item.platform === 'facebook' ? { loadVideo: () => loadFacebookVideo(uid, mediaId) } : {});
-  const videoPost = live ? live.mediaType === 'VIDEO' : VIDEO_TYPES.has(item.contentType);
-  if (loginExpired && account && !uploadedVideo) {
-    await connectionRepository.setStatus(account._id, 'connection_expired', 'Instagram login expired; reconnect required').catch(() => undefined);
-    throw mediaUnavailable(INSTAGRAM_LOGIN_EXPIRED);
-  }
-  if (videoPost && !VIDEO_BASIS.has(media.basis)) {
-    // Keep an existing full-video analysis when its expiring source cannot be fetched again.
-    if (!allowLimitedReview) throw mediaUnavailable(media.failure ?? 'The full video is unavailable.');
-    media = await thumbnailOnly(item, live?.thumbnailUrl || item.thumbnailUrl,
-      'The full video is unavailable. This is a limited review of the cover, caption and measured performance; scenes, audio and pacing were not assessed.');
-  }
-  if (media.basis === 'none' && !item.caption && !item.title) throw mediaUnavailable('There is not enough content available to review this post. Sync the account and try again.');
-  if (media.basis === 'none') media.notes.push('No visual media was available. Only the caption and measured performance were reviewed.');
+  // The post's own media, its measured metrics and its comparison with earlier posts: one shared
+  // gatherer, so every analysis of a post sees exactly the same evidence.
+  const evidence = await gatherPostEvidence(uid, mediaId, { uploadedVideo, allowLimitedReview });
+  const { item, metrics, comparison, videoPost, coverUrl } = evidence;
+  let media: MediaEvidence = evidence.media;
 
   // 3. Model call over text + media. An invalid answer, or a video answer that does not cover the
   //    beginning, middle and end, is asked for once more with the problem spelled out.
@@ -323,10 +303,13 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
         const fps = fpsFor(v.durationSeconds);
         const videoMetadata: Record<string, unknown> = {};
         if (fps) videoMetadata.fps = fps;
+        const limitSeconds = 120;
+        if (v.durationSeconds && v.durationSeconds > limitSeconds) videoMetadata.endOffset = `${limitSeconds}s`;
         parts.push({ ...createPartFromUri(f.uri, f.mimeType), ...(Object.keys(videoMetadata).length ? { videoMetadata } : {}) });
       }
       if (media.youtubeUrl) {
         const videoMetadata: Record<string, unknown> = {};
+        if (media.durationSeconds && media.durationSeconds > 120) { videoMetadata.startOffset = '0s'; videoMetadata.endOffset = '120s'; }
         parts.push({ fileData: { fileUri: media.youtubeUrl }, ...(Object.keys(videoMetadata).length ? { videoMetadata } : {}) });
       }
       for (const img of media.images) {
@@ -343,11 +326,11 @@ async function generate(userId: string, mediaId: string, type: ContentAnalysisTy
   try {
     out = await call();
   } catch (err) {
-    // If the full video cannot be uploaded to the analysis service (for example because the Gemini
-    // Files API rejects it), fall back to a thumbnail-only review instead of failing the whole request.
+    // If the full video cannot be processed by the analysis service, fall back to a thumbnail-only
+    // review instead of failing the whole request.
     if (media.basis === 'full_video') {
-      logger.warn('content analysis video upload/processing failed; falling back to thumbnail', { operation: 'content-analysis', mediaId, error: err });
-      media = await thumbnailOnly(item, live?.thumbnailUrl || item.thumbnailUrl,
+      logger.warn('content analysis video processing failed; falling back to thumbnail', { operation: 'content-analysis', mediaId, error: err });
+      media = await thumbnailOnly(item, coverUrl,
         'The full video could not be processed by the analysis service. This is a limited review of the cover image, caption and measured performance; scenes, audio and pacing were not assessed.');
       out = await call();
     } else if (err instanceof AiFailedError && err.reason === 'invalid_response') {
@@ -399,7 +382,7 @@ function failureMessage(err: unknown): string {
     if (err.reason === 'invalid_response') return 'The AI returned an incomplete analysis. Please try again.';
     return err.message || 'The AI service could not complete the analysis. Please try again.';
   }
-  if (err instanceof Error) return err.message || 'The analysis could not be completed.';
+  if (err instanceof Error && err.message && !err.message.trim().startsWith('{')) return err.message;
   return 'The analysis could not be completed.';
 }
 

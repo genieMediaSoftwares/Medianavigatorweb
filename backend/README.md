@@ -40,6 +40,7 @@ Optional feature groups (Gemini, R2, SMTP, each OAuth provider) must be **all se
 | `LOGIN_MAX_FAILED_ATTEMPTS` / `LOGIN_LOCKOUT_MINUTES` | yes | Account lockout |
 | `PASSWORD_RESET_TOKEN_TTL_MINUTES` | yes | Reset link lifetime |
 | `MAX_SESSIONS_PER_USER` | yes | Oldest sessions are revoked beyond this |
+| `REFRESH_GRACE_SECONDS` | no | How long a just-rotated refresh token stays usable (default 60). Stops two tabs or two requests at the same moment from signing the user out. |
 | `CREDENTIAL_ENCRYPTION_KEY` | yes | base64 of 32 random bytes: `openssl rand -base64 32`. **Losing it makes stored provider tokens unreadable (users must reconnect).** |
 | `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_GENERAL_MAX`, `_AUTH_MAX`, `_SYNC_MAX`, `_AI_MAX`, `_UPLOAD_MAX`, `_ADMIN_MAX` | yes | Per-client request limits per window, by endpoint class |
 | `PROVIDER_TIMEOUT_MS`, `PROVIDER_MAX_RETRIES`, `PROVIDER_RETRY_BASE_MS`, `PROVIDER_MAX_PAGES` | yes | Every provider call has a timeout; only transient GETs retry; page cap per paginated fetch |

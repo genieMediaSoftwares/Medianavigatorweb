@@ -12,11 +12,15 @@ export const sessionRepository = {
 
   findByRefreshHash: (hash: string) => Session.findOne({ $or: [{ refreshTokenHash: hash }, { previousRefreshTokenHash: hash }] }).lean<SessionDoc>(),
 
-  /** Atomic rotation: only succeeds if the presented hash is still the current one. */
-  rotate: (id: Types.ObjectId, currentHash: string, newHash: string, expiresAt: Date) =>
+  /**
+   * Atomic rotation: only succeeds if the presented hash is still the current one. The token that was
+   * replaced stays usable for a short grace window, so a request that was already in flight when the
+   * rotation happened is not mistaken for a replay.
+   */
+  rotate: (id: Types.ObjectId, currentHash: string, newHash: string, expiresAt: Date, graceMs = 0) =>
     Session.findOneAndUpdate(
       { _id: id, refreshTokenHash: currentHash, ...live() },
-      { $set: { refreshTokenHash: newHash, previousRefreshTokenHash: currentHash, expiresAt, lastUsedAt: new Date() } },
+      { $set: { refreshTokenHash: newHash, previousRefreshTokenHash: currentHash, previousRefreshTokenValidUntil: new Date(Date.now() + graceMs), expiresAt, lastUsedAt: new Date() } },
       { new: true },
     ).lean<SessionDoc>(),
 

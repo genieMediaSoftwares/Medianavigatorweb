@@ -10,6 +10,7 @@ import { SyncRun } from '../models/SyncRun.js';
 import { ContentAnalysis } from '../models/ContentAnalysis.js';
 import { DeepAnalysisJob, SavedDeepAction } from '../models/DeepAnalysisJob.js';
 import { ContentItem } from '../models/ContentItem.js';
+import { InstagramAd } from '../models/InstagramAd.js';
 import { Analytics } from '../models/Analytics.js';
 import { Notification } from '../models/Notification.js';
 import { PlannedContentModel } from '../models/PlannedContent.js';
@@ -60,7 +61,7 @@ export const accountDeletion = {
       // Personal data goes first so a storage outage cannot hold it back. Every operation is idempotent;
       // a DB failure leaves the intent pending for the next worker.
       await Promise.all([
-        ContentItem.deleteMany({ userId: id }), Analytics.deleteMany({ userId: id }), Notification.deleteMany({ userId: id }),
+        InstagramAd.deleteMany({ userId: id }), ContentItem.deleteMany({ userId: id }), Analytics.deleteMany({ userId: id }), Notification.deleteMany({ userId: id }),
         PlannedContentModel.deleteMany({ userId: id }), Profile.deleteMany({ userId: id }), AiCache.deleteMany({ userId: id }),
         ConnectedAccount.deleteMany({ userId: id }), ContentAnalysis.deleteMany({ userId: id }),
         DeepAnalysisJob.deleteMany({ userId: id }), SavedDeepAction.deleteMany({ userId: id }),

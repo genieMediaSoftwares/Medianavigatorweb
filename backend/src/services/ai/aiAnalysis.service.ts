@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { toObjectId } from '../../lib/ids.js';
 import type { Types } from 'mongoose';
 import type { NormalizedMedia, PostAIDiagnosis } from '../../../../shared/types.js';
 import { notFound, badRequest } from '../../lib/errors.js';
@@ -152,7 +151,9 @@ export const aiAnalysisService = {
     const f = itemFacts(item, siblings);
     const c = f.facts.calculated;
     const status = statusFor(c.classification);
-    const step = await aiStep({ userId: ctx.uid, type: 'diagnose', subject: mediaId, dataVersion: dataVersionOf([item, ...siblings.filter((m) => m.platform === item.platform)]), system: SYSTEM, prompt: itemPrompt(f.facts) + '\nThis is a performance interpretation only. Compare measured numbers and historical benchmarks, identify evidence gaps, and propose measurable experiments. You have not watched the video. Do not describe scenes, audio, or evaluate an unseen hook; those belong to the separate deep video review.', schema: itemSchema });
+    const isVideo = ['reel', 'short', 'video'].includes(item.contentType);
+    const video = isVideo ? await aiAnalysisService.analyzeVideo(userId, mediaId) : null;
+    const step = video ? { data: video.analysis, ai: video.ai } : await aiStep({ userId: ctx.uid, type: 'diagnose', subject: mediaId, dataVersion: dataVersionOf([item, ...siblings.filter((m) => m.platform === item.platform)]), system: SYSTEM, prompt: itemPrompt(f.facts), schema: itemSchema });
     const ai = step.data;
     const sameType = siblings.filter((m) => m.platform === item.platform && m.contentType === item.contentType);
     const typeMedian = sameType.length >= 3 ? median(sameType.map((m) => m.engagementRate)) : null;
@@ -173,8 +174,9 @@ export const aiAnalysisService = {
         `Engagement classification: ${c.classification}; this is separate from the view ranking.`,
         'Content evidence: No completed content analysis is available for this request.',
         'Causation: View counts do not prove retention or algorithmic promotion.',
-        'Next step: Test one change and compare its measured performance.',
+        'Next step: Retry analysis when video access is available.',
       ],
+      ...(video ? { videoEvidence: { status: video.analysis ? 'analyzed' : 'unavailable', observations: video.observations } } : {}),
       metricBreakdown: {
         viewsAnalysis: `${item.views.toLocaleString()} views${c.viewsVsMedianPct === null ? '' : ` (${c.viewsVsMedianPct >= 0 ? '+' : ''}${c.viewsVsMedianPct}% vs your median of ${c.accountMedianViews.toLocaleString()})`}.`,
         engagementHealth: `${item.engagementRate}% engagement from ${item.likes.toLocaleString()} likes, ${item.comments.toLocaleString()} comments${typeMedian !== null ? `; your median for ${item.contentType} posts is ${typeMedian.toFixed(2)}%` : ''}.`,
@@ -189,10 +191,10 @@ export const aiAnalysisService = {
       actionableChecklist: ai?.recommendations ?? [
         ...(!hasQuestion && siblings.some((m) => (m.caption || '').includes('?')) ? ['Test a question in the caption; compare against your posts that already use one.'] : []),
       ],
-      source: ai ? 'AI interpretation of measured data' : 'Measured facts only (AI unavailable)',
+      source: ai ? (video ? 'AI analysis of video content and measured performance' : 'AI interpretation of measured data') : 'Measured facts only (AI unavailable)',
       measured: f.facts.measured, calculated: f.facts.calculated, ai: step.ai,
       limitations: [
-        'This interpretation uses metrics and captions only; video scenes and audio were not reviewed.',
+        ...(video?.limitations ?? []),
         'Retention, watch time and audience data are only shown when the platform provides them.',
         ...(f.facts.measured.unavailableMetrics.length ? [`Not available for this post: ${f.facts.measured.unavailableMetrics.join(', ')}.`] : []),
       ],
@@ -239,8 +241,8 @@ export const aiAnalysisService = {
 
   /** Deterministic side-by-side comparison of two of the user's posts. No AI involved. */
   async compare(userId: string, a: string, b: string) {
-    const uid = toObjectId(userId);
-    const [x, y] = await Promise.all([loadItem(uid, a), loadItem(uid, b)]);
+    const ctx = await loadAnalyticsContext(userId);
+    const [x, y] = await Promise.all([loadItem(ctx.uid, a), loadItem(ctx.uid, b)]);
     const row = (m: NormalizedMedia) => ({ id: m.id, platform: m.platform, contentType: m.contentType, title: m.title, publishedAt: m.publishedAt, views: m.views, likes: m.likes, comments: m.comments, shares: m.shares, engagementRatePct: m.engagementRate, durationSeconds: m.durationSeconds ?? null });
     const delta = (p: number, q: number) => ({ a: p, b: q, differencePct: pctChange(p, q) });
     return { a: row(x), b: row(y), comparison: { views: delta(x.views, y.views), likes: delta(x.likes, y.likes), comments: delta(x.comments, y.comments), engagementRatePct: delta(x.engagementRate, y.engagementRate) },

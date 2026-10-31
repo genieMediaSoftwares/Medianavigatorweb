@@ -86,13 +86,26 @@ describe('JWT and sessions', () => {
     expect((await api().get('/api/v1/auth/me').set('Authorization', `Bearer ${expired}`)).status).toBe(401);
   });
 
-  it('rotates refresh tokens and revokes the session when an old one is replayed', async () => {
+  it('rotates refresh tokens, and keeps the session alive when the same token arrives twice at once', async () => {
     const u = await registerUser('r@test.example');
     const first = await api().post('/api/v1/auth/refresh').send({ refreshToken: u.refreshToken });
     expect(first.status).toBe(200);
     const next = first.body.data.tokens.refreshToken;
     expect(next).not.toBe(u.refreshToken);
-    // replaying the old token = theft signal => session dies, including the new token
+    // Two tabs (or two requests) can present the same token moments apart. That is not a theft:
+    // the session must survive, or the user is signed out for no reason.
+    const again = await api().post('/api/v1/auth/refresh').send({ refreshToken: u.refreshToken });
+    expect(again.status).toBe(200);
+    expect(again.body.data.tokens.refreshToken).not.toBe(u.refreshToken);
+    expect((await api().get('/api/v1/auth/me').set('Authorization', `Bearer ${first.body.data.tokens.accessToken}`)).status).toBe(200);
+  });
+
+  it('revokes the session when a token that is neither current nor just rotated is replayed', async () => {
+    const u = await registerUser('r2@test.example');
+    const first = await api().post('/api/v1/auth/refresh').send({ refreshToken: u.refreshToken });
+    const next = first.body.data.tokens.refreshToken;
+    // The grace window has passed, so the old token is a genuine replay.
+    await Session.updateMany({}, { $set: { previousRefreshTokenValidUntil: new Date(Date.now() - 1000) } });
     expect((await api().post('/api/v1/auth/refresh').send({ refreshToken: u.refreshToken })).status).toBe(401);
     expect((await api().post('/api/v1/auth/refresh').send({ refreshToken: next })).status).toBe(401);
     expect((await api().get('/api/v1/auth/me').set('Authorization', `Bearer ${first.body.data.tokens.accessToken}`)).status).toBe(401);

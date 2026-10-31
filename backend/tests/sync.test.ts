@@ -81,8 +81,21 @@ describe('connecting a platform', () => {
     const a = await registerUser('own-a@test.example');
     const b = await registerUser('own-b@test.example');
     expect((await connect(a)).status).toBe(202);
-    const clash = await connect(b);
-    expect(clash.status).toBe(409);
+    const second = await connect(b);
+    expect(second.status).toBe(409);
+    // Original owner's connection remains intact
+    const account = await ConnectedAccount.findOne({ userId: a.id, active: true });
+    expect(account).not.toBeNull();
+    expect(await ConnectedAccount.countDocuments({ userId: b.id, active: true })).toBe(0);
+  });
+
+  it('concurrent duplicate connection attempts still allow only one owner', async () => {
+    const a = await registerUser('race-c1@test.example');
+    const b = await registerUser('race-c2@test.example');
+    const [resA, resB] = await Promise.all([connect(a), connect(b)]);
+    const statuses = [resA.status, resB.status].sort();
+    expect(statuses).toEqual([202, 409]);
+    expect(await ConnectedAccount.countDocuments({ active: true })).toBe(1);
   });
 });
 
@@ -418,3 +431,31 @@ describe('Facebook metrics end to end (provider result → database → API)', (
   });
 });
 void fakeAdapter;
+
+describe('scheduler backlog fairness', () => {
+  it('advances past already queued accounts to enqueue later due accounts', async () => {
+    const user = await registerUser('scheduler-fairness@test.example');
+    const due = new Date(Date.now() - 60_000);
+    await ConnectedAccount.insertMany(['instagram', 'youtube', 'facebook'].map(platform => ({ userId: toObjectId(user.id), platform, providerAccountId: `${platform}-account`, handle: '@account', status: 'sync_complete', active: true, nextSyncAt: due })));
+    expect(await enqueueDueSyncs(1)).toBe(1);
+    expect(await enqueueDueSyncs(1)).toBe(1);
+    expect(await enqueueDueSyncs(1)).toBe(1);
+    expect(await SyncRun.countDocuments({ active: true })).toBe(3);
+    expect(await enqueueDueSyncs(1)).toBe(0);
+  });
+});
+
+describe('sync lease fencing', () => {
+  it('does not let an old worker finish or requeue a run claimed by another owner', async () => {
+    const u = await registerUser('lease-fence@test.example');
+    await connect(u);
+    const run = await syncRunRepository.claimNext('first', 30, 3);
+    await SyncRun.updateOne({ _id: run!._id }, { leaseOwner: 'replacement', leaseExpiresAt: new Date(Date.now() + 30000) });
+    expect(await syncRunRepository.ownsLease(run!._id, 'first')).toBeNull();
+    await syncRunRepository.finish(run!._id, 'succeeded', {}, 'first');
+    await syncRunRepository.requeue(run!._id, 0, 'old failure', 'first');
+    expect(await SyncRun.findById(run!._id)).toMatchObject({ status: 'running', leaseOwner: 'replacement', active: true });
+    await syncRunRepository.finish(run!._id, 'succeeded', {}, 'replacement');
+    expect((await SyncRun.findById(run!._id))?.status).toBe('succeeded');
+  });
+});

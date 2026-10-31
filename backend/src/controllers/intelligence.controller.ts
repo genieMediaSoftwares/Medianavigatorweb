@@ -1,3 +1,6 @@
+import { listBoostedMediaIds, listInstagramAds } from '../services/instagramAds.service.js';
+import type { adsQuery } from '../services/instagramAds.service.js';
+import type { z } from 'zod';
 import { badRequest } from '../lib/errors.js';
 import { looksLikeMp4 } from '../services/ai/videoInput.js';
 import { asyncHandler } from '../lib/asyncHandler.js';
@@ -5,6 +8,7 @@ import { ok } from '../lib/response.js';
 import { analyticsService } from '../services/analytics.service.js';
 import { aiAnalysisService } from '../services/ai/aiAnalysis.service.js';
 import { contentAnalysisService } from '../services/ai/contentAnalysis.service.js';
+import { diagnosisService } from '../services/ai/diagnosis.service.js';
 import { creativeReportService } from '../services/ai/creativeReport.service.js';
 import { deepReportService } from '../services/ai/deepReport.service.js';
 import { deepV2Jobs } from '../services/ai/deepV2.jobs.js';
@@ -16,6 +20,8 @@ import { emailEnabled } from '../services/email.service.js';
 const uid = (req: any) => req.auth!.userId as string;
 
 export const intelligenceController = {
+  ads: asyncHandler(async (req, res) => ok(res, await listInstagramAds(uid(req), req.query as z.infer<typeof adsQuery>))),
+  boostedAds: asyncHandler(async (req, res) => ok(res, { mediaIds: await listBoostedMediaIds(uid(req)) })),
   startDeepV2: asyncHandler(async (req, res) => {
     const b = req.body as { postId: string; reanalyze?: boolean; goal?: string };
     const state = await deepV2Jobs.start(uid(req), b.postId, b.reanalyze, b.goal);
@@ -47,6 +53,15 @@ export const intelligenceController = {
   savedContentAnalysis: asyncHandler(async (req, res) => {
     const q = req.query as { mediaId: string; type: 'deep' | 'why_top' | 'why_bottom' };
     ok(res, await contentAnalysisService.get(uid(req), q.mediaId, q.type));
+  }),
+  /** The post's own diagnosis: classified against the account's baseline, then analysed to match. */
+  diagnosis: asyncHandler(async (req, res) => {
+    const b = req.body as { mediaId: string; reanalyze?: boolean };
+    ok(res, await diagnosisService.analyze(uid(req), b.mediaId, { reanalyze: b.reanalyze }));
+  }),
+  savedDiagnosis: asyncHandler(async (req, res) => {
+    const q = req.query as { mediaId: string };
+    ok(res, await diagnosisService.get(uid(req), q.mediaId));
   }),
   overview: asyncHandler(async (req, res) => ok(res, await analyticsService.overview(uid(req)))),
   timing: asyncHandler(async (req, res) => ok(res, await analyticsService.timing(uid(req)))),

@@ -12,9 +12,9 @@ import { startPeriodic } from './periodic.js';
  * (unique active-run index + leases), so they can later be moved to a separate process/instance unchanged.
  * NOTE: an in-process loop only runs while the web instance is awake. See docs/deployment.md for the Render options.
  */
-export function startJobs(options: { dedicated?: boolean } = {}): () => void {
-  const stops: Array<() => void> = [];
-  if (options.dedicated || config.sync.deepWorkerEnabled) stops.push(startPeriodic('deep_analysis', 2000, () => deepV2Jobs.runOne()));
+export function startJobs(options: { dedicated?: boolean } = {}): () => Promise<void> {
+  const stops: Array<() => Promise<void>> = [];
+  if (options.dedicated || (config.sync.deepWorkerEnabled && config.ai.workerEnabled)) stops.push(startPeriodic('deep_analysis', 2000, () => deepV2Jobs.runOne()));
   if (options.dedicated || config.sync.cleanupWorkerEnabled) stops.push(startPeriodic('account_cleanup', 5000, () => accountDeletion.runOne()));
   if (options.dedicated || config.sync.schedulerEnabled) {
     stops.push(startPeriodic('sync_scheduler', schedulerIntervalMs(), () => enqueueDueSyncs()));
@@ -27,5 +27,5 @@ export function startJobs(options: { dedicated?: boolean } = {}): () => void {
     stops.push(startWorker());
     logger.info('sync worker enabled');
   }
-  return () => stops.forEach((s) => s());
+  return async () => { await Promise.all(stops.map(stop => stop())); };
 }

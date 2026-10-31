@@ -9,7 +9,7 @@ export const qk = {
   overview: ['overview'] as const,
   timing: ['timing'] as const,
   signals: ['signals'] as const,
-  performers: (sort: string) => ['performers', sort] as const,
+  performers: (sort: string, platform: string = 'all') => ['performers', sort, platform] as const,
   archive: ['archive'] as const,
   patterns: ['patterns'] as const,
   recommendations: ['recommendations'] as const,

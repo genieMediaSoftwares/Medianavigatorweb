@@ -9,6 +9,8 @@ export async function enqueueDueSyncs(limit = 200): Promise<number> {
   let queued = 0;
   for (const acc of due) {
     const { created } = await syncService.enqueue(acc, 'scheduled');
+    // Advance this account after enqueue so a backlog cannot monopolize the first page forever.
+    await connectionRepository.deferScheduled(acc._id, new Date(), new Date(Date.now() + config.sync.intervalMinutes * 60_000));
     if (created) queued++;
   }
   if (queued) logger.info('scheduled syncs queued', { operation: 'scheduler', queued });

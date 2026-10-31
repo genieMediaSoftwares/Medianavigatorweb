@@ -1,3 +1,4 @@
+import { adsQuery } from '../services/instagramAds.service.js';
 import multer from 'multer';
 import { config } from '../config/env.js';
 import { Router } from 'express';
@@ -9,6 +10,9 @@ import { intelligence as v } from '../validators/index.js';
 
 export const intelligenceRouter = Router();
 intelligenceRouter.use(authenticate);
+intelligenceRouter.get('/ads', validate({ query: adsQuery }), c.ads);
+// Lightweight: only the ids of the posts that are boosted, for marking them in the post lists.
+intelligenceRouter.get('/ads/boosted', c.boostedAds);
 intelligenceRouter.get('/status', c.status);
 intelligenceRouter.get('/overview', c.overview);
 intelligenceRouter.get('/timing', c.timing);
@@ -40,3 +44,6 @@ intelligenceRouter.delete('/deep-report-v2/:jobId/actions/:actionId', validate({
 const videoUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.ai.contentAnalysis.maxMediaBytes, files: 1, fields: 3 } });
 intelligenceRouter.post('/content-analysis/upload', aiLimiter, videoUpload.single('video'), validate({ body: v.contentAnalysis }), c.uploadContentAnalysis);
 intelligenceRouter.get('/content-analysis', validate({ query: v.contentAnalysisQuery }), c.savedContentAnalysis);
+// Performance-adaptive diagnosis of one post (insights first for a top performer, recovery plan for a bottom one).
+intelligenceRouter.post('/diagnosis', aiLimiter, validate({ body: v.diagnosis }), c.diagnosis);
+intelligenceRouter.get('/diagnosis', validate({ query: v.diagnosis.partial({ reanalyze: true }) }), c.savedDiagnosis);

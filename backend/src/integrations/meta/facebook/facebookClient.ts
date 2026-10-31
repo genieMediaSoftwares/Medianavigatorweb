@@ -1,4 +1,5 @@
 import { config } from '../../../config/env.js';
+import { hasMeaningfulDenominator } from '../../../services/ai/engagementRate.js';
 import { httpFetch } from '../../../lib/http.js';
 import { ConnectError, type ConnectFailureReason } from '../../../lib/errors.js';
 import { MetaClient } from '../metaClient.js';
@@ -266,7 +267,7 @@ export class FacebookClient extends MetaClient {
       const shares = typeof post.shares?.count === 'number' ? post.shares.count : 0;
 
       // Engagement rate only from measured numbers: views, reactions and comments must all be known.
-      const measurable = Boolean(views) && likes !== undefined && comments !== undefined;
+      const measurable = hasMeaningfulDenominator(views) && likes !== undefined && comments !== undefined;
       const engagementRate = measurable ? Number(((((likes ?? 0) + (comments ?? 0) + shares) / views!) * 100).toFixed(2)) : 0;
       if (!measurable) missing.add('engagementRate');
       const interactions = (likes ?? 0) + (comments ?? 0) + shares;

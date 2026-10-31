@@ -32,6 +32,18 @@ describe('statistics helpers', () => {
     expect(classify({ engagementRate: 8 }, high)).toBe('TYPICAL');
   });
 
+  it('ignores a post whose engagement rate could not be measured on a large enough audience', () => {
+    const b = baselineFor([{ engagementRate: 4, views: 100 }]);
+    // A rate over a handful of people (9 likes on 4 accounts reached) is not comparable, so it is left out.
+    expect(classify({ engagementRate: 225, unavailableMetrics: ['engagementRate'] }, b)).toBe('INSUFFICIENT_DATA');
+    const measured = baselineFor([
+      { engagementRate: 4, views: 100 },
+      { engagementRate: 6, views: 100, unavailableMetrics: ['engagementRate'] },
+    ]);
+    expect(measured.sampleSize).toBe(1);
+    expect(measured.medianEngagementRate).toBe(4);
+  });
+
   it('refuses to classify with too little history', () => {
     const b = baselineFor([{ engagementRate: 1, views: 1 }, { engagementRate: 5, views: 1 }]);
     expect(b.sampleSize).toBeLessThan(MIN_HISTORY_FOR_CLASSIFICATION);

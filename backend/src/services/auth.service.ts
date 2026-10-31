@@ -99,26 +99,54 @@ export const authService = {
   },
 
   /**
-   * Rotates the refresh token. Presenting an already-rotated token means it was stolen or replayed, so the whole
-   * session is revoked and the client must log in again.
+   * Rotates the refresh token.
+   *
+   * Two requests, two tabs or two devices can present the same refresh token moments after it was
+   * rotated. That is not a theft, so the token that was just replaced stays usable for a short grace
+   * window and the session is not revoked. A token that matches neither the current nor the previous
+   * hash is a genuine replay, and that does revoke the session.
    */
   async refresh(refreshToken: string, client: ClientInfo): Promise<TokenPair> {
     const h = sha256(refreshToken);
     const session = await sessionRepository.findByRefreshHash(h);
     if (!session) throw unauthorized('Invalid refresh token');
     if (session.revokedAt || session.expiresAt.getTime() <= Date.now()) throw unauthorized('Session expired');
-    if (session.refreshTokenHash !== h) {
+    const isCurrent = session.refreshTokenHash === h;
+    const isJustRotated = session.previousRefreshTokenHash === h
+      && Boolean(session.previousRefreshTokenValidUntil)
+      && session.previousRefreshTokenValidUntil!.getTime() > Date.now();
+    if (!isCurrent && !isJustRotated) {
       await sessionRepository.revoke(session._id, 'refresh_token_reuse');
       logger.warn('refresh token reuse detected; session revoked', { sessionId: String(session._id) });
       throw unauthorized('Invalid refresh token');
+    }
+    if (isJustRotated) {
+      // The same token was presented twice in a moment. Keep the session alive and hand out a new pair.
+      logger.info('concurrent refresh token reuse tolerated', { sessionId: String(session._id) });
     }
     const user = await userRepository.findById(session.userId);
     if (!user || user.status !== 'active' || user.deletedAt) throw unauthorized('Account is not active');
 
     const next = randomToken(48);
     const expiresAt = new Date(Date.now() + config.auth.refreshTtlSeconds * 1000);
-    const rotated = await sessionRepository.rotate(session._id, h, sha256(next), expiresAt);
-    if (!rotated) throw unauthorized('Invalid refresh token'); // lost a race with a concurrent refresh
+    // Rotate from the current hash; a concurrent refresh that already rotated is left alone.
+    const rotated = await sessionRepository.rotate(session._id, session.refreshTokenHash, sha256(next), expiresAt, config.auth.refreshGraceSeconds * 1000);
+    if (!rotated) {
+      // Another request rotated the token a moment ago. Re-read the session and issue a pair from it.
+      const fresh = await sessionRepository.findByRefreshHash(session.refreshTokenHash);
+      if (!fresh || fresh.revokedAt) throw unauthorized('Invalid refresh token');
+      const freshNext = randomToken(48);
+      const freshExpires = new Date(Date.now() + config.auth.refreshTtlSeconds * 1000);
+      const rotatedAgain = await sessionRepository.rotate(fresh._id, fresh.refreshTokenHash, sha256(freshNext), freshExpires, config.auth.refreshGraceSeconds * 1000);
+      if (!rotatedAgain) throw unauthorized('Invalid refresh token');
+      return {
+        accessToken: signAccessToken({ sub: String(user._id), sessionId: String(fresh._id), role: user.role }),
+        refreshToken: freshNext,
+        tokenType: 'Bearer',
+        expiresIn: config.auth.accessTtlSeconds,
+        refreshExpiresIn: config.auth.refreshTtlSeconds,
+      };
+    }
     return {
       accessToken: signAccessToken({ sub: String(user._id), sessionId: String(session._id), role: user.role }),
       refreshToken: next,

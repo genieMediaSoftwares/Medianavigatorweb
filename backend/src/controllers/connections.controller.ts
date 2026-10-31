@@ -60,7 +60,15 @@ export const connectionsController = {
     } catch (err) {
       logger.warn('oauth callback failed', { operation: 'oauth', provider: platform, requestId: req.requestId, error: err });
       // Only the reason code travels in the URL (the page shows its own fixed text for it), never a message.
-      back({ oauth: 'failed', platform, ...(err instanceof ConnectError ? { reason: err.reason } : {}) });
+      back({
+        oauth: 'failed',
+        platform,
+        ...(err instanceof ConnectError
+          ? { reason: err.reason }
+          : (err as any)?.status === 409 || (err as any)?.code === 'CONFLICT'
+            ? { reason: 'already_connected' }
+            : {}),
+      });
     }
   }),
 

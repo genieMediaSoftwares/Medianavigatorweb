@@ -39,5 +39,5 @@ test('sign-up validates as you type and creates an account that starts onboardin
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name: 'Create account' }).click();
   await expect(page).toHaveURL(/\/onboarding/);
-  await expect(page.getByText('Step 1 of 2')).toBeVisible();
+  await expect(page.getByText('Step 1 of 3')).toBeVisible();
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { Eye, FileText, GalleryHorizontal, Heart, ImageOff, MessageCircle, Film, Image as ImageIcon, type LucideIcon } from 'lucide-react';
+import { Eye, FileText, GalleryHorizontal, Heart, ImageOff, Megaphone, MessageCircle, Film, Image as ImageIcon, type LucideIcon } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +49,7 @@ function Metric({ icon: Icon, label, value, na, platform }: { icon: LucideIcon; 
 }
 
 /** One card layout for every post, so a grid always looks tidy. */
-export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag; onOpen: () => void }) {
+export function PostCard({ item, tag, onOpen, boosted }: { item: MediaItem; tag: PostTag; onOpen: () => void; boosted?: boolean }) {
   return (
     <button onClick={onOpen} className="group flex h-full w-full flex-col overflow-hidden rounded-xl border border-line bg-white text-left shadow-2xs transition-all duration-200 hover:border-[#1D5FD1] hover:shadow-[0_12px_32px_rgba(29,95,209,0.16)] dark:border-slate-800 dark:bg-slate-900/95 dark:hover:border-brand-400">
       <div className="relative">
@@ -58,6 +58,11 @@ export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag;
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/95 shadow-sm dark:bg-slate-900/95"><PlatformIcon platform={item.platform} className="h-5 w-5" /></span>
           <span className="rounded-lg bg-slate-950/80 px-2.5 py-1.5 text-xs font-semibold text-white backdrop-blur">{typeLabel(item.contentType, item.contentTypeBasis)}</span>
         </div>
+        {boosted && (
+          <span className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-500/95 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm">
+            <Megaphone className="h-3.5 w-3.5" aria-hidden="true" />Boosted
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col gap-3 p-4">
         <div>
@@ -70,7 +75,7 @@ export function PostCard({ item, tag, onOpen }: { item: MediaItem; tag: PostTag;
           <Metric icon={MessageCircle} label="comments" value={item.comments} na={isUnavailable(item, 'comments')} platform={item.platform} />
         </div>
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-line dark:border-slate-800/80 pt-3">
-          <span className="text-[13px] text-muted">Engagement <strong className="font-bold text-ink tabular">{percent(item.engagementRate)}</strong></span>
+          <span className="text-[13px] text-muted">Engagement <strong className="font-bold text-ink tabular">{isUnavailable(item, 'engagementRate') ? 'N/A' : percent(item.engagementRate)}</strong></span>
           <Badge tone={TAG_TONE[tag]}>{TAG_LABEL[tag]}</Badge>
         </div>
       </div>

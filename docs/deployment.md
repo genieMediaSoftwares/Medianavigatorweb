@@ -94,3 +94,42 @@ Instagram long-lived tokens are refreshed during sync when less than seven days 
 ## Facebook Page sign-in
 
 The Facebook card redirects directly to official Facebook authorization when configured. There are no Facebook API-key, Page-ID, or token fields in the UI. Set `META_APP_ID`, `META_APP_SECRET`, and `META_REDIRECT_URI` on the backend. For production the redirect must be `https://medianavigator-api.onrender.com/api/v1/connections/oauth/facebook/callback`; register the identical URL in Meta's Facebook Login settings. Request `pages_show_list`, `pages_read_engagement`, and `read_insights` and complete Meta's required access review for public users. This reads managed Pages, not personal-profile posts. The backend still uses the official Graph API after consent. Without the app credentials, the UI explains that sign-in is not configured.
+
+
+## Public URLs for the Meta app settings
+
+For the web deployment at `https://medianavigatorweb.vercel.app`, use:
+
+- Privacy policy: `https://medianavigatorweb.vercel.app/privacy`
+- Terms of Service: `https://medianavigatorweb.vercel.app/terms`
+- User data deletion instructions: `https://medianavigatorweb.vercel.app/data-deletion`
+
+These routes are public and do not require sign-in. Verify all three load on the deployed site before submitting the Meta settings; a Git push alone does not confirm deployment.
+
+## Local development without sample account data
+
+The old `preview-mock-api.mjs` server is retired. Start the real backend using `backend/.env`, then start the web app with its real `API_BASE_URL`. Do not override the API address with the old port 4100 demo service. New accounts have no connections or analytics until the user connects a channel and completes a sync.
+
+## Scaling and isolated workers (22 October 2026)
+
+Use a separate always-on worker instead of running every job in each API replica. Build from the repository root with `npm ci --prefix backend && npm run build --prefix backend`; the `shared/` directory must be available at build time.
+
+| Service | Start | SYNC_WORKER_ENABLED | SYNC_SCHEDULER_ENABLED | DEEP_WORKER_ENABLED |
+|---|---|---|---|---|
+| API replicas | `npm start --prefix backend` | false | false | false |
+| Sync workers | `npm run start:worker --prefix backend` | true | false | false |
+| Deep-analysis workers | `npm run start:worker --prefix backend` | false | false | true |
+| One scheduler | `npm run start:worker --prefix backend` | false | true | false |
+
+All processes need the same database and credential-encryption configuration. API instances still support legacy synchronous AI endpoints; `DEEP_WORKER_ENABLED` controls the queued deep worker, not all AI generation. Keep at least one worker for each queue before disabling in-process workers. Set flags explicitly in production. For backward compatibility the deep worker remains enabled when its new flag is omitted.
+
+Optional tuning variables:
+
+- `MONGODB_POOL_SIZE`: 1–200, default 20 **per process**. Budget across all replicas and jobs.
+- `MONGODB_WAIT_QUEUE_TIMEOUT_MS`: 100–60000, default 5000. Reject excess database wait rather than growing an unbounded wait.
+- `AI_MAX_CONCURRENT_REQUESTS`: 1–100, default 4 **per process**. Bound provider generation pressure; fleet-wide limits and paid quotas still require operational coordination.
+- `DEEP_WORKER_ENABLED`: true/false; explicitly false on API replicas with separate workers.
+
+Worker shutdown waits for active iterations; a forced host shutdown can interrupt longer work, recovered through queue leases. Test restarts with real job durations. Use `/health` for the API; standalone workers have no HTTP listener and should be monitored by process health, heartbeats and oldest queued-job age.
+
+See [the production audit](production-audit-2026-10-22.md) for unresolved release gates and the capacity model. No production infrastructure was changed by these source edits.

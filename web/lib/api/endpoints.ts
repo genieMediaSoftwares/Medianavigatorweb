@@ -1,5 +1,5 @@
 import type {
-  AdminAuditEntry, AdminConnection, AdminSystem, AnalyzeItemResult, ArchiveResponse, AskResult, CompareResult, Connection, ConnectInput, ConnectResult, DiagnosePostResult,
+  AdminAuditEntry, AdminConnection, AdminSystem, AnalyzeItemResult, ArchiveResponse, AskResult, CompareResult, Connection, ConnectInput, ConnectResult, DiagnosisResponse, DiagnosePostResult,
   FileItem, HistoryPoint, IntelligenceStatus, MediaItem, MeResponse, NotificationItem, Overview, PageMeta, PatternRow, PerformerSort, PerformersResponse, Platform,
   PlannedItem, PlannerInsights, Profile, RecommendationsResponse, SessionInfo, SignalsResponse, Summary, SyncResult, SyncRun, Timing, TrendsResponse, User,
   VideoAnalysisResult, Weekday,
@@ -49,7 +49,7 @@ export const api = {
   overview: () => apiGet<Overview>('/intelligence/overview'),
   timing: () => apiGet<Timing>('/intelligence/timing'),
   signals: () => apiGet<SignalsResponse>('/intelligence/signals'),
-  performers: (sortBy: PerformerSort) => apiGet<PerformersResponse>('/intelligence/performers', { sortBy }),
+  performers: (sortBy: PerformerSort, platform?: Platform) => apiGet<PerformersResponse>('/intelligence/performers', { sortBy, ...(platform ? { platform } : {}) }),
   archive: () => apiGet<ArchiveResponse>('/intelligence/archive'),
   patterns: () => apiGet<PatternRow[]>('/intelligence/patterns'),
   recommendations: () => apiGet<RecommendationsResponse>('/intelligence/recommendations'),
@@ -58,6 +58,9 @@ export const api = {
   ask: (question: string) => apiSend<AskResult>('POST', '/intelligence/ask', { question }),
   analyzeItem: (mediaId: string) => apiSend<AnalyzeItemResult>('POST', '/intelligence/analyze-item', { mediaId }),
   diagnosePost: (mediaId: string) => apiSend<DiagnosePostResult>('POST', '/intelligence/diagnose-post', { mediaId }),
+  /** The post's own diagnosis: classified against the account's baseline, then analysed to match. */
+  diagnosis: (mediaId: string, reanalyze?: boolean) => apiSend<DiagnosisResponse>('POST', '/intelligence/diagnosis', { mediaId, ...(reanalyze ? { reanalyze: true } : {}) }),
+  savedDiagnosis: (mediaId: string) => apiGet<DiagnosisResponse | null>('/intelligence/diagnosis', { mediaId }),
   analyzeVideo: (mediaId: string) => apiSend<VideoAnalysisResult>('POST', '/intelligence/analyze-video', { mediaId }),
   compare: (mediaIdA: string, mediaIdB: string) => apiSend<CompareResult>('POST', '/intelligence/compare', { mediaIdA, mediaIdB }),
 

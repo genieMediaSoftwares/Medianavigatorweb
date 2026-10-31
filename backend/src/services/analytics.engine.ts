@@ -364,21 +364,81 @@ export class AnalyticsEngine {
   private rankingPool(sortBy: 'views' | 'engagement' | 'likes' | 'comments', platform?: string) {
     const key = sortBy === 'engagement' ? 'engagementRate' : sortBy;
     const valueOf = (m: NormalizedMedia) => (key === 'engagementRate' ? m.engagementRate : m[key]);
-    const measured = this.getMedia(platform).filter((m) => {
+    const rawPool = this.getMedia(platform);
+    // When ranking across all channels, exclude channels that lack sufficient measured engagement history (>= 5 posts)
+    // whenever at least one connected channel has sufficient history, so unmeasured channels do not crowd out bottom rankings.
+    let pool = rawPool;
+    if (!platform || platform === 'all') {
+      const measuredRateCounts = new Map<string, number>();
+      for (const m of rawPool) {
+        const missing = [...((m as { unavailableMetrics?: string[] }).unavailableMetrics ?? []), ...(m.missingMetrics ?? [])];
+        if (!missing.includes('engagementRate')) {
+          measuredRateCounts.set(m.platform, (measuredRateCounts.get(m.platform) ?? 0) + 1);
+        }
+      }
+      const readyPlatforms = new Set([...measuredRateCounts.entries()].filter(([, c]) => c >= 5).map(([p]) => p));
+      if (readyPlatforms.size > 0) {
+        pool = rawPool.filter((m) => readyPlatforms.has(m.platform));
+      }
+    }
+    const measured = pool.filter((m) => {
       const missing = [...((m as { unavailableMetrics?: string[] }).unavailableMetrics ?? []), ...(m.missingMetrics ?? [])];
-      return !missing.includes(key);
+      if (missing.includes(key)) return false;
+      if (key === 'views' && m.platform !== 'facebook' && m.views <= 0 && (m.reach > 0 || m.likes > 0 || m.comments > 0 || m.shares > 0)) return false;
+      return true;
     });
-    const values = measured.map(valueOf).sort((a, b) => a - b);
-    const mid = Math.floor(values.length / 2);
-    const typical = values.length === 0 ? 0 : values.length % 2 ? values[mid] : (values[mid - 1] + values[mid]) / 2;
+    const typicalByPlatform = new Map<string, number>();
+    const medianEngByPlatform = new Map<string, number>();
+    const medianViewsByPlatform = new Map<string, number>();
+    const byPlatform = new Map<string, number[]>();
+    const engByPlatform = new Map<string, number[]>();
+    const viewsByPlatform = new Map<string, number[]>();
+    for (const m of pool) {
+      const missing = [...((m as { unavailableMetrics?: string[] }).unavailableMetrics ?? []), ...(m.missingMetrics ?? [])];
+      if (!missing.includes('engagementRate') && m.engagementRate > 0) {
+        const eArr = engByPlatform.get(m.platform) ?? [];
+        eArr.push(m.engagementRate);
+        engByPlatform.set(m.platform, eArr);
+      }
+      if (!missing.includes('views') && (m.platform === 'facebook' || m.views > 0)) {
+        const vArr = viewsByPlatform.get(m.platform) ?? [];
+        vArr.push(m.views);
+        viewsByPlatform.set(m.platform, vArr);
+      }
+    }
+    const calcMedian = (vals: number[]) => {
+      const s = [...vals].sort((a, b) => a - b);
+      const mid = Math.floor(s.length / 2);
+      return s.length === 0 ? 0 : s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+    };
+    for (const [p, vals] of engByPlatform.entries()) medianEngByPlatform.set(p, calcMedian(vals));
+    for (const [p, vals] of viewsByPlatform.entries()) medianViewsByPlatform.set(p, calcMedian(vals));
+    for (const m of measured) {
+      const arr = byPlatform.get(m.platform) ?? [];
+      arr.push(valueOf(m));
+      byPlatform.set(m.platform, arr);
+    }
+    for (const [p, vals] of byPlatform.entries()) {
+      typicalByPlatform.set(p, calcMedian(vals));
+    }
     const comparison = (m: NormalizedMedia) => {
+      const typical = typicalByPlatform.get(m.platform) ?? 0;
       if (typical <= 0) return `${sortBy === 'engagement' ? 'engagement' : sortBy} vs your median not available`;
       const diff = ((valueOf(m) - typical) / typical) * 100;
       const shown = key === 'engagementRate' ? `${typical.toFixed(1)}%` : Math.round(typical).toLocaleString('en-US');
       return `${diff >= 0 ? '+' : '-'}${Math.abs(diff).toFixed(0)}% ${sortBy} vs your median (${shown})`;
     };
+    const isBelowMedian = (m: NormalizedMedia) => {
+      const typ = typicalByPlatform.get(m.platform) ?? 0;
+      if (typ > 0 && valueOf(m) >= typ) return false;
+      const medEng = medianEngByPlatform.get(m.platform) ?? 0;
+      const medViews = medianViewsByPlatform.get(m.platform) ?? 0;
+      if (medEng > 0 && m.engagementRate > medEng) return false;
+      if (medViews > 0 && m.views > medViews) return false;
+      return true;
+    };
     const order = (a: NormalizedMedia, b: NormalizedMedia) => valueOf(b) - valueOf(a) || b.views - a.views || (b.likes + b.comments) - (a.likes + a.comments);
-    return { measured, comparison, order };
+    return { measured, comparison, order, isBelowMedian };
   }
 
   getTopPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views', platform?: string): PerformerAnalysis[] {
@@ -469,10 +529,16 @@ export class AnalyticsEngine {
 
   /** Website "Opportunities": the weakest posts by the selected metric (unchanged; the mobile app uses getNeedsAttention). */
   getBottomPerformers(sortBy: 'views' | 'engagement' | 'likes' | 'comments' = 'views', platform?: string): PerformerAnalysis[] {
-    const { measured: activeMedia, comparison, order } = this.rankingPool(sortBy, platform);
+    // Views are often not reported (photos, many Facebook posts). When too few posts carry the chosen
+    // measure, rank by engagement instead so Opportunities is not left empty.
+    let pool = this.rankingPool(sortBy, platform);
+    if (pool.measured.length < 2 && sortBy !== 'engagement') pool = this.rankingPool('engagement', platform);
+    const { measured: activeMedia, comparison, order, isBelowMedian } = pool;
     if (activeMedia.length < 2) return [];
 
-    const sorted = [...activeMedia].sort((a, b) => order(b, a));
+    const sortedAll = [...activeMedia].sort((a, b) => order(b, a));
+    const filtered = sortedAll.filter(isBelowMedian);
+    const sorted = filtered.length > 0 ? filtered : sortedAll;
     const bottomCount = Math.max(1, Math.min(50, Math.floor(activeMedia.length * 0.4)));
     return sorted.slice(0, bottomCount).map((item) => this.bottomPerformer(item, comparison(item)));
   }

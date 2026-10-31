@@ -12,6 +12,9 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   devIndicators: false,
+  experimental: {
+    agentUpgrade: 'security',
+  },
   images: {
     // Thumbnails come from the social platforms' own CDNs and their hosts are not known ahead of time, so they are
     // rendered as-is (no image proxy) instead of listing hosts in this file.
