@@ -9,8 +9,11 @@ One required value, no defaults and no fallbacks. A missing or malformed value s
 | Variable | Required | What it is |
 |---|---|---|
 | `API_BASE_URL` | yes | Origin of the Media Navigator API, for example `https://api.example.com`. Server-side only; it is never sent to the browser. |
+| `OPERATOR_NAME` | production | Legal name of the operator, shown on the Terms, Privacy and Data deletion pages. |
+| `SUPPORT_EMAIL` | production | Support address shown on the same pages. |
+| `ADMIN_APP_URL` | no | Origin of the separate admin app; `/admin` links there when set. |
 
-The project keeps a single env file, `backend/.env`. If the host has not provided `API_BASE_URL`, `next.config.ts` copies **only that one key** from `../backend/.env` (nothing else from that file ever enters the web process). On a host such as Vercel, set `API_BASE_URL` in the platform instead.
+Locally these live in `web/.env` (loaded by Next.js). On the host, set them in the platform environment. There is no other source: the web app never reads `backend/.env`. With `NODE_ENV=production` (which `next build` and `next start` set) the build/start fails unless `API_BASE_URL` uses `https://` and both operator values are set; error messages name the variable, never its value.
 
 For the end-to-end tests only: `E2E_BASE_URL`, `E2E_USER_EMAIL`, `E2E_USER_PASSWORD`, `E2E_ADMIN_EMAIL`, `E2E_ADMIN_PASSWORD` (all required, no defaults).
 

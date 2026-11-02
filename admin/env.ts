@@ -6,11 +6,15 @@ import { z } from 'zod';
  * Never import this from a Client Component.
  */
 const schema = z.object({
+  NODE_ENV: z.string().optional(),
   API_BASE_URL: z
     .string({ error: 'API_BASE_URL is required (the origin of the Media Navigator API, e.g. https://api.example.com)' })
     .url('API_BASE_URL must be a full URL such as https://api.example.com')
     .refine((v) => /^https?:\/\//.test(v), 'API_BASE_URL must start with http:// or https://')
     .transform((v) => v.replace(/\/+$/, '')),
+}).superRefine((env, ctx) => {
+  // The admin server forwards staff bearer tokens to this origin, so production must use TLS.
+  if (env.NODE_ENV === 'production' && !env.API_BASE_URL.startsWith('https://')) ctx.addIssue({ code: 'custom', path: ['API_BASE_URL'], message: 'API_BASE_URL must use https in production' });
 });
 
 export type Env = z.infer<typeof schema>;
@@ -19,7 +23,7 @@ export function parseEnv(source: Record<string, string | undefined>): Env {
   const result = schema.safeParse(source);
   if (!result.success) {
     const lines = result.error.issues.map((i) => `  - ${i.path.join('.') || 'env'}: ${i.message}`);
-    throw new Error(`Invalid environment for the Media Navigator web app:\n${lines.join('\n')}`);
+    throw new Error(`Invalid environment for the Media Navigator admin app:\n${lines.join('\n')}`);
   }
   return result.data;
 }

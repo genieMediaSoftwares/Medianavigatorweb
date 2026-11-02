@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { View } from 'react-native';
 
 import { BrandHeader } from '@/components/BrandHeader';
@@ -20,13 +20,16 @@ export default function ForgotPasswordScreen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const inFlight = useRef(false);
 
   async function handleSubmit() {
+    if (inFlight.current) return;
     const error = validateEmail(email);
     setEmailError(error);
     setResult(null);
     if (error) return;
 
+    inFlight.current = true;
     setSubmitting(true);
     try {
       const { message } = await forgotPasswordRequest({ email: email.trim() });
@@ -39,6 +42,7 @@ export default function ForgotPasswordScreen() {
         message: requestError instanceof Error ? requestError.message : 'Password reset failed. Please try again.',
       });
     } finally {
+      inFlight.current = false;
       setSubmitting(false);
     }
   }

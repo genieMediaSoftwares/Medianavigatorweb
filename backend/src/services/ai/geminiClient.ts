@@ -1,5 +1,5 @@
 import { FileState, GoogleGenAI, type Part } from '@google/genai';
-import type { ZodType, ZodTypeDef } from 'zod';
+import type { ZodType } from 'zod';
 import type { VideoInput } from './videoInput.js';
 import { config } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
@@ -34,7 +34,7 @@ function parseJson(raw: string): unknown {
 }
 
 /** One model call, JSON out, validated against `schema`. Throws AiUnavailableError / AiFailedError; never returns made-up data. */
-async function generateJsonImpl<T>(opts: { system: string; prompt: string; schema: ZodType<T, ZodTypeDef, unknown>; video?: VideoInput }): Promise<{ data: T; model: string; latencyMs: number }> {
+async function generateJsonImpl<T>(opts: { system: string; prompt: string; schema: ZodType<T, unknown>; video?: VideoInput }): Promise<{ data: T; model: string; latencyMs: number }> {
   const ai = getClient();
   const model = config.ai.model!;
   const started = Date.now();
@@ -118,7 +118,7 @@ export async function deleteUploaded(name: string): Promise<void> {
 }
 
 /** One multimodal call (text + images/video parts), JSON out, validated against `schema`. */
-async function generateMultimodalJsonImpl<T>(opts: { system: string; parts: Part[]; schema: ZodType<T, ZodTypeDef, unknown>; timeoutMs: number }): Promise<{ data: T; model: string; latencyMs: number }> {
+async function generateMultimodalJsonImpl<T>(opts: { system: string; parts: Part[]; schema: ZodType<T, unknown>; timeoutMs: number }): Promise<{ data: T; model: string; latencyMs: number }> {
   const ai = getClient();
   const model = config.ai.model!;
   const started = Date.now();

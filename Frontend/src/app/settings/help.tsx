@@ -41,12 +41,12 @@ export default function HelpScreen() {
         },
         {
           title: 'Can I schedule posts?',
-          paragraphs: ['Not yet. The Planner shows when your content has performed best, measured from your own publishing history.'],
+          paragraphs: ['The Planner helps you prepare ideas, plan dates and set reminders. Publish on the social platform, then link the synced post to your plan to review its results. Media Navigator does not publish to social platforms automatically.'],
         },
         {
           title: 'How do I remove my data?',
           paragraphs: [
-            'Disconnecting an account deletes its stored access token and all of its synced data. Profile → Security → Delete account permanently deletes everything.',
+            'Disconnecting an account deletes its stored access token and stops future imports; previously imported posts and analysis remain until you delete your account. Profile → Security → Delete account removes your profile, connections, imported content, analyses, plans and files (see Privacy for what is kept).',
           ],
         },
       ]}

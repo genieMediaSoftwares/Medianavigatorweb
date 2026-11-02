@@ -21,6 +21,8 @@ import type { ConnectedAccountDoc } from '../models/ConnectedAccount.js';
 import type { SyncRunDoc, SyncType } from '../models/SyncRun.js';
 import { analyticsService } from './analytics.service.js';
 import { notificationService } from './notification.service.js';
+import { User } from '../models/User.js';
+import { SyncRun } from '../models/SyncRun.js';
 
 export type FailureKind = 'expired' | 'permission' | 'transient' | 'timeout' | 'fatal';
 
@@ -107,10 +109,15 @@ export const syncService = {
       }
 
       const fetched = await withTimeout(adapter.fetchContent(creds, resolved, { existing }), config.sync.timeoutMs);
-      if (!await syncRunRepository.ownsLease(run._id, owner)) return;
-      const current = await connectionRepository.findByIdWithCredentials(account._id);
-      if (!current?.active || current.providerAccountId !== account.providerAccountId) {
-        await syncRunRepository.finish(run._id, 'cancelled', { errorKind: 'not_connected', errorSummary: 'Connection changed during sync' }, owner);
+      // Never persist an in-flight provider response after disconnect, deletion or lease loss.
+      const [currentAccount, currentRun, currentUser] = await Promise.all([
+        connectionRepository.findByIdWithCredentials(account._id),
+        syncRunRepository.ownsLease(run._id, owner),
+        User.exists({ _id: account.userId, status: 'active', deletedAt: null }),
+      ]);
+      if (!currentRun) return; // another worker owns the run now
+      if (!currentAccount?.active || !currentAccount.credentialsEnc || currentAccount.providerAccountId !== account.providerAccountId || !currentUser) {
+        await syncRunRepository.finish(run._id, 'cancelled', { errorKind: 'not_connected', errorSummary: 'Account was disconnected during sync' }, owner);
         return;
       }
       const syncedAt = new Date();

@@ -39,18 +39,21 @@ test.describe('signed-in user', () => {
     await expect(page.getByText('E2E planner idea')).toBeHidden();
   });
 
-  test('the admin area is closed to a normal user', async ({ page }) => {
+  test('the website has no admin console for a normal user', async ({ page }) => {
     await page.goto('/admin');
-    await expect(page.getByText(/for administrators/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Administration has moved' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Users' })).toHaveCount(0);
     await expect(page.getByRole('link', { name: 'Admin' })).toHaveCount(0);
   });
 });
 
-test('an administrator sees the admin console, and its Users tab never offers actions on themselves', async ({ page }) => {
+// Administration is the separate admin app (admin/). Its permission and self-action rules are enforced by the API
+// (backend/tests/admin*.test.ts) and covered by admin/tests. The website itself must never render customer data.
+test('even for an administrator the website only points to the separate admin app', async ({ page }) => {
   await signIn(page, 'admin');
   await page.goto('/admin');
-  await expect(page.getByText('Admin console').or(page.getByRole('heading', { name: /Admin/ }))).toBeVisible();
-  await page.getByRole('tab', { name: 'Users' }).click();
-  await expect(page.getByText('test@admin.in')).toBeVisible();
-  await expect(page.getByText(/Every action here is recorded/i)).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Administration has moved' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open the admin panel' }).or(page.getByRole('status'))).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Users' })).toHaveCount(0);
+  await expect(page.getByRole('table')).toHaveCount(0);
 });

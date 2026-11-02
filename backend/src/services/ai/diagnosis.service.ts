@@ -267,7 +267,7 @@ export function diagnosisFailureMessage(err: unknown): string {
 }
 
 async function generateDiagnosis(evidence: PostEvidence, cls: DiagnosisClass, baseline: DiagnosisBaseline): Promise<{ result: DiagnosisResult; model: string; basis: string }> {
-  const schema = (cls === 'TOP' ? topSchema : cls === 'BOTTOM' ? bottomSchema : cls === 'AVERAGE' ? averageSchema : insufficientSchema) as unknown as z.ZodType<DiagnosisResult, z.ZodTypeDef, unknown>;
+  const schema = (cls === 'TOP' ? topSchema : cls === 'BOTTOM' ? bottomSchema : cls === 'AVERAGE' ? averageSchema : insufficientSchema) as unknown as z.ZodType<DiagnosisResult, unknown>;
   const prompt = buildPrompt(cls, evidence, baseline, mediaAttachedText(evidence), formatRules(evidence.item.contentType));
 
   let model = aiModel() ?? 'gemini';

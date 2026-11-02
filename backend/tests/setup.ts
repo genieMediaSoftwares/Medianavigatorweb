@@ -62,4 +62,5 @@ Object.assign(process.env, {
   LINKEDIN_CLIENT_ID: 'li-id', LINKEDIN_CLIENT_SECRET: 'li-secret', LINKEDIN_REDIRECT_URI: 'https://api.test.example/api/v1/connections/oauth/linkedin/callback',
 });
 // SMTP is intentionally NOT configured so the "email not configured" path is exercised.
-delete process.env.SMTP_HOST;
+// Empty values stop dotenv from filling these with real local delivery credentials.
+for (const key of ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD', 'EMAIL_FROM', 'RESEND_API_KEY']) process.env[key] = '';

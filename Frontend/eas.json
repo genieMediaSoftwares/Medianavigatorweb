@@ -9,10 +9,25 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "environment": "preview",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://medianavigator-api.onrender.com"
+      }
     },
     "production": {
-      "autoIncrement": true
+      "distribution": "store",
+      "credentialsSource": "remote",
+      "autoIncrement": true,
+      "environment": "production",
+      "android": { "buildType": "app-bundle" },
+      "ios": { "simulator": false, "buildConfiguration": "Release" },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://medianavigator-api.onrender.com"
+      }
     }
   },
   "submit": {

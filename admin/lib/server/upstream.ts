@@ -1,9 +1,7 @@
 import 'server-only';
 import { getEnv } from '@/env';
 import type { Tokens } from './session';
-
-/** Upper bound for any call from the web server to the API. */
-const UPSTREAM_TIMEOUT_MS = 30_000;
+import { requestTimeoutMs } from '../../../shared/requestPolicy';
 
 export class UpstreamUnreachable extends Error {}
 
@@ -15,7 +13,7 @@ export async function callApi(path: string, init: RequestInit & { accessToken?: 
   if (userAgent) h.set('user-agent', userAgent);
   if (accessToken) h.set('authorization', `Bearer ${accessToken}`);
   try {
-    return await fetch(`${getEnv().API_BASE_URL}/api/v1${path}`, { ...rest, headers: h, cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(/^\/intelligence\/(diagnose-post|analyze-video|content-analysis(?:\/upload)?)$/.test(path) ? 240_000 : UPSTREAM_TIMEOUT_MS) });
+    return await fetch(`${getEnv().API_BASE_URL}/api/v1${path}`, { ...rest, headers: h, cache: 'no-store', redirect: 'manual', signal: AbortSignal.timeout(requestTimeoutMs(path)) });
   } catch {
     throw new UpstreamUnreachable('API unreachable');
   }

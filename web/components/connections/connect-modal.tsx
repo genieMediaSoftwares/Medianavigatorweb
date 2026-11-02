@@ -64,7 +64,13 @@ export function ConnectModal({ platform, connection, open, onOpenChange, onConne
       reset(); onOpenChange(false); onConnected?.();
       void sync.start(platform).catch(() => undefined);
     } catch (e) {
-      setError(e instanceof ApiError && e.status === 409 ? `That ${name} account is already connected to another Media Navigator account.` : e instanceof ApiError ? e.message : `We couldn’t connect ${name}. Please try again.`);
+      if (e instanceof ApiError && (e.status === 409 || e.code === 'CONFLICT')) {
+        const msg = 'Account already connected. This social account is already connected to another Media Navigator account or session. Please sign in to the account where it is connected, or disconnect it there before trying again.';
+        setError(msg);
+        toast.error(msg);
+      } else {
+        setError(e instanceof ApiError ? e.message : `We couldn’t connect ${name}. Please try again.`);
+      }
     }
   });
 

@@ -6,7 +6,7 @@ Independent Next.js 16 + TypeScript application. Default port **3001**. The cust
 
 1. Run the existing backend according to `backend/README.md`.
 2. In `admin/`, run `npm ci`.
-3. Set server-side `API_BASE_URL` to the same API origin used by the website/mobile app. For local development, `next.config.ts` can reuse only `API_BASE_URL` from `backend/.env`. Never use a `NEXT_PUBLIC_` variable for credentials.
+3. Set server-side `API_BASE_URL` to the same API origin used by the website/mobile app. Locally it lives in `admin/.env`; on the host, in the platform environment. The admin app never reads `backend/.env`. Production builds/starts fail unless it uses `https://`. Never use a `NEXT_PUBLIC_` variable for credentials.
 4. Run `npm run dev` and open http://localhost:3001.
 5. Sign in with an existing administrator. Bootstrap with `npm run admin:create` from `backend/`; there are no default credentials or admin registration endpoint.
 

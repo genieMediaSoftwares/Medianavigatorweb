@@ -69,6 +69,7 @@ export const deepV2Jobs = {
   async unsave(userId: string, jobId: string, actionId: string) { await owned(userId, jobId); await SavedDeepAction.deleteOne({ userId: toObjectId(userId), jobId: toObjectId(jobId), actionId }); return { actionId, saved: false }; },
   async runOne(owner: string = randomUUID()): Promise<boolean> {
     const now = new Date();
+    await DeepAnalysisJob.updateMany({ status: 'processing', attempts: { $gte: 3 }, leaseExpiresAt: { $lte: now } }, { $set: { status: 'failed', error: 'Processing was interrupted repeatedly. Please retry.', leaseOwner: null, leaseExpiresAt: null } });
     const job = await DeepAnalysisJob.findOneAndUpdate({ $or: [{ status: 'queued' }, { status: 'processing', leaseExpiresAt: { $lte: now } }], attempts: { $lt: 3 } }, { $set: { status: 'processing', leaseOwner: owner, leaseExpiresAt: new Date(Date.now() + 60000) }, $inc: { attempts: 1 } }, { sort: { createdAt: 1 }, new: true, lean: true });
     if (!job) return false;
     const filter = { _id: job._id, status: 'processing', leaseOwner: owner };

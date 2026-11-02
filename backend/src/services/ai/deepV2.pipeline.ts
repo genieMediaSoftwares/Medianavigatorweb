@@ -130,6 +130,7 @@ export async function buildDeepV2(doc: ContentItemDoc, goal: string, progress: P
   } finally { await Promise.allSettled(uploaded.map(deleteUploaded)); }
   if (videoCount) limitations.push('Video analysis uses adaptive provider frame sampling and multimodal audio. Every frame, word and OCR result has not been independently verified; full-content coverage is not certified.');
   await progress('Ranking creative findings', total, total);
+  if (!sources.length) throw new AiFailedError('No usable content evidence was returned. Please retry when the content or analysis service is available.', 'invalid_response');
   let candidates: ReturnType<typeof candidateSchema.parse> = { summary: 'There is not enough verified creative evidence for an assessment.', strongestQuality: null, mainOpportunity: null, keyTakeaway: 'Retry when the original content is accessible.', findings: [], actions: [] };
   if (sources.length) {
     try {

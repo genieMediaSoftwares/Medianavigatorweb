@@ -62,6 +62,21 @@ describe('AI analysis', () => {
     expect(d.source).toMatch(/AI/);
   });
 
+  it('credit charging is on hold: analyses never change balances, free checks or the credit ledger', async () => {
+    const { User } = await import('../src/models/User.js');
+    const { CreditTransaction } = await import('../src/models/CreditTransaction.js');
+    const before = await User.findById(user.id).select('credits freeTopChecksRemaining freeBottomChecksRemaining').lean();
+    const video = (await api().get('/api/v1/media?limit=24').set(user.auth)).body.data.find((m: any) => m.contentType === 'reel');
+    expect((await api().post('/api/v1/intelligence/diagnose-post').set(user.auth).send({ mediaId: postId })).status).toBe(200);
+    expect((await api().post('/api/v1/intelligence/diagnose-post').set(user.auth).send({ mediaId: postId, reanalyze: true })).status).toBeLessThan(500);
+    if (video) await api().post('/api/v1/intelligence/analyze-video').set(user.auth).send({ mediaId: video.id });
+    gem.available = false; // an unavailable provider must not charge either
+    await api().post('/api/v1/intelligence/diagnose-post').set(user.auth).send({ mediaId: postId });
+    const after = await User.findById(user.id).select('credits freeTopChecksRemaining freeBottomChecksRemaining').lean();
+    expect(after).toEqual(before);
+    expect(await CreditTransaction.countDocuments({ userId: user.id })).toBe(0);
+  });
+
   it('caches by data+prompt version and does not call the model again', async () => {
     const first = await api().post('/api/v1/intelligence/analyze-item').set(user.auth).send({ mediaId: postId });
     expect(first.body.data.ai.status).toBe('ran');
@@ -165,9 +180,9 @@ describe('AI analysis', () => {
     videoInput.load.mockRejectedValue(new AiFailedError('Video access expired', 'provider_error'));
     const feed = (await api().get('/api/v1/media?limit=24').set(user.auth)).body.data;
     const video = feed.find((m: any) => m.contentType === 'reel');
-    const res = await api().post('/api/v1/intelligence/diagnose-post').set(user.auth).send({ mediaId: video.id });
+    const res = await api().post('/api/v1/intelligence/analyze-video').set(user.auth).send({ mediaId: video.id });
     expect(res.body.data.ai.status).toBe('failed');
-    expect(res.body.data.videoEvidence.observations).toEqual([]);
+    expect(res.body.data.observations).toEqual([]);
     expect(res.body.data.ai.reason).toBe('Video access expired');
     expect(JSON.stringify(res.body.data)).not.toMatch(/halted viewer|triggered discovery|caused viewers/);
     expect(gem.calls).toHaveLength(0);

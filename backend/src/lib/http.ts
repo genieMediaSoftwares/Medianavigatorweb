@@ -35,6 +35,8 @@ export async function httpFetch(input: string | URL, init: HttpOptions = {}): Pr
     try {
       const res = await fetch(input, { ...rest, signal: ctrl.signal });
       if (RETRYABLE_STATUS.has(res.status) && attempt < retries) {
+        // Release the rejected response before waiting/retrying; unread bodies retain connections.
+        await res.body?.cancel();
         const retryAfter = Number(res.headers.get('retry-after'));
         await sleep(Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter * 1000, 30_000) : backoff(attempt));
         continue;

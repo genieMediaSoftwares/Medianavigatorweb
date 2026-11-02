@@ -15,6 +15,8 @@ import type { UserDoc } from '../models/User.js';
 import { isStaffRole } from '../../../shared/admin.js';
 import { permissionsFor } from './permissions.js';
 import { mfaService, type SecondFactor } from './mfa.service.js';
+import { MongoRateLimitStore } from '../middleware/mongoRateLimitStore.js';
+import { SystemError } from '../models/AdminTelemetry.js';
 
 export interface ClientInfo { userAgent?: string; ip?: string }
 
@@ -30,6 +32,7 @@ export interface TokenPair {
 const DUMMY_HASH = bcrypt.hashSync('timing-equalizer', 10);
 
 const hash = (pw: string) => bcrypt.hash(pw, config.auth.passwordHashRounds);
+const resetRequests = new MongoRateLimitStore('password-reset-email');
 
 async function issueSession(user: Pick<UserDoc, '_id' | 'role'>, client: ClientInfo): Promise<TokenPair> {
   const refreshToken = randomToken(48);
@@ -188,6 +191,9 @@ export const authService = {
    */
   async forgotPassword(email: string) {
     if (!emailEnabled()) throw unavailable('Password reset email is not configured on this server');
+    // One delivery per address per minute across all instances; identical for unknown accounts.
+    // Only a digest is stored in the rate limiter, never the address.
+    if ((await resetRequests.increment(sha256(email.trim().toLowerCase()))).totalHits > 1) return;
     const user = await userRepository.findByEmail(email);
     if (!user || user.status !== 'active' || user.deletedAt) return;
     await passwordResetRepository.invalidateForUser(user._id);
@@ -195,15 +201,20 @@ export const authService = {
     await passwordResetRepository.create(user._id, sha256(token), new Date(Date.now() + config.auth.resetTokenTtlMinutes * 60_000));
     try {
       await sendPasswordResetEmail(user.email, token);
-    } catch (err) {
-      logger.error('password reset email failed', { error: err });
-      throw unavailable('Could not send the reset email right now. Please try again later.');
+    } catch {
+      await passwordResetRepository.invalidateToken(sha256(token));
+      // Provider errors may embed message content. Log only a fixed operational event.
+      logger.error('password reset email failed', { operation: 'password_reset_delivery' });
+      await SystemError.create({ code: 'EMAIL_DELIVERY_FAILED', status: 503, method: 'POST', route: '/auth/forgot-password' }).catch(() => undefined);
+      // Keep the same public result for known/unknown addresses, including delivery outages.
     }
   },
 
   async resetPassword(token: string, newPassword: string) {
     const record = await passwordResetRepository.consume(sha256(token));
     if (!record) throw badRequest('This reset link is invalid or has expired');
+    const user = await userRepository.findById(record.userId);
+    if (!user || user.status !== 'active' || user.deletedAt) throw badRequest('This reset link is invalid or has expired');
     await userRepository.setPassword(record.userId, await hash(newPassword));
     await sessionRepository.revokeAllForUser(record.userId, 'password_reset');
   },

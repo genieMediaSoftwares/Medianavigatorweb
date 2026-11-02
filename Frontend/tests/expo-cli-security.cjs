@@ -1,0 +1,14 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const path=require('node:path');
+const {createRequire}=require('node:module');
+const expoRequire=createRequire(require.resolve('expo/package.json'));
+const cliPackage=expoRequire.resolve('@expo/cli/package.json');
+const cliRoot=path.dirname(cliPackage);
+const cliRequire=createRequire(cliPackage);
+const {PluginSchema,DevToolsPluginOutputSchema}=require(path.join(cliRoot,'build/src/start/server/DevToolsPlugin.schema.js'));
+const {createMCPDevToolsExtensionSchema}=require(path.join(cliRoot,'build/src/start/server/createMCPDevToolsExtensionSchema.js'));
+const plugin={packageName:'synthetic-plugin',packageRoot:'/synthetic',cliExtensions:{description:'Synthetic test',entryPoint:'test.js',commands:[{name:'inspect',title:'Inspect',environments:['cli','mcp'],parameters:[{name:'limit',type:'number'},{name:'confirm',type:'confirm'},{name:'query',type:'text'}]}]}};
+test('Expo CLI resolves the patched Zod major',()=>{assert.match(cliRequire('zod/package.json').version,/^4\./);});
+test('plugin and output schemas retain valid inputs and reject malformed output',()=>{assert.equal(PluginSchema.parse(plugin).packageName,'synthetic-plugin');assert.equal(DevToolsPluginOutputSchema.safeParse([{type:'text',text:'ok',level:'info'}]).success,true);assert.equal(DevToolsPluginOutputSchema.safeParse([{type:'text',text:42,level:'info'}]).success,false);});
+test('MCP extension schemas preserve typed parameters and strict unknown-key rejection',()=>{const s=createMCPDevToolsExtensionSchema(plugin);assert.deepEqual(s.parse({command:'inspect',limit:3,confirm:true,query:'hello'}),{command:'inspect',limit:3,confirm:true,query:'hello'});for(const input of [{command:'wrong'},{command:'inspect',limit:'3'},{command:'inspect',extra:true}])assert.equal(s.safeParse(input).success,false);});

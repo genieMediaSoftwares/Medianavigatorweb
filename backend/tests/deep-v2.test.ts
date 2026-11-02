@@ -170,6 +170,14 @@ describe('Deep Analysis V2 jobs and evidence pipeline', () => {
     const saved = await DeepAnalysisJob.findById(started.body.data.jobId).lean();
     expect(saved?.status).toBe('complete'); expect(saved?.attempts).toBe(2);
   });
+  it('fails a job that was interrupted three times instead of retrying it forever', async () => {
+    const started = await start();
+    await DeepAnalysisJob.updateOne({ _id: started.body.data.jobId }, { $set: { status: 'processing', attempts: 3, leaseOwner: 'crashed-worker', leaseExpiresAt: new Date(Date.now() - 1000) } });
+    expect(await deepV2Jobs.runOne()).toBe(false);
+    const saved = await DeepAnalysisJob.findById(started.body.data.jobId).lean();
+    expect(saved).toMatchObject({ status: 'failed', leaseOwner: null, attempts: 3 });
+    expect(saved?.error).toMatch(/interrupted repeatedly/);
+  });
   it('refreshes only audience feedback and keeps creative findings and post identity unchanged', async () => {
     const result = await run();
     const calls = state.calls.length;
