@@ -46,8 +46,8 @@ async function issueSession(user: Pick<UserDoc, '_id' | 'role'>, client: ClientI
 }
 
 export const publicUser = (u: Pick<UserDoc, '_id' | 'email' | 'role' | 'status' | 'createdAt' | 'lastLoginAt' | 'credits' | 'freeTopChecksRemaining' | 'freeBottomChecksRemaining' | 'mfa'>) => ({
-  id: String(u._id), email: u.email, role: u.role, status: u.status, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt ?? null,
-  permissions: permissionsFor(u.role),
+  id: String(u._id), email: u.email, role: u.role ?? 'user', status: u.status ?? 'active', createdAt: u.createdAt, lastLoginAt: u.lastLoginAt ?? null,
+  permissions: permissionsFor(u.role ?? 'user'),
   mfaEnabled: Boolean(u.mfa?.enabled),
   credits: u.credits ?? 50,
   freeTopChecksRemaining: u.freeTopChecksRemaining ?? 5,

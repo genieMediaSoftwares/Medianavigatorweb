@@ -29,13 +29,18 @@ export const infinite = <T,>(fetchPage: (cursor?: string) => Promise<Page<T>>) =
   getNextPageParam: (last: Page<T>) => last.nextCursor ?? undefined,
 });
 
-export const statusTone = (s: string): Tone => {
+export const statusTone = (s?: string | null): Tone => {
+  if (!s) return 'neutral';
   if (['connected', 'sync_complete', 'succeeded', 'active', 'ok', 'up'].includes(s)) return 'good';
   if (['failed', 'sync_failed', 'disabled', 'connection_expired', 'down', 'error'].includes(s)) return 'bad';
   if (['partial', 'permission_required', 'running', 'syncing', 'queued', 'connecting'].includes(s)) return 'warn';
   return 'neutral';
 };
-export const statusLabel = (s: string): string => { const t = s.replace(/_/g, ' '); return t.charAt(0).toUpperCase() + t.slice(1); };
+export const statusLabel = (s?: string | null): string => {
+  if (!s) return 'Unknown';
+  const t = s.replace(/_/g, ' ');
+  return t.charAt(0).toUpperCase() + t.slice(1);
+};
 
 export function TableCard({ children }: { children: ReactNode }) {
   return <div className="card overflow-hidden"><div className="custom-scroll overflow-x-auto">{children}</div></div>;

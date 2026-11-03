@@ -67,7 +67,7 @@ export function UsersTab() {
                   return (
                     <tr key={u.id}>
                       <td className={`${td} max-w-[260px] truncate font-semibold text-ink`} title={u.email}><UserLink id={u.id} email={u.email} />{self && <span className="ml-2 text-xs font-medium text-subtle">(you)</span>}</td>
-                      <td className={td}><Badge tone={u.role !== 'user' ? 'brand' : 'neutral'}>{u.role.replace(/_/g, ' ')}</Badge></td>
+                      <td className={td}><Badge tone={u.role !== 'user' ? 'brand' : 'neutral'}>{(u.role || 'user').replace(/_/g, ' ')}</Badge></td>
                       <td className={td}><Badge tone={u.status === 'active' ? 'good' : 'bad'} dot>{u.status === 'active' ? 'Active' : 'Disabled'}</Badge></td>
                       <td className={td}>{u.credits ?? 0}</td>
                       <td className={td}>{u.lastLoginAt ? timeAgo(u.lastLoginAt) : 'Never'}</td>
@@ -75,7 +75,7 @@ export function UsersTab() {
                       <td className={`${td} text-right`}>
                         {self ? <span className="text-subtle">No changes to yourself</span> : (
                           <span className="inline-flex gap-2">
-                            {can('roles.manage') && <select aria-label={`Role for ${u.email}`} className="rounded-lg border border-line bg-surface px-2 py-1" value={u.role} onChange={(e) => setAction({ user: u, kind: 'role', role: e.target.value as Role })}>{ROLES.map((role) => <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>)}</select>}
+                            {can('roles.manage') && <select aria-label={`Role for ${u.email}`} className="rounded-lg border border-line bg-surface px-2 py-1" value={u.role || 'user'} onChange={(e) => setAction({ user: u, kind: 'role', role: e.target.value as Role })}>{ROLES.map((role) => <option key={role} value={role}>{role.replace(/_/g, ' ')}</option>)}</select>}
                             {can('users.suspend') && <Button size="sm" variant="secondary" onClick={() => setAction({ user: u, kind: 'status' })}>{u.status === 'active' ? 'Disable' : 'Enable'}</Button>}
                             {can('credits.adjust') && <Button size="sm" onClick={() => { setCreditUser(u); setCreditAmount('10'); setCreditReason(''); }}>Credits</Button>}
                           </span>

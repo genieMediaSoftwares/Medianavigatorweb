@@ -68,7 +68,7 @@ export function ProfileTab({ me }: { me: MeResponse }) {
             </Select>
           )}
         </Field>
-        {!saved && detected && <div className="sm:col-span-2"><Notice>We picked <strong>{detected.replace(/_/g, ' ')}</strong> from your browser. Save to keep it.</Notice></div>}
+        {!saved && detected && <div className="sm:col-span-2"><Notice>We picked <strong>{(detected || '').replace(/_/g, ' ')}</strong> from your browser. Save to keep it.</Notice></div>}
         <div className="sm:col-span-2"><Button type="submit" loading={save.isPending} disabled={!isDirty && Boolean(saved)}>Save changes</Button></div>
       </form>
     </Card>

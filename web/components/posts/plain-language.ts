@@ -29,7 +29,7 @@ export function plainClass(c: PostClass): string {
 }
 
 const METRIC_WORDS: Record<string, string> = { watchTimeMinutes: 'watch time', saves: 'saves', views: 'views', reach: 'reach', likes: 'likes', comments: 'comments', shares: 'shares', impressions: 'impressions' };
-export const metricWords = (m: string): string => METRIC_WORDS[m] ?? m.replace(/([A-Z])/g, ' $1').toLowerCase();
+export const metricWords = (m: string): string => METRIC_WORDS[m] ?? (m ? m.replace(/([A-Z])/g, ' $1').toLowerCase() : '');
 
 /** "70% fewer views" / "about the same" for a difference expressed as a % of the other post. */
 export function plainDifference(label: string, pct: number): string {
