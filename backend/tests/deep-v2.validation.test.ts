@@ -25,7 +25,14 @@ describe('Deep V2 validation and priority selection', () => {
   });
   it('rejects causal performance claims and generic advice', () => {
     const data = base();
-    data.findings = [{ ...candidate, likelyImpact: 'This caused higher retention.' }, { ...candidate, recommendedAction: 'Use better hooks.' }];
+    data.findings = [
+      { ...candidate, likelyImpact: 'This caused higher retention.' },
+      { ...candidate, likelyImpact: 'This will increase sales for the venue.' },
+      { ...candidate, likelyImpact: 'Guarantees higher conversions.' },
+      { ...candidate, recommendedAction: 'Use better hooks.' },
+      { ...candidate, recommendedAction: 'Post consistently every day.' },
+      { ...candidate, recommendedAction: 'Target the right audience.' },
+    ];
     expect(rankFindings(data, [source], 'text')).toHaveLength(0);
   });
   it('limits actions to three supported, distinct, future-focused actions', () => {
@@ -43,6 +50,83 @@ describe('Deep V2 validation and priority selection', () => {
       expect(windows.every((w, i) => i === 0 || w.start === windows[i - 1].end)).toBe(true);
     }
     expect(videoWindows(null)).toEqual([{ start: 0, end: null }]);
+  });
+  it('enforces category uniqueness across priority findings', () => {
+    const data = base();
+    data.findings = [
+      candidate,
+      { ...candidate, title: 'Another hook finding', finding: 'Completely different hook observation text.' },
+    ];
+    const ranked = rankFindings(data, [source], 'text');
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0].category).toBe('hook_intelligence');
+  });
+  it('ranks distinct marketing dimensions for an SVN Bay Park style wedding promotion', () => {
+    const flyerSource: DeepSource = { id: 'source_img', source: 'image', assetId: 'image_1', startSeconds: null, endSeconds: null, slideNumber: null, pageNumber: null, quote: null, description: 'Graphic flyer layout with special wedding package badge and phone number', confidence: 'high', claimType: 'observed' };
+    const captionSource: DeepSource = { id: 'source_cap', source: 'caption', assetId: null, startSeconds: null, endSeconds: null, slideNumber: null, pageNumber: null, quote: 'Call 9876543210 for wedding bookings at SVN Bay Park', description: 'Caption lists contact number and venue name', confidence: 'high', claimType: 'observed' };
+    const allSources = [flyerSource, captionSource];
+
+    const data: Candidates = {
+      summary: 'Wedding promotion relying on a digital flyer rather than real venue photography.',
+      strongestQuality: 'Clear promotional headline and direct contact number.',
+      mainOpportunity: 'Replace graphic flyers with authentic decorated banquet hall photos.',
+      keyTakeaway: 'While the contact number and wedding package are prominently featured, showing authentic photography of the decorated venue and transparent pricing tiers may significantly improve prospective couple trust.',
+      findings: [
+        {
+          category: 'visual_quality',
+          title: 'Promotional flyer design used in place of authentic venue photography',
+          status: 'needs_attention',
+          explanation: 'The creative uses digital graphic banners rather than real venue photos.',
+          finding: 'The image relies on graphic vector elements and text badges instead of authentic photography of the SVN Bay Park banquet hall or lawn.',
+          evidenceIds: ['source_img'],
+          likelyImpact: 'Couples evaluating luxury wedding venues seek visual confirmation of hall decor and ambiance; digital posters may feel impersonal.',
+          recommendedAction: 'Feature high-resolution photography of an actual decorated wedding banquet setup.',
+          confidence: 'high',
+          importance: 'high',
+        },
+        {
+          category: 'cta_and_conversion',
+          title: 'Direct phone number CTA creates manual dial friction',
+          status: 'good',
+          explanation: 'Users must manually dial the phone number.',
+          finding: 'The primary call-to-action is a raw phone number in the caption without a direct WhatsApp or booking form link.',
+          evidenceIds: ['source_cap'],
+          likelyImpact: 'Mobile Instagram users may hesitate to copy and dial a phone number, whereas a direct chat link could streamline inquiries.',
+          recommendedAction: 'Add a tap-to-chat WhatsApp link or dedicated booking page URL in the bio.',
+          confidence: 'high',
+          importance: 'high',
+        },
+        {
+          category: 'hook_intelligence',
+          title: 'Opening caption states package offer clearly',
+          status: 'strong',
+          explanation: 'Clear introductory value proposition.',
+          finding: 'The first line of the caption introduces the wedding package directly for Vizag couples.',
+          evidenceIds: ['source_cap'],
+          likelyImpact: 'This immediately establishes relevance for families planning weddings in the local area.',
+          recommendedAction: 'Maintain the clear geographic and seasonal focus in future event announcements.',
+          confidence: 'high',
+          importance: 'medium',
+        },
+      ],
+      actions: [
+        { kind: 'repeat', title: 'Highlight the venue location in opening text', why: 'Local relevance helps prospective couples identify the property immediately.', what: 'Continue mentioning Vizag beachside location in the opening sentence of wedding announcements.', example: null, evidenceIds: ['source_cap'] },
+        { kind: 'change', title: 'Switch from graphic flyers to authentic banquet decor photography', why: 'Wedding prospects prioritize authentic visual proof of venue ambiance.', what: 'Capture golden-hour photo galleries of decorated mandap and seating arrangements.', example: null, evidenceIds: ['source_img'] },
+        { kind: 'idea', title: 'Produce a 15-second wedding walkthrough Reel', why: 'Video captures spatial layout and scale better than static flyers.', what: 'Record a walkthrough from the grand banquet hall entrance through the dining lawn.', example: 'Show guest reception area, stage lighting, and oceanfront breeze.', evidenceIds: ['source_img'] },
+      ],
+    };
+
+    const ranked = rankFindings(data, allSources, 'image');
+    expect(ranked).toHaveLength(3);
+    const categories = ranked.map((r) => r.category);
+    expect(new Set(categories).size).toBe(3);
+    expect(categories).toContain('visual_quality');
+    expect(categories).toContain('cta_and_conversion');
+    expect(categories).toContain('hook_intelligence');
+
+    const actions = validateActions(data, allSources);
+    expect(actions).toHaveLength(3);
+    expect(actions.map((a) => a.kind)).toEqual(['repeat', 'change', 'idea']);
   });
 });
 describe('three-tab app state', () => {

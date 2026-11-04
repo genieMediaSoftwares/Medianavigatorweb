@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { syncCoverage, syncCoverageText } from '@/features/analysis/syncCoverage';
+import { instagramSyncMessage, syncCoverage, syncCoverageText } from '@/features/analysis/syncCoverage';
 
 const ig = (dataPointsCount: number, accountInfo: Record<string, unknown>) => ({ platform: 'instagram' as const, dataPointsCount, accountInfo: { id: '1', ...accountInfo } });
 
@@ -40,5 +40,27 @@ describe('sync coverage message', () => {
     expect(t.note).toContain('Sync now to check');
     const yt = syncCoverageText(syncCoverage({ platform: 'youtube', dataPointsCount: 90, accountInfo: { id: '1', mediaCount: 100 } }), 'YouTube');
     expect(yt.note).not.toMatch(/sync now/i);
+  });
+
+  describe('instagramSyncMessage', () => {
+    it('returns authorized access message when only some posts are accessible via Meta API', () => {
+      const conn = ig(429, { mediaCount: 443, accessibleMediaCount: 429, mediaListComplete: true });
+      const cov = syncCoverage(conn);
+      expect(instagramSyncMessage(cov, conn)).toBe("Analytics reflect posts accessible through Meta's authorized data access.");
+    });
+
+    it('returns all posts synced message when all available posts are synced', () => {
+      const conn = ig(443, { mediaCount: 443, accessibleMediaCount: 443, mediaListComplete: true });
+      const cov = syncCoverage(conn);
+      expect(instagramSyncMessage(cov, conn)).toBe('All posts successfully synced.');
+    });
+
+    it('returns authorized access message when sync is incomplete or behind', () => {
+      const behindConn = ig(400, { mediaCount: 443, accessibleMediaCount: 429, mediaListComplete: true });
+      expect(instagramSyncMessage(syncCoverage(behindConn), behindConn)).toBe("Analytics reflect posts accessible through Meta's authorized data access.");
+
+      const incompleteConn = ig(200, { mediaCount: 443, accessibleMediaCount: null, mediaListComplete: false });
+      expect(instagramSyncMessage(syncCoverage(incompleteConn), incompleteConn)).toBe("Analytics reflect posts accessible through Meta's authorized data access.");
+    });
   });
 });

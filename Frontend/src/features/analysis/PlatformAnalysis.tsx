@@ -18,7 +18,7 @@ import { fetchMediaPage, fetchPerformers, fetchSummary } from './api';
 import { AnalysisPostCard, CardMetric } from './components';
 import { cap, isVideoType, plainComparison, sentence } from './wording';
 import { facebookMetricLimitations, postMetricValue } from './post-metrics';
-import { syncCoverage, syncCoverageText } from './syncCoverage';
+import { instagramSyncMessage, syncCoverage, syncCoverageText } from './syncCoverage';
 
 // The three content options of a platform's analysis. Used by the Analysis tab and by
 // /analysis/[platform] (Dashboard → View Analysis).
@@ -108,6 +108,8 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
   const total = live.reduce((a, c) => a + c.dataPointsCount, 0);
   // One account: compare the profile's post count, what the API returned on the last sync and what is stored.
   const coverage = syncCoverageText(live.length === 1 ? syncCoverage(live[0]) : { kind: 'none' }, live.length === 1 ? live[0].name : '');
+  const isInstagram = platform === 'instagram' || (live.length === 1 && live[0].platform === 'instagram');
+  const igSyncMessage = isInstagram && live.length > 0 ? instagramSyncMessage(syncCoverage(live[0]), live[0]) : null;
   const profile = live.length === 1 ? live[0].accountInfo : undefined;
   const audience = [
     typeof profile?.followersCount === 'number' ? `${profile.followersCount.toLocaleString()} followers` : null,
@@ -123,17 +125,27 @@ function AllPosts({ scope, connections, reloadKey, onSynced }: { scope: AccountS
         <View className="flex-row items-center">
           <View className="flex-1 pr-sm">
             <Text className="text-[13px] font-semibold text-navy">
-              {coverage.headline ?? `${total.toLocaleString()} posts synced${live.length > 1 ? ` across ${live.length} accounts` : ''}`}
+              {isInstagram && igSyncMessage
+                ? igSyncMessage
+                : (coverage.headline ?? `${total.toLocaleString()} posts synced${live.length > 1 ? ` across ${live.length} accounts` : ''}`)}
             </Text>
-            <Text className="mt-[2px] text-[11px] text-neutral-500">{`${live.length > 1 ? 'Oldest sync' : 'Last synced'} ${formatRelativeTime(lastSynced)} · showing ${items.length.toLocaleString()}`}</Text>
-            {audience ? <Text className="mt-[2px] text-[11px] text-neutral-500">{audience}</Text> : null}
+            {isInstagram ? (
+              lastSynced ? (
+                <Text className="mt-[2px] text-[11px] text-neutral-500">{`Last synced ${formatRelativeTime(lastSynced)}`}</Text>
+              ) : null
+            ) : (
+              <>
+                <Text className="mt-[2px] text-[11px] text-neutral-500">{`${live.length > 1 ? 'Oldest sync' : 'Last synced'} ${formatRelativeTime(lastSynced)} · showing ${items.length.toLocaleString()}`}</Text>
+                {audience ? <Text className="mt-[2px] text-[11px] text-neutral-500">{audience}</Text> : null}
+              </>
+            )}
           </View>
           <Button title={syncing ? 'Syncing…' : live.length > 1 ? 'Sync all' : 'Sync now'} size="sm" variant="secondary" icon="refresh-outline" loading={syncing} onPress={() => void sync.start(platform ?? 'all')} />
         </View>
-        {coverage.note && !syncing ? (
+        {!isInstagram && coverage.note && !syncing ? (
           <Text className={`mt-xs text-[11px] ${coverage.attention ? 'text-warning' : 'text-neutral-500'}`}>{coverage.note}</Text>
         ) : null}
-        {metricGaps.length && !syncing ? (
+        {!isInstagram && metricGaps.length && !syncing ? (
           <View className="mt-xs" style={{ gap: 6 }}>
             <Text className="text-[11px] text-warning">{`Meta denied access requiring ${metricGaps.join(' and ')} during the last sync. Reconnect to grant access, then sync again. Some metrics may also be unavailable for the post’s format.`}</Text>
             {live.some((c) => c.platform === 'facebook' && c.missingPermissions?.length) ? (

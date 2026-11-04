@@ -64,3 +64,35 @@ export function syncCoverageText(coverage: SyncCoverage, name: string): { headli
       return { headline: null, note: null, attention: false };
   }
 }
+
+/**
+ * Dynamic message for Instagram Analysis sync section:
+ * - If all available Instagram posts are successfully synced: "All posts successfully synced."
+ * - If only some posts are successfully synced: "Analytics reflect posts accessible through Meta's authorized data access."
+ */
+export function instagramSyncMessage(coverage: SyncCoverage, connection?: Pick<Connection, 'dataPointsCount' | 'accountInfo'>): string {
+  if (
+    coverage.kind === 'incomplete' ||
+    coverage.kind === 'behind' ||
+    (coverage.kind === 'complete' && coverage.limited) ||
+    coverage.kind === 'unverified'
+  ) {
+    return "Analytics reflect posts accessible through Meta's authorized data access.";
+  }
+
+  const info = connection?.accountInfo;
+  const reported = typeof info?.mediaCount === 'number' ? info.mediaCount : undefined;
+  const accessible = typeof info?.accessibleMediaCount === 'number' ? info.accessibleMediaCount : undefined;
+  const synced = connection?.dataPointsCount;
+
+  if (
+    info?.mediaListComplete === false ||
+    (reported !== undefined && accessible !== undefined && reported > accessible) ||
+    (reported !== undefined && synced !== undefined && synced < reported) ||
+    (accessible !== undefined && synced !== undefined && synced < accessible)
+  ) {
+    return "Analytics reflect posts accessible through Meta's authorized data access.";
+  }
+
+  return 'All posts successfully synced.';
+}
