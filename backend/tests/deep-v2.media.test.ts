@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Types } from 'mongoose';
 import type { ContentItemDoc } from '../src/models/ContentItem.js';
+import { config } from '../src/config/env.js';
+import { loadVideoInput } from '../src/services/ai/videoInput.js';
 import { collectDeepV2Media } from '../src/services/ai/deepV2.media.js';
-const state = vi.hoisted(() => ({ account: {} as any, responses: [] as any[], calls: [] as any[], imageUrls: [] as string[], videoUrls: [] as string[], creds: {} as any }));
+const state = vi.hoisted(() => ({ account: {} as any, responses: [] as any[], calls: [] as any[], imageUrls: [] as string[], videoUrls: [] as string[], creds: {} as any, downloadFails: false }));
 vi.mock('../src/repositories/connection.repository.js', () => ({ connectionRepository: { findByIdWithCredentials: async () => state.account } }));
 vi.mock('../src/services/sync.service.js', () => ({ readCredentials: () => state.creds }));
 vi.mock('../src/lib/http.js', () => ({ httpFetch: async (url: URL, options?: any) => {
@@ -15,19 +17,47 @@ vi.mock('../src/services/ai/contentEvidence.js', () => ({
   collectImageAttachments: async (urls: string[]) => { state.imageUrls.push(...urls); return { basis: 'image', images: [{ data: 'aW1hZ2U=', mimeType: 'image/jpeg', label: 'image' }], videos: [], youtubeUrl: null, durationSeconds: null, notes: [], failure: null }; },
   mp4DurationSeconds: () => 24,
 }));
-vi.mock('../src/services/ai/videoInput.js', () => ({ INSTAGRAM_LOGIN_EXPIRED: 'Your Instagram login has expired. Reconnect Instagram from Connections, then run the analysis again.', downloadVideo: async (url: string) => { state.videoUrls.push(url); return new Blob(['original-video'], { type: 'video/mp4' }); } }));
+vi.mock('../src/services/ai/videoInput.js', () => ({ INSTAGRAM_LOGIN_EXPIRED: 'Your Instagram login has expired. Reconnect Instagram from Connections, then run the analysis again.', loadVideoInput: vi.fn(), downloadVideo: async (url: string) => { state.videoUrls.push(url); if (state.downloadFails) throw new Error('expired video URL'); return new Blob(['original-video'], { type: 'video/mp4' }); } }));
 vi.mock('../src/services/ai/creativeReport.service.js', () => ({ collectCreativeMedia: vi.fn(async () => ({ item: {}, media: { basis: 'text' } })) }));
 let doc: ContentItemDoc;
 beforeEach(() => {
+  vi.mocked(loadVideoInput).mockReset().mockRejectedValue(new Error('The original file could not be recovered.'));
+  state.downloadFails = false;
   const userId = new Types.ObjectId(), accountId = new Types.ObjectId();
   doc = { userId, connectedAccountId: accountId, platform: 'instagram', providerMediaId: '123', legacyId: 'ig_123', title: 'A heartfelt thank-you', caption: 'Thank you for joining our first event.', publishedAt: new Date('2025-04-06'), syncedAt: new Date(), contentType: 'post', thumbnailUrl: 'https://cdn.example/cover.jpg', mediaUrl: 'https://www.instagram.com/p/owned-post/', unavailableMetrics: [] } as unknown as ContentItemDoc;
   Object.assign(state, { account: { _id: accountId, userId, platform: 'instagram', active: true, credentialsEnc: 'test' }, responses: [], calls: [], imageUrls: [], videoUrls: [], creds: { accessToken: 'IG-fake-token', instagramLogin: true } });
 });
 describe('app-only original media retrieval', () => {
+  it.each(['withheld', 'expired', 'lookup_failed'])('recovers the selected video through the existing loader when %s', async (mode) => {
+    doc.contentType = 'reel';
+    state.responses = mode === 'lookup_failed' ? [{ status: 403, body: { error: { code: 190 } } }] : [{ body: { id: '123', media_type: 'VIDEO', ...(mode === 'expired' ? { media_url: 'https://cdn.example/expired.mp4' } : {}) } }];
+    state.downloadFails = mode === 'expired';
+    vi.mocked(loadVideoInput).mockResolvedValue({ blob: new Blob(['recovered-original'], { type: 'video/mp4' }) });
+    const { media } = await collectDeepV2Media(doc);
+    expect(loadVideoInput).toHaveBeenCalledExactlyOnceWith(doc.userId, doc.legacyId);
+    expect(media.basis).toBe('full_video');
+    expect(Buffer.from(media.videos[0].bytes).toString()).toBe('recovered-original');
+    expect(state.imageUrls).toEqual([]);
+  });
+  it('keeps the configured size limit for recovered videos', async () => {
+    state.responses = [{ body: { id: '123', media_type: 'VIDEO' } }];
+    vi.mocked(loadVideoInput).mockResolvedValue({ blob: new Blob([new Uint8Array(config.ai.contentAnalysis.maxMediaBytes + 1)]) });
+    await expect(collectDeepV2Media(doc)).rejects.toThrow('analysis limit');
+  });
+  it('does not substitute a recovered parent video for a missing carousel slide', async () => {
+    state.responses = [{ body: { id: '123', media_type: 'CAROUSEL_ALBUM', children: { data: [{ media_type: 'IMAGE', media_url: 'https://cdn.example/slide.jpg' }, { media_type: 'VIDEO' }, { media_type: 'VIDEO', media_url: 'https://cdn.example/expired.mp4' }] } } }];
+    state.downloadFails = true;
+    const { media } = await collectDeepV2Media(doc);
+    expect(media.images).toHaveLength(1);
+    expect(media.videos).toHaveLength(0);
+    expect(media.notes).toHaveLength(2);
+    expect(loadVideoInput).not.toHaveBeenCalled();
+  });
   it('refreshes the selected Instagram image URL and full caption instead of using the cached cover', async () => {
     state.responses = [{ body: { id: '123', media_type: 'IMAGE', media_url: 'https://cdn.example/original.jpg', caption: 'Full original thank-you caption.' } }];
     const result = await collectDeepV2Media(doc);
     expect(state.imageUrls).toEqual(['https://cdn.example/original.jpg']);
+    expect(loadVideoInput).not.toHaveBeenCalled();
     expect(result.item.caption).toBe('Full original thank-you caption.');
     expect(new URL(state.calls[0].url).hostname).toBe('graph.instagram.com');
     expect(state.calls[0].url).not.toContain('IG-fake-token');

@@ -4,11 +4,30 @@ const providerCall = vi.hoisted(() => vi.fn());
 vi.mock('@google/genai', async (original) => ({ ...await original<typeof import('@google/genai')>(), GoogleGenAI: class { models = { generateContent: providerCall }; } }));
 import { api, clearDb, registerAdmin, registerUser, startTestDb, stopTestDb } from './helpers.js';
 import { AiUsage, SystemError } from '../src/models/AdminTelemetry.js';
+import { DeepAnalysisJob, LegacyDeepAnalysisJob } from '../src/models/DeepAnalysisJob.js';
 import { userRepository } from '../src/repositories/user.repository.js';
 import { adminService } from '../src/services/admin.service.js';
 import { generateJson } from '../src/services/ai/geminiClient.js';
 beforeAll(startTestDb); afterAll(stopTestDb); beforeEach(clearDb);
 describe('shared admin monitoring', () => {
+  it('includes both job collections in monitoring and keeps the latest 50 errors metadata-only', async () => {
+    const admin = await registerAdmin();
+    const job = { userId: admin.id, accountId: admin.id, postId: 'post', goal: 'Review', version: 'test', status: 'failed', progress: { stage: 'Failed', processed: 0, total: 1 }, error: 'private provider payload' };
+    await DeepAnalysisJob.create(Array.from({ length: 30 }, (_, i) => ({ ...job, fingerprint: `new-${i}` })));
+    await LegacyDeepAnalysisJob.create(Array.from({ length: 30 }, (_, i) => ({ ...job, fingerprint: `old-${i}` })));
+    const monitoring = await api().get('/api/v1/admin/monitoring').set(admin.auth);
+    expect(monitoring.status).toBe(200);
+    expect(monitoring.body.data.ai.jobs).toEqual([{ _id: 'failed', count: 60 }]);
+    const latest = (await DeepAnalysisJob.findOne().lean())!;
+    await DeepAnalysisJob.collection.updateOne({ _id: latest._id }, { $set: { updatedAt: new Date(Date.now() + 60000) } });
+    const errors = await api().get('/api/v1/admin/errors').set(admin.auth);
+    expect(errors.status).toBe(200);
+    expect(errors.body.data.deep).toHaveLength(50);
+    expect(errors.body.data.deep[0]._id).toBe(String(latest._id));
+    expect(JSON.stringify(errors.body)).not.toContain('private provider payload');
+    const legacyIds = new Set((await LegacyDeepAnalysisJob.find().lean()).map((j) => String(j._id)));
+    expect(errors.body.data.deep.some((j: { _id: string }) => legacyIds.has(j._id))).toBe(true);
+  });
   it('requires authentication and the current database admin role', async () => {
     const user = await registerUser('user@monitor.example');
     for (const path of ['monitoring', 'errors', 'permissions', 'system']) {

@@ -11,7 +11,11 @@ const schema = new Schema<DeepJobDoc>({
 }, { timestamps: true });
 schema.index({ userId: 1, postId: 1, version: 1, fingerprint: 1 }, { unique: true });
 schema.index({ status: 1, leaseExpiresAt: 1, createdAt: 1 });
-export const DeepAnalysisJob = model<DeepJobDoc>('DeepAnalysisJob', schema);
+// Legacy workers claim every queued job without checking its version. A separate
+// collection protects new jobs even while unpatched workers are still running.
+// Keep the old collection accessible for existing reports and lifecycle cleanup.
+export const LegacyDeepAnalysisJob = model<DeepJobDoc>('LegacyDeepAnalysisJob', schema, 'deepanalysisjobs');
+export const DeepAnalysisJob = model<DeepJobDoc>('DeepAnalysisJob', schema, 'deepanalysisjobs_editorial_v4');
 
 const savedSchema = new Schema({ userId: { type: Schema.Types.ObjectId, required: true }, postId: { type: String, required: true }, jobId: { type: Schema.Types.ObjectId, required: true }, actionId: { type: String, required: true }, action: { type: Schema.Types.Mixed, required: true } }, { timestamps: true });
 savedSchema.index({ userId: 1, jobId: 1, actionId: 1 }, { unique: true });

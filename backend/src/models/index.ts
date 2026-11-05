@@ -15,10 +15,10 @@ import { PlannedContentModel } from './PlannedContent.js';
 import { AuditLog } from './AuditLog.js';
 import { RateLimit } from './RateLimit.js';
 import { ContentAnalysis } from './ContentAnalysis.js';
-import { DeepAnalysisJob, SavedDeepAction } from './DeepAnalysisJob.js';
+import { DeepAnalysisJob, LegacyDeepAnalysisJob, SavedDeepAction } from './DeepAnalysisJob.js';
 import { AiUsage, SystemError } from './AdminTelemetry.js';
 import { CreditTransaction } from './CreditTransaction.js';
 
-export const allModels = [InstagramAd, User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis, DeepAnalysisJob, SavedDeepAction, AiUsage, SystemError, CreditTransaction];
+export const allModels = [InstagramAd, User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis, DeepAnalysisJob, LegacyDeepAnalysisJob, SavedDeepAction, AiUsage, SystemError, CreditTransaction];
 
 export { User, Profile, Session, PasswordReset, OAuthState, ConnectedAccount, ContentItem, Analytics, SyncRun, Notification, FileModel, AiCache, PlannedContentModel, AuditLog, RateLimit, ContentAnalysis };

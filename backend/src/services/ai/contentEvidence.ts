@@ -369,26 +369,15 @@ export async function collectMedia(item: Media, live: LiveInstagram | null, live
     }
 
     if (!live) {
-      const fallbackUrl = item.mediaUrl || item.thumbnailUrl;
-      if (fallbackUrl) {
-        const d = await download(fallbackUrl, max);
-        if ('bytes' in d && d.mimeType.startsWith('image/')) return { ...base, basis: 'image', images: [toImage(d, 'image')] };
-      }
       return fail(`The post could not be fetched from Instagram${liveError ? ` (${liveError})` : ''}. Check that the connection is still valid and try again.`);
     }
     const type = live.mediaType;
 
-
     if (type === 'IMAGE' || (!type && !VIDEO_FORMATS.has(item.contentType))) {
-      const candidates = [live.mediaUrl, item.mediaUrl, live.thumbnailUrl, item.thumbnailUrl].filter((u): u is string => Boolean(u));
-      for (const u of candidates) {
-        const d = await download(u, max);
-        if ('bytes' in d && d.mimeType.startsWith('image/')) return { ...base, basis: 'image', images: [toImage(d, 'image')] };
-      }
-      if (!candidates.length) return fail('Instagram did not return the image file for this post.');
+      if (!live.mediaUrl) return fail('Instagram did not return the image file for this post.');
+      const d = await download(live.mediaUrl, max);
+      if ('bytes' in d && d.mimeType.startsWith('image/')) return { ...base, basis: 'image', images: [toImage(d, 'image')] };
       return fail('The image from Instagram could not be used.');
-
-
     }
 
     if (type === 'CAROUSEL_ALBUM') {
@@ -408,15 +397,6 @@ export async function collectMedia(item: Media, live: LiveInstagram | null, live
       if (live.children.length > 20) ev.notes.push(`Only the first 20 of ${live.children.length} slides were analyzed.`);
       if (missing.length) ev.notes.push(`Slide(s) ${missing.join(', ')} could not be loaded from Instagram and were not analyzed.`);
       if (!ev.images.length && !ev.videos.length) {
-        const fallbackUrl = item.mediaUrl || item.thumbnailUrl;
-        if (fallbackUrl) {
-          const d = await download(fallbackUrl, max);
-          if ('bytes' in d && d.mimeType.startsWith('image/')) {
-            ev.images.push(toImage(d, 'image'));
-            ev.basis = 'image';
-            return ev;
-          }
-        }
         return fail('None of the carousel slides could be loaded from Instagram.');
       }
       return ev;

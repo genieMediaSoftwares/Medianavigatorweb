@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import mongoose from 'mongoose';
+import { DeepAnalysisJob, LegacyDeepAnalysisJob, SavedDeepAction } from '../src/models/DeepAnalysisJob.js';
 import { startTestDb, stopTestDb, clearDb, api, registerUser } from './helpers.js';
 import { fake, fakeAdapter, makeMedia } from './fakes.js';
 
@@ -205,6 +206,11 @@ describe('sync engine', () => {
     await drain();
     expect(await ContentItem.countDocuments()).toBe(12);
     const gone = fake.items.slice(10);
+    const account = (await ConnectedAccount.findOne().lean())!;
+    for (const model of [DeepAnalysisJob, LegacyDeepAnalysisJob]) {
+      await model.create(gone.map((m) => ({ userId: u.id, accountId: account._id, postId: m.id, fingerprint: m.id, version: 'test', goal: 'Review', status: 'queued', progress: { stage: 'Queued', processed: 0, total: 1 } })));
+    }
+    await SavedDeepAction.create({ userId: u.id, postId: gone[0].id, jobId: new mongoose.Types.ObjectId(), actionId: 'saved', action: {} });
     await ContentAnalysis.create(gone.map((m) => ({ userId: toObjectId(u.id), mediaId: m.id, analysisType: 'deep', analysisVersion: 'v', platform: m.platform, contentType: m.contentType })));
     fake.items = fake.items.slice(0, 10);
     fake.authoritative = true;
@@ -212,6 +218,9 @@ describe('sync engine', () => {
     await drain();
     expect(await ContentItem.countDocuments()).toBe(10);
     expect(await ContentAnalysis.countDocuments()).toBe(0);
+    expect(await DeepAnalysisJob.countDocuments()).toBe(0);
+    expect(await LegacyDeepAnalysisJob.countDocuments()).toBe(0);
+    expect(await SavedDeepAction.countDocuments()).toBe(0);
     const acc = await ConnectedAccount.findOne().lean();
     expect(acc).toMatchObject({ dataPointsCount: 10 });
     expect(acc!.statusMessage).toMatch(/Removed 2 no longer on the account/);

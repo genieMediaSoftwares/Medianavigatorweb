@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { api, clearDb, registerUser, startTestDb, stopTestDb } from './helpers.js';
 import { fake, makeMedia } from './fakes.js';
 import { ContentItem } from '../src/models/ContentItem.js';
-import { DeepAnalysisJob, SavedDeepAction } from '../src/models/DeepAnalysisJob.js';
+import { DeepAnalysisJob, LegacyDeepAnalysisJob, SavedDeepAction } from '../src/models/DeepAnalysisJob.js';
 import { userService } from '../src/services/user.service.js';
 import { syncService } from '../src/services/sync.service.js';
 import { deepV2Jobs } from '../src/services/ai/deepV2.jobs.js';
@@ -69,6 +69,45 @@ async function run(body = {}) {
   return (await api().get(`/api/v1/intelligence/deep-report-v2/${started.body.data.jobId}`).set(user.auth)).body.data;
 }
 describe('Deep Analysis V2 jobs and evidence pipeline', () => {
+  it('isolates new queued and expired jobs from the unpatched production worker claim query', async () => {
+    const started = await start();
+    expect(DeepAnalysisJob.collection.name).not.toBe(LegacyDeepAnalysisJob.collection.name);
+    expect(LegacyDeepAnalysisJob.collection.name).toBe('deepanalysisjobs');
+    const oldWorkerClaim = () => LegacyDeepAnalysisJob.findOneAndUpdate({ $or: [{ status: 'queued' }, { status: 'processing', leaseExpiresAt: { $lte: new Date() } }], attempts: { $lt: 3 } }, { $set: { status: 'processing', leaseOwner: 'old-worker' } }, { new: true });
+    expect(await oldWorkerClaim()).toBeNull();
+    await DeepAnalysisJob.updateOne({ _id: started.body.data.jobId }, { $set: { status: 'processing', leaseExpiresAt: new Date(Date.now() - 1000) } });
+    expect(await oldWorkerClaim()).toBeNull();
+    expect(await deepV2Jobs.runOne('current-worker')).toBe(true);
+    expect((await deepV2Jobs.get(user.id, started.body.data.jobId)).status).toBe('complete');
+  });
+  it('does not claim jobs from another analysis version', async () => {
+    const started = await start();
+    await DeepAnalysisJob.updateOne({ _id: started.body.data.jobId }, { $set: { version: 'future-incompatible-version' } });
+    expect(await deepV2Jobs.runOne()).toBe(false);
+    expect(state.calls).toHaveLength(0);
+    expect((await DeepAnalysisJob.findById(started.body.data.jobId).lean())?.status).toBe('queued');
+  });
+  it('preserves existing report URLs, saved actions, audience refresh and ownership in the legacy collection', async () => {
+    const result = await run();
+    const job = (await DeepAnalysisJob.findById(result.jobId).lean())!;
+    job.version = 'app-deep-v2-evidence-2';
+    job.report!.analysisVersion = job.version;
+    job.report!.processing.promptVersion = job.version;
+    delete job.report!.overview.editorial;
+    await LegacyDeepAnalysisJob.create(job);
+    await DeepAnalysisJob.deleteOne({ _id: job._id });
+    const existing = await deepV2Jobs.get(user.id, result.jobId);
+    expect(existing.report?.analysisVersion).toBe(job.version);
+    await deepV2Jobs.save(user.id, result.jobId, 'action_idea');
+    expect(await deepV2Jobs.saved(user.id, result.jobId)).toEqual(['action_idea']);
+    expect((await deepV2Jobs.refreshAudience(user.id, result.jobId)).report?.overview).toEqual(existing.report?.overview);
+    await deepV2Jobs.unsave(user.id, result.jobId, 'action_idea');
+    expect(await deepV2Jobs.saved(user.id, result.jobId)).toEqual([]);
+    const other = await registerUser('legacy-owner@test.example');
+    await expect(deepV2Jobs.get(other.id, result.jobId)).rejects.toThrow('Analysis not found');
+    await LegacyDeepAnalysisJob.updateOne({ _id: job._id }, { $set: { status: 'queued' } });
+    expect((await deepV2Jobs.cancel(user.id, result.jobId)).status).toBe('cancelled');
+  });
   it.each(['instagram', 'facebook', 'youtube', 'linkedin'])('keeps the exact selected %s post identity and excludes metrics from creative prompts', async (platform) => {
     await ContentItem.updateOne({ legacyId: postId }, { $set: { platform } });
     const result = await run();
@@ -209,8 +248,11 @@ describe('Deep Analysis V2 jobs and evidence pipeline', () => {
   });
   it('cancels queued analysis when its platform account is disconnected', async () => {
     const response = await start();
+    const job = (await DeepAnalysisJob.findById(response.body.data.jobId).lean())!;
+    await LegacyDeepAnalysisJob.create(job);
     expect((await api().delete('/api/v1/connections/instagram').set(user.auth)).status).toBe(200);
     expect((await DeepAnalysisJob.findById(response.body.data.jobId).lean())?.status).toBe('cancelled');
+    expect((await LegacyDeepAnalysisJob.findById(job._id).lean())?.status).toBe('cancelled');
     expect(await deepV2Jobs.runOne()).toBe(false);
   });
   it('recovers an expired worker lease and prevents two workers from claiming the same job', async () => {
@@ -238,9 +280,13 @@ describe('Deep Analysis V2 jobs and evidence pipeline', () => {
     await deepV2Jobs.save(user.id, result.jobId, 'action_idea');
     const other = await registerUser('retained-v2@test.example');
     await DeepAnalysisJob.create({ userId: other.id, postId: 'other_post', accountId: other.id, fingerprint: 'other', version: 'other', goal: 'Other goal', status: 'queued', progress: { stage: 'Waiting', processed: 0, total: 1 } });
+    await LegacyDeepAnalysisJob.create((await DeepAnalysisJob.findById(result.jobId).lean())!);
+    await LegacyDeepAnalysisJob.create((await DeepAnalysisJob.findOne({ userId: other.id }).lean())!);
     await userService.deleteAccount(user.id);
     expect(await DeepAnalysisJob.countDocuments({ userId: user.id })).toBe(0);
     expect(await SavedDeepAction.countDocuments({ userId: user.id })).toBe(0);
     expect(await DeepAnalysisJob.countDocuments({ userId: other.id })).toBe(1);
+    expect(await LegacyDeepAnalysisJob.countDocuments({ userId: user.id })).toBe(0);
+    expect(await LegacyDeepAnalysisJob.countDocuments({ userId: other.id })).toBe(1);
   });
 });

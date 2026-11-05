@@ -7,7 +7,7 @@ import { toNormalized } from '../../integrations/mapper.js';
 import { readCredentials } from '../sync.service.js';
 import { collectCreativeMedia } from './creativeReport.service.js';
 import { collectImageAttachments, mp4DurationSeconds, type MediaEvidence } from './contentEvidence.js';
-import { downloadVideo, INSTAGRAM_LOGIN_EXPIRED } from './videoInput.js';
+import { downloadVideo, loadVideoInput, INSTAGRAM_LOGIN_EXPIRED } from './videoInput.js';
 
 interface InstagramAsset { id?: string; media_type?: string; media_product_type?: string; media_url?: string; caption?: string; children?: { data?: InstagramAsset[]; paging?: { next?: string } }; error?: { code?: number } }
 
@@ -45,20 +45,38 @@ export async function collectDeepV2Media(doc: ContentItemDoc) {
     }
     return body;
   };
-  const original = await get(url);
+  const fullVideo = async (blob: Blob, label: string): Promise<MediaEvidence> => {
+    if (blob.size > config.ai.contentAnalysis.maxMediaBytes) throw mediaUnavailable(`${label}: the original video exceeds the configured analysis limit.`);
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const durationSeconds = mp4DurationSeconds(bytes) ?? (label === 'Original video' ? doc.durationSeconds ?? null : null);
+    return { ...base, basis: 'full_video', durationSeconds, videos: [{ bytes, mimeType: blob.type || 'video/mp4', label, durationSeconds }] };
+  };
+  const recoverVideo = async () => {
+    const input = await loadVideoInput(doc.userId, item.id);
+    if (!('blob' in input)) throw mediaUnavailable('The original Instagram video is unavailable.');
+    return fullVideo(input.blob, 'Original video');
+  };
+  let original: InstagramAsset;
+  try { original = await get(url); }
+  catch (error) {
+    if (!['video', 'reel', 'short'].includes(doc.contentType)) throw error;
+    return { item, media: await recoverVideo() };
+  }
   if (original.id !== doc.providerMediaId) throw mediaUnavailable('Instagram returned a different post. Sync this account before retrying.');
   const withText = { ...item, caption: typeof original.caption === 'string' ? original.caption : item.caption };
   const readAsset = async (asset: InstagramAsset, label: string): Promise<MediaEvidence> => {
-    if (!asset.media_url) return { ...base, notes: [`${label}: Instagram did not return the original file.`] };
     if (asset.media_type === 'VIDEO') {
       try {
-        const blob = await downloadVideo(asset.media_url);
-        if (blob.size > config.ai.contentAnalysis.maxMediaBytes) return { ...base, notes: [`${label}: the original video exceeds the configured analysis limit.`] };
-        const bytes = new Uint8Array(await blob.arrayBuffer());
-        const durationSeconds = mp4DurationSeconds(bytes) ?? (label === 'Original video' ? doc.durationSeconds ?? null : null);
-        return { ...base, basis: 'full_video', durationSeconds, videos: [{ bytes, mimeType: 'video/mp4', label, durationSeconds }] };
-      } catch { return { ...base, notes: [`${label}: the original video could not be downloaded. Sync the account to refresh the file URL.`] }; }
+        if (asset.media_url) return await fullVideo(await downloadVideo(asset.media_url), label);
+      } catch (error) {
+        if (label !== 'Original video') return { ...base, notes: [error instanceof Error ? error.message : `${label}: the original video could not be downloaded.`] };
+      }
+      // Recover only the selected post's video. A parent video must never stand
+      // in for a missing carousel slide.
+      if (label === 'Original video') return recoverVideo();
+      return { ...base, notes: [`${label}: Instagram did not return the original file.`] };
     }
+    if (!asset.media_url) return { ...base, notes: [`${label}: Instagram did not return the original file.`] };
     if (asset.media_type !== 'IMAGE') return { ...base, notes: [`${label}: the media format could not be verified.`] };
     const media = await collectImageAttachments([asset.media_url]);
     return { ...media, images: media.images.map((image) => ({ ...image, label })) };
