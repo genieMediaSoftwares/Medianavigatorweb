@@ -14,6 +14,19 @@ describe('Deep V2 validation and priority selection', () => {
     expect(rankFindings(data, [source], 'text')).toHaveLength(1);
     expect(rankFindings(data, [], 'text')).toHaveLength(0);
   });
+  it('never assigns arbitrary evidence to uncited findings or actions', () => {
+    const data = base();
+    data.findings[0] = { ...candidate, evidenceIds: [] };
+    data.actions[0] = { ...data.actions[0], evidenceIds: [] };
+    expect(rankFindings(data, [source], 'text')).toEqual([]);
+    expect(validateActions(data, [source])).toEqual([]);
+  });
+  it('bounds generated prose to the persisted limits without relaxing evidence requirements', () => {
+    const parsed = candidateSchema.parse({ ...base(), summary: 'Specific post review. '.repeat(60), findings: [{ ...candidate, finding: 'An observed caption detail. '.repeat(60), explanation: 'Short detail. '.repeat(30) }] });
+    expect(parsed.summary.length).toBeLessThanOrEqual(700);
+    expect(parsed.findings[0].finding.length).toBeLessThanOrEqual(700);
+    expect(parsed.findings[0].explanation.length).toBeLessThanOrEqual(200);
+  });
   it('merges overlapping findings and omits claims with no matching source', () => {
     const data = base(); data.findings.push({ ...candidate, category: 'storytelling_and_pacing' }, { ...candidate, evidenceIds: ['made_up'] });
     expect(rankFindings(data, [source], 'text')).toHaveLength(1);

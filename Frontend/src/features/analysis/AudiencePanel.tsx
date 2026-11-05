@@ -19,7 +19,7 @@ export function AudiencePanel({ audience, expanded, onToggle, onRefresh, refresh
     <View style={a.intro}>
       <Ionicons name="people-outline" size={21} color={colors.navy} />
       <Text accessibilityRole="header" style={a.introTitle}>Understand Your Audience</Text>
-      <Text style={a.introBody}>Find out what people responded to, what questions they raised and what they want to see next.</Text>
+      <Text style={a.introBody}>Feedback from this post only: what the returned comments say, questions they contain and topics they request.</Text>
     </View>
     {AUDIENCE_SECTIONS.map((section) => {
       const key = `audience_dropdown_${section.id}`;

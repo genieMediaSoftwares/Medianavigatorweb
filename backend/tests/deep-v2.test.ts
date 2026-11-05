@@ -6,6 +6,7 @@ import { DeepAnalysisJob, SavedDeepAction } from '../src/models/DeepAnalysisJob.
 import { userService } from '../src/services/user.service.js';
 import { syncService } from '../src/services/sync.service.js';
 import { deepV2Jobs } from '../src/services/ai/deepV2.jobs.js';
+import { AiFailedError } from '../src/services/ai/geminiClient.js';
 import { reportV2Schema } from '../src/services/ai/deepV2.reportSchema.js';
 
 vi.mock('../src/integrations/registry.js', async () => {
@@ -13,8 +14,8 @@ vi.mock('../src/integrations/registry.js', async () => {
   const adapters: Record<string, any> = {};
   return { PLATFORMS: ['instagram', 'facebook', 'youtube', 'linkedin'], getAdapter: (p: string) => adapters[p] ??= fakeAdapter(p as any) };
 });
-const state = vi.hoisted(() => ({ mode: 'image', duration: 24 as number | null, calls: [] as any[], failMiddle: false, invalidTime: false, fail: false, language: 'en', audio: 'speech', missingSlide: false }));
-vi.mock('../src/services/ai/creativeReport.service.js', async () => ({ creativeReportService: {}, collectCreativeMedia: async (doc: any) => {
+const state = vi.hoisted(() => ({ mode: 'image', duration: 24 as number | null, calls: [] as any[], failMiddle: false, invalidTime: false, fail: false, language: 'en', audio: 'speech', missingSlide: false, invalidAdvisor: false, verboseAdvisor: false, advisorCalls: 0, advisorFail: false, invalidQuote: false }));
+vi.mock('../src/services/ai/deepV2.media.js', async () => ({ collectDeepV2Media: async (doc: any) => {
   if (state.mode === 'unavailable') throw new Error('original media inaccessible');
   const video = state.mode === 'video';
   return { item: { caption: doc.caption, contentType: doc.contentType, platform: doc.platform }, media: {
@@ -34,10 +35,13 @@ vi.mock('../src/services/ai/geminiClient.js', async (orig) => ({ ...(await orig<
     const at = timed ? state.invalidTime ? 99999 : input.startSeconds : null;
     const end = timed ? input.endSeconds ?? input.startSeconds + 24 : null;
     const source = input.kind === 'text' ? 'caption' : input.kind === 'image' ? 'image' : 'video_frame';
-    return { model: 'test-model', data: opts.schema.parse({ observations: [{ source, startSeconds: at, endSeconds: timed ? at + 1 : null, pageNumber: null, quote: input.kind === 'text' ? input.caption : timed && state.language !== 'en' ? 'నమస్కారం' : null, description: input.kind === 'text' ? 'The post opens with a subject in natural light.' : 'The subject is visible before the supporting explanation.', confidence: 'high' }], segments: [{ startSeconds: timed ? input.startSeconds : null, endSeconds: end, status: 'strong', observationIndexes: [0] }], processed: true, audioStatus: timed ? state.audio : 'not_applicable', limitations: [] }) };
+    return { model: 'test-model', data: opts.schema.parse({ observations: [{ source, startSeconds: at, endSeconds: timed ? at + 1 : null, pageNumber: null, quote: input.kind === 'text' ? state.invalidQuote ? 'Text from a different post' : input.caption : timed && state.language !== 'en' ? 'నమస్కారం' : null, description: input.kind === 'text' ? 'The post opens with a subject in natural light.' : 'The subject is visible before the supporting explanation.', confidence: 'high' }], segments: [{ startSeconds: timed ? input.startSeconds : null, endSeconds: end, status: 'strong', observationIndexes: [0] }], processed: true, audioStatus: timed ? state.audio : 'not_applicable', limitations: [] }) };
   }
+  state.advisorCalls++;
+  if (state.advisorFail) throw new AiFailedError('mock provider failure', 'provider_error');
+  if (state.invalidAdvisor && state.advisorCalls === 1) throw new AiFailedError('Invalid structured output', 'invalid_response');
   const source = input.observations.find((s: any) => s.source !== 'caption') ?? input.observations[0];
-  return { model: 'test-model', data: opts.schema.parse({ summary: 'The subject is introduced clearly.', strongestQuality: 'The subject is recognizable early.', mainOpportunity: null, keyTakeaway: 'Keep the recognizable subject at the beginning of future content.', findings: [{ category: 'hook_intelligence', title: 'Recognizable subject at the opening', status: 'strong', explanation: 'The subject comes before the supporting explanation.', finding: 'The opening places the subject before the supporting explanation.', evidenceIds: [source.id], likelyImpact: 'This may make the subject easier to understand.', recommendedAction: 'In the next post, introduce this subject before the supporting explanation.', confidence: 'high', importance: 'high' }], actions: [{ kind: 'repeat', title: 'Keep the subject-first opening', why: 'The subject is visible early.', what: 'Lead your next post with this subject before adding supporting context.', example: null, evidenceIds: [source.id] }, { kind: 'idea', title: 'Answer one practical question', why: 'The subject gives the next post a clear focus.', what: 'Create a follow-up explaining one practical detail about this subject.', example: null, evidenceIds: [source.id] }] }) };
+  return { model: 'test-model', data: opts.schema.parse({ summary: state.verboseAdvisor ? 'The subject is introduced clearly. '.repeat(35) : 'The subject is introduced clearly.', strongestQuality: 'The subject is recognizable early.', mainOpportunity: null, keyTakeaway: 'Keep the recognizable subject at the beginning of future content.', findings: [{ category: 'hook_intelligence', title: 'Recognizable subject at the opening', status: 'strong', explanation: 'The subject comes before the supporting explanation.', finding: 'The opening places the subject before the supporting explanation.', evidenceIds: [source.id], likelyImpact: 'This may make the subject easier to understand.', recommendedAction: 'In the next post, introduce this subject before the supporting explanation.', confidence: 'high', importance: 'high' }], actions: [{ kind: 'repeat', title: 'Keep the subject-first opening', why: 'The subject is visible early.', what: 'Lead your next post with this subject before adding supporting context.', example: null, evidenceIds: [source.id] }, { kind: 'idea', title: 'Answer one practical question', why: 'The subject gives the next post a clear focus.', what: 'Create a follow-up explaining one practical detail about this subject.', example: null, evidenceIds: [source.id] }] }) };
 } }));
 
 let user: Awaited<ReturnType<typeof registerUser>>;
@@ -45,7 +49,7 @@ let postId: string;
 beforeAll(startTestDb);
 afterAll(stopTestDb);
 beforeEach(async () => {
-  await clearDb(); fake.reset(); Object.assign(state, { mode: 'image', duration: 24, calls: [], failMiddle: false, invalidTime: false, fail: false, language: 'en', audio: 'speech', missingSlide: false });
+  await clearDb(); fake.reset(); Object.assign(state, { mode: 'image', duration: 24, calls: [], failMiddle: false, invalidTime: false, fail: false, language: 'en', audio: 'speech', missingSlide: false, invalidAdvisor: false, verboseAdvisor: false, advisorCalls: 0, advisorFail: false, invalidQuote: false });
   user = await registerUser('v2@test.example'); fake.items = makeMedia(1, 'instagram');
   await api().post('/api/v1/connections/instagram/connect').set(user.auth).send({ accessToken: 'fake-token' });
   while (await syncService.runOne('v2-test'));
@@ -127,6 +131,51 @@ describe('Deep Analysis V2 jobs and evidence pipeline', () => {
     expect(result.status).toBe('partial');
     expect(result.report.overview.timeline).toHaveLength(0);
     expect(result.report.coverage.limitations.join(' ')).toContain('inaccessible');
+  });
+  it('repairs invalid advisor JSON once while preserving the exact selected post evidence', async () => {
+    state.invalidAdvisor = true;
+    const result = await run();
+    expect(state.advisorCalls).toBe(2);
+    expect(result.status).toBe('complete');
+    expect(result.report.overview.priorityFindings).toHaveLength(1);
+    const advisor = state.calls.filter((c) => JSON.parse(c.parts[0].text).observations);
+    expect(advisor[1].parts[0]).toEqual(advisor[0].parts[0]);
+    expect(advisor[1].parts[1].text).toContain('Repair');
+  });
+  it('normalizes verbose model prose to the persisted report contract', async () => {
+    state.verboseAdvisor = true;
+    const result = await run();
+    expect(result.status).toBe('complete');
+    expect(result.report.overview.summary.length).toBeLessThanOrEqual(700);
+    expect(reportV2Schema.safeParse(result.report).success).toBe(true);
+  });
+  it('counts available post text when original media is inaccessible and discloses the evidence scope', async () => {
+    state.mode = 'unavailable';
+    const result = await run();
+    expect(result.report.coverage.accessibleAssets).toBe(1);
+    expect(result.report.coverage.analyzedAssets).toBe(1);
+    expect(result.report.coverage.method).toContain('caption/title only');
+    const input = JSON.parse(state.calls.find((c) => JSON.parse(c.parts[0].text).observations).parts[0].text);
+    expect(input.evidenceScope).toContain('no visual or audio review');
+  });
+  it('preserves actual text evidence after interpretation failure without manufacturing marketing findings', async () => {
+    state.mode = 'unavailable'; state.advisorFail = true;
+    const result = await run();
+    expect(result.status).toBe('partial');
+    expect(result.report.overview.summary).toContain('A subject in natural light.');
+    expect(result.report.overview.priorityFindings).toEqual([]);
+    expect(result.report.nextMove.actions).toEqual([]);
+    expect(result.report.overview.mainOpportunity).toBeNull();
+    expect(result.report.processing.sources[0].quote).toBe('A subject in natural light.');
+    expect(JSON.stringify(result.report.overview)).not.toMatch(/booking|inquir|WhatsApp|sales|prospective clients/);
+  });
+  it('rejects a text quote from another post instead of replacing it with arbitrary caption text', async () => {
+    state.mode = 'unavailable'; state.invalidQuote = true;
+    const result = await run();
+    expect(result.report.processing.sources).toEqual([]);
+    expect(result.report.nextMove.actions).toEqual([]);
+    expect(result.report.coverage.analyzedAssets).toBe(0);
+    expect(result.report.coverage.method).toContain('No usable evidence');
   });
   it('deduplicates queued requests, caches by goal/media/model/version, and saves recommendations', async () => {
     const a = await start(), b = await start();
