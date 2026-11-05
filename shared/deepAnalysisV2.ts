@@ -1,3 +1,4 @@
+import type { DeepOverview } from './deepOverview.js';
 export const DEEP_CATEGORIES = ['performance_diagnosis', 'hook_intelligence', 'timeline_analysis', 'storytelling_and_pacing', 'visual_quality', 'audio_and_speech', 'audience_psychology', 'caption_and_discovery', 'cta_and_conversion', 'competitor_and_trend_context', 'mistakes_and_opportunities', 'next_content_strategy'] as const;
 export type DeepCategory = typeof DEEP_CATEGORIES[number];
 export type DeepStatus = 'strong' | 'good' | 'needs_attention' | 'insufficient_evidence';
@@ -24,8 +25,8 @@ export interface DeepAnalysisV2 {
   postId: string; accountId: string; platform: 'instagram' | 'facebook' | 'youtube' | 'linkedin'; mediaType: string;
   post: { title: string; caption: string; publishedAt: string }; goal: string;
   analysisStatus: 'complete' | 'partial'; analysisVersion: string; generatedAt: string;
-  coverage: { accessibleDurationSeconds: number | null; analyzedDurationSeconds: number; isComplete: boolean; accessibleAssets: number; analyzedAssets: number; limitations: string[]; method: string };
-  overview: { summary: string; strongestQuality: string | null; mainOpportunity: string | null; keyTakeaway: string; timeline: { assetId: string; label: string; startSeconds: number | null; endSeconds: number | null; slideNumber: number | null; status: TimelineStatus; evidenceIds: string[] }[]; priorityFindings: PriorityFinding[] };
+  coverage: { accessibleDurationSeconds: number | null; analyzedDurationSeconds: number; isComplete: boolean; accessibleAssets: number; analyzedAssets: number; limitations: string[]; notes?: string[]; method: string };
+  overview: { editorial?: DeepOverview; summary: string; strongestQuality: string | null; mainOpportunity: string | null; keyTakeaway: string; timeline: { assetId: string; label: string; startSeconds: number | null; endSeconds: number | null; slideNumber: number | null; status: TimelineStatus; evidenceIds: string[] }[]; priorityFindings: PriorityFinding[] };
   audience: { availability: 'available' | 'unavailable'; findings: AudienceFinding[]; limitations: string[]; sampledComments: number; collectedAt: string };
   nextMove: { actions: DeepAction[] };
   processing: { model: string; promptVersion: string; validatedAt: string; categoryEngine: readonly DeepCategory[]; sources: DeepSource[] };

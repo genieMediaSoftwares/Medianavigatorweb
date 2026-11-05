@@ -7,7 +7,7 @@ import { toObjectId } from '../../lib/ids.js';
 import { logger } from '../../lib/logger.js';
 import { DeepAnalysisJob, SavedDeepAction, type DeepJobDoc } from '../../models/DeepAnalysisJob.js';
 import { mediaRepository } from '../../repositories/media.repository.js';
-import { aiAvailable } from './geminiClient.js';
+import { aiAvailable, AiFailedError } from './geminiClient.js';
 import { buildDeepV2, V2_VERSION } from './deepV2.pipeline.js';
 import { reportV2Schema } from './deepV2.reportSchema.js';
 import type { DeepAnalysisState } from '../../../../shared/deepAnalysisV2.js';
@@ -82,8 +82,9 @@ export const deepV2Jobs = {
         if (!updated.matchedCount) throw new Error('Analysis cancelled or lease lost');
       }));
       if (report.postId !== job.postId || report.accountId !== String(job.accountId) || report.platform !== doc.platform) throw new Error('Report identity mismatch');
-      await DeepAnalysisJob.updateOne(filter, { $set: { report, status: report.analysisStatus, progress: { stage: report.analysisStatus === 'complete' ? 'Analysis complete' : 'Partial analysis ready', processed: 1, total: 1 }, error: null, leaseOwner: null, leaseExpiresAt: null } });
-    } catch {
+      await DeepAnalysisJob.updateOne(filter, { $set: { report, status: report.analysisStatus, progress: { stage: 'Post review ready', processed: 1, total: 1 }, error: null, leaseOwner: null, leaseExpiresAt: null } });
+    } catch (error) {
+      logger.warn('deep overview generation failed', { operation: 'deep-v2', jobId: String(job._id), reason: error instanceof AiFailedError ? error.reason : 'validation_or_processing' });
       await DeepAnalysisJob.updateOne(filter, { $set: { status: 'failed', error: 'Analysis could not be completed. Your previous report, if available, is kept. Please retry.', leaseOwner: null, leaseExpiresAt: null } });
     } finally { clearInterval(heartbeat); }
     return true;

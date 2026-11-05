@@ -4,15 +4,17 @@ import { DEEP_CATEGORIES } from '../../../../shared/deepAnalysisV2.js';
 import type { ContentItemDoc } from '../../models/ContentItem.js';
 import { config } from '../../config/env.js';
 import { collectDeepV2Media } from './deepV2.media.js';
-import { EXTRACT, ADVISOR_SYSTEM } from './deepV2.prompts.js';
+import { EXTRACT } from './deepV2.prompts.js';
 import { AppError } from '../../lib/errors.js';
 import { toNormalized } from '../../integrations/mapper.js';
 import type { MediaEvidence } from './contentEvidence.js';
 import { generateMultimodalJson, uploadVideo, deleteUploaded, AiFailedError } from './geminiClient.js';
-import { candidateSchema, observationSchema, rankFindings, validateActions } from './deepV2.validation.js';
+import { observationSchema } from './deepV2.validation.js';
+import { generateOverview } from './deepV2.overview.js';
+import { postTextSources } from './deepV2.text.js';
 import { collectAudienceInputs, buildAudience } from './deepV2.audience.js';
 
-export const V2_VERSION = 'app-deep-v2-post-grounded-3';
+export const V2_VERSION = 'app-deep-v2-editorial-4';
 type Timeline = DeepAnalysisV2['overview']['timeline'];
 export interface Progress { (stage: string, processed: number, total: number): Promise<void> }
 export function videoWindows(duration: number | null): { start: number; end: number | null }[] {
@@ -25,6 +27,7 @@ export async function buildDeepV2(doc: ContentItemDoc, goal: string, progress: P
   let item = toNormalized(doc);
   let media: MediaEvidence;
   const limitations: string[] = [];
+  const processingNotes: string[] = [];
   try { const loaded = await collectDeepV2Media(doc); item = loaded.item; media = loaded.media; }
   catch (error) { media = { basis: 'none', images: [], videos: [], youtubeUrl: null, durationSeconds: doc.durationSeconds ?? null, notes: [], failure: error instanceof AppError ? error.message : 'The original media was inaccessible. Only available post text can be assessed.' }; }
   if (['none', 'thumbnail'].includes(media.basis)) limitations.push(media.failure || 'Original media was not available; no full-content review is claimed.');
@@ -52,7 +55,9 @@ export async function buildDeepV2(doc: ContentItemDoc, goal: string, progress: P
       }
       model = generated.model;
       const data = observationSchema.parse(generated.data);
-      limitations.push(...data.limitations);
+      // A text extraction request deliberately has no visual asset. Local model
+      // caveats must not become contradictory whole-post coverage failures.
+      for (const note of data.limitations) if (/illegible|unreadable|unclear|inaudible|sampling/i.test(note)) processingNotes.push(input.label + ': ' + note);
       if (!data.processed) throw new AiFailedError('The supplied media was not processed.', 'invalid_response');
       const ids: (string | null)[] = [];
       for (const observation of data.observations) {
@@ -100,8 +105,9 @@ export async function buildDeepV2(doc: ContentItemDoc, goal: string, progress: P
   };
   try {
     if (item.caption || doc.title) {
-      const done = await process({ id: 'post_text', label: 'post text', kind: 'text', part: null, start: null, end: null, slide: null });
-      if (done) analyzedAssets++;
+      sources.push(...postTextSources(item.caption || '', doc.title || '', sources.length));
+      analyzedAssets++; processed++;
+      await progress('Reading the complete post text', processed, total);
     }
     for (const [i, image] of media.images.entries()) {
       const slide = media.basis === 'carousel' ? Number(/(?:slide|image) (\d+) of/.exec(image.label)?.[1]) || i + 1 : null;
@@ -131,32 +137,14 @@ export async function buildDeepV2(doc: ContentItemDoc, goal: string, progress: P
     }
   } finally { await Promise.allSettled(uploaded.map(deleteUploaded)); }
   if (videoCount) limitations.push('Video analysis uses adaptive provider frame sampling and multimodal audio. Every frame, word and OCR result has not been independently verified; full-content coverage is not certified.');
-  await progress('Ranking creative findings', total, total);
+  await progress('Writing the complete post review', total, total);
   const format = media.basis === 'text' ? 'text' : media.basis === 'document' ? 'document' : media.basis === 'carousel' ? 'carousel' : media.basis === 'full_video' && doc.contentType === 'post' ? 'video' : doc.contentType;
   const textOnly = sources.length > 0 && sources.every((source) => ['caption', 'title'].includes(source.source));
-  const findingFormat = textOnly ? 'text' : format;
-  const excerpt = sources.find((source) => ['caption', 'title'].includes(source.source) && source.quote)?.quote?.slice(0, 300);
-  let candidates: ReturnType<typeof candidateSchema.parse> = { summary: excerpt ? 'Available post text: “' + excerpt + '”. A strategic interpretation could not be completed.' : sources.length ? 'Content evidence was extracted, but the strategic interpretation could not be completed.' : 'No usable content evidence could be extracted for this post.', strongestQuality: null, mainOpportunity: null, keyTakeaway: 'Refresh analysis to retry the unavailable processing steps.', findings: [], actions: [] };
-  const advisorInput = { goal, platform: doc.platform, format, evidenceScope: textOnly ? 'caption/title only; no visual or audio review' : media.basis, post: { title: doc.title || '', caption: item.caption || '' }, observations: sources, limitations };
-  if (sources.length) {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const parts: Part[] = [{ text: JSON.stringify(advisorInput) }];
-        if (attempt) parts.push({ text: 'Repair the previous invalid report. Follow the exact JSON contract and length limits. Every finding/action needs matching evidenceIds from observations. Do not fill empty IDs with arbitrary sources. Use only applicable categories and grounded, cautious wording. Omit unsupported entries.' });
-        const generated = await generateMultimodalJson({ system: ADVISOR_SYSTEM, parts, schema: candidateSchema, timeoutMs: config.ai.contentAnalysis.timeoutMs });
-        const checked = candidateSchema.parse(generated.data);
-        if ((checked.findings.length && !rankFindings(checked, sources, findingFormat).length) || (checked.actions.length && !validateActions(checked, sources).length)) throw new AiFailedError('The report did not cite usable post evidence.', 'invalid_response');
-        candidates = checked; model = generated.model;
-        break;
-      } catch (error) {
-        if (attempt === 0 && error instanceof AiFailedError && error.reason === 'invalid_response') continue;
-        limitations.push('Creative interpretation could not be generated. The extracted post evidence is available below; refresh analysis to retry.');
-        break;
-      }
-    }
-  }
-  const priorityFindings = rankFindings(candidates, sources, findingFormat);
-  const actions = validateActions(candidates, sources);
+  const scope = textOnly ? 'Available post caption/title only; original visual/audio content was not assessed.' : 'Original ' + media.basis + ' and available post text. ' + limitations.join(' ');
+  const reviewed = await generateOverview(doc, item.caption || '', format, scope, goal, sources);
+  model = reviewed.model;
+  const priorityFindings = reviewed.findings;
+  const actions = reviewed.actions;
   await progress('Reading permitted audience feedback', total, total);
   let audience: DeepAnalysisV2['audience'];
   try { audience = await buildAudience(await collectAudienceInputs(doc)); }
@@ -166,8 +154,8 @@ export async function buildDeepV2(doc: ContentItemDoc, goal: string, progress: P
   return {
     postId: doc.legacyId, accountId: String(doc.connectedAccountId), platform: doc.platform, mediaType: format, post: { title: doc.title, caption: item.caption || '', publishedAt: doc.publishedAt.toISOString() }, goal,
     analysisStatus: isComplete ? 'complete' : 'partial', analysisVersion: V2_VERSION, generatedAt: timestamp,
-    coverage: { accessibleDurationSeconds: videoCount ? media.videos.reduce((n, v) => n + (v.durationSeconds ?? 0), 0) + (media.youtubeUrl ? media.durationSeconds ?? 0 : 0) || null : null, analyzedDurationSeconds: Math.round(analyzedDuration * 100) / 100, isComplete, accessibleAssets: assetCount, analyzedAssets, limitations: [...new Set(limitations)], method: !sources.length ? 'No usable evidence was extracted from the available post content' : media.basis === 'text' ? 'Available written post supplied for text analysis' : textOnly ? 'Selected post caption/title only; original visual media was not assessed' : videoCount ? 'Adaptive frame sampling and provider multimodal audio across bounded video windows, plus available post text' : 'Original images, accessible document and available post text supplied to multimodal analysis' },
-    overview: { summary: candidates.summary, strongestQuality: candidates.strongestQuality, mainOpportunity: candidates.mainOpportunity, keyTakeaway: candidates.keyTakeaway, timeline: timeline.sort((a, b) => (a.slideNumber ?? 0) - (b.slideNumber ?? 0) || (a.startSeconds ?? 0) - (b.startSeconds ?? 0)), priorityFindings }, audience, nextMove: { actions },
+    coverage: { accessibleDurationSeconds: videoCount ? media.videos.reduce((n, v) => n + (v.durationSeconds ?? 0), 0) + (media.youtubeUrl ? media.durationSeconds ?? 0 : 0) || null : null, analyzedDurationSeconds: Math.round(analyzedDuration * 100) / 100, isComplete, accessibleAssets: assetCount, analyzedAssets, limitations: [...new Set(limitations)], notes: [...new Set(processingNotes)], method: !sources.length ? 'No usable evidence was extracted from the available post content' : media.basis === 'text' ? 'Available written post supplied for text analysis' : textOnly ? 'Selected post caption/title only; original visual media was not assessed' : videoCount ? 'Adaptive frame sampling and provider multimodal audio across bounded video windows, plus available post text' : 'Original images, accessible document and available post text supplied to multimodal analysis' },
+    overview: { editorial: reviewed.editorial, summary: reviewed.editorial.introduction.slice(0, 700), strongestQuality: null, mainOpportunity: null, keyTakeaway: reviewed.editorial.verdict.slice(0, 700), timeline: timeline.sort((a, b) => (a.slideNumber ?? 0) - (b.slideNumber ?? 0) || (a.startSeconds ?? 0) - (b.startSeconds ?? 0)), priorityFindings }, audience, nextMove: { actions },
     processing: { model, promptVersion: V2_VERSION, validatedAt: timestamp, categoryEngine: DEEP_CATEGORIES, sources },
   };
 }

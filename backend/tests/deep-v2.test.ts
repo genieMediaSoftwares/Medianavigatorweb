@@ -41,7 +41,12 @@ vi.mock('../src/services/ai/geminiClient.js', async (orig) => ({ ...(await orig<
   if (state.advisorFail) throw new AiFailedError('mock provider failure', 'provider_error');
   if (state.invalidAdvisor && state.advisorCalls === 1) throw new AiFailedError('Invalid structured output', 'invalid_response');
   const source = input.observations.find((s: any) => s.source !== 'caption') ?? input.observations[0];
-  return { model: 'test-model', data: opts.schema.parse({ summary: state.verboseAdvisor ? 'The subject is introduced clearly. '.repeat(35) : 'The subject is introduced clearly.', strongestQuality: 'The subject is recognizable early.', mainOpportunity: null, keyTakeaway: 'Keep the recognizable subject at the beginning of future content.', findings: [{ category: 'hook_intelligence', title: 'Recognizable subject at the opening', status: 'strong', explanation: 'The subject comes before the supporting explanation.', finding: 'The opening places the subject before the supporting explanation.', evidenceIds: [source.id], likelyImpact: 'This may make the subject easier to understand.', recommendedAction: 'In the next post, introduce this subject before the supporting explanation.', confidence: 'high', importance: 'high' }], actions: [{ kind: 'repeat', title: 'Keep the subject-first opening', why: 'The subject is visible early.', what: 'Lead your next post with this subject before adding supporting context.', example: null, evidenceIds: [source.id] }, { kind: 'idea', title: 'Answer one practical question', why: 'The subject gives the next post a clear focus.', what: 'Create a follow-up explaining one practical detail about this subject.', example: null, evidenceIds: [source.id] }] }) };
+  const caption = input.observations.find((s: any) => s.source === 'caption') ?? source;
+  const media = input.observations.find((s: any) => ['image','video_frame','document','on_screen_text'].includes(s.source)) ?? source;
+  return { model: 'test-model', data: opts.schema.parse({ headline: 'A subject-first introduction', introduction: state.verboseAdvisor ? 'The subject is introduced clearly. '.repeat(60) : 'The post introduces the subject before supporting context. Its caption adds a brief explanation in natural language.', verdict: 'The subject is recognizable early. The available context remains concise.', evidenceIds: [source.id],
+    sections: input.requiredSections.map((key: string) => ({ key, title: key === 'visual' ? 'The subject leads the composition' : 'A subject-first introduction', assessment: key === 'visual' ? 'The subject is visible before the supporting explanation. The composition gives it an immediate focal point.' : 'The post places the subject before supporting context. This makes its opening topic explicit without demonstrating an audience outcome.', status: 'good', evidenceIds: key === 'alignment' ? [caption.id, media.id] : key === 'visual' ? [media.id] : key === 'structure' ? [media.id] : [caption.id] })), facts: [],
+    actions: [{ kind: 'repeat', title: 'Keep the subject-first opening', why: 'The subject is introduced early.', what: 'Lead your next post with this subject before adding supporting context.', example: null, evidenceIds: [source.id] }, { kind: 'idea', title: 'Explain one practical detail', why: 'The subject gives the next post a clear focus.', what: 'Create a follow-up explaining one practical detail about this subject.', example: null, evidenceIds: [source.id] }] }) };
+
 } }));
 
 let user: Awaited<ReturnType<typeof registerUser>>;
@@ -70,7 +75,7 @@ describe('Deep Analysis V2 jobs and evidence pipeline', () => {
     expect(result.status).toBe('complete');
     expect(result.report.postId).toBe(postId);
     expect(result.report.platform).toBe(platform);
-    expect(result.report.overview.priorityFindings).toHaveLength(1);
+    expect(result.report.overview.editorial.sections.length).toBeGreaterThanOrEqual(3);
     expect(result.report.nextMove.actions.length).toBeLessThanOrEqual(3);
     expect(JSON.stringify(state.calls.map((c) => c.parts))).not.toMatch(/987654321|123456789|engagementRate|primarySignal/);
     expect(reportV2Schema.safeParse(result.report).success).toBe(true);
@@ -104,7 +109,7 @@ describe('Deep Analysis V2 jobs and evidence pipeline', () => {
     const result = await run();
     expect(result.report.mediaType).toBe('text');
     expect(result.report.overview.timeline).toHaveLength(0);
-    expect(result.report.processing.sources.every((s: any) => s.source === 'caption')).toBe(true);
+    expect(result.report.processing.sources.every((s: any) => ['caption', 'title'].includes(s.source))).toBe(true);
   });
   it('keeps a failed video window grey and never reports full coverage', async () => {
     state.mode = 'video'; state.duration = 120; state.failMiddle = true;
@@ -137,7 +142,7 @@ describe('Deep Analysis V2 jobs and evidence pipeline', () => {
     const result = await run();
     expect(state.advisorCalls).toBe(2);
     expect(result.status).toBe('complete');
-    expect(result.report.overview.priorityFindings).toHaveLength(1);
+    expect(result.report.overview.editorial.sections.length).toBeGreaterThanOrEqual(3);
     const advisor = state.calls.filter((c) => JSON.parse(c.parts[0].text).observations);
     expect(advisor[1].parts[0]).toEqual(advisor[0].parts[0]);
     expect(advisor[1].parts[1].text).toContain('Repair');
@@ -156,26 +161,23 @@ describe('Deep Analysis V2 jobs and evidence pipeline', () => {
     expect(result.report.coverage.analyzedAssets).toBe(1);
     expect(result.report.coverage.method).toContain('caption/title only');
     const input = JSON.parse(state.calls.find((c) => JSON.parse(c.parts[0].text).observations).parts[0].text);
-    expect(input.evidenceScope).toContain('no visual or audio review');
+    expect(input.scope).toContain('original visual/audio content was not assessed');
   });
-  it('preserves actual text evidence after interpretation failure without manufacturing marketing findings', async () => {
+  it('fails clearly after interpretation failure without manufacturing a successful empty report', async () => {
     state.mode = 'unavailable'; state.advisorFail = true;
     const result = await run();
-    expect(result.status).toBe('partial');
-    expect(result.report.overview.summary).toContain('A subject in natural light.');
-    expect(result.report.overview.priorityFindings).toEqual([]);
-    expect(result.report.nextMove.actions).toEqual([]);
-    expect(result.report.overview.mainOpportunity).toBeNull();
-    expect(result.report.processing.sources[0].quote).toBe('A subject in natural light.');
-    expect(JSON.stringify(result.report.overview)).not.toMatch(/booking|inquir|WhatsApp|sales|prospective clients/);
+    expect(result.status).toBe('failed'); expect(result.report).toBeNull();
   });
-  it('rejects a text quote from another post instead of replacing it with arbitrary caption text', async () => {
+  it('uses the complete platform caption verbatim instead of AI-generated text quotations', async () => {
     state.mode = 'unavailable'; state.invalidQuote = true;
     const result = await run();
-    expect(result.report.processing.sources).toEqual([]);
-    expect(result.report.nextMove.actions).toEqual([]);
-    expect(result.report.coverage.analyzedAssets).toBe(0);
-    expect(result.report.coverage.method).toContain('No usable evidence');
+    expect(result.report.processing.sources.find((s: any) => s.source === 'caption').quote).toBe('A subject in natural light.');
+    expect(state.calls.some((c) => JSON.parse(c.parts[0].text).kind === 'text')).toBe(false);
+  });
+  it('fails instead of publishing a report when no content can be read', async () => {
+    state.mode = 'unavailable';
+    await ContentItem.updateOne({ legacyId: postId }, { $set: { caption: '', title: '' } });
+    const result = await run(); expect(result.status).toBe('failed'); expect(result.report).toBeNull();
   });
   it('deduplicates queued requests, caches by goal/media/model/version, and saves recommendations', async () => {
     const a = await start(), b = await start();

@@ -13,9 +13,9 @@ import { deepReportText } from '../../../../shared/deepAnalysisExport';
 import type { DeepAnalysisState, DeepAnalysisV2 } from '../../../../shared/deepAnalysisV2';
 import { cancelDeepAnalysisV2, fetchMediaItem, pollDeepAnalysisV2, refreshDeepAudience, savedDeepActions, saveDeepAction, startDeepAnalysisV2 } from './api';
 import { exportDeepReport } from './deepV2.export';
-import { PriorityFindingCard, ReportTabs, SourceEvidence, statusStyle, timeLabel } from './DeepReportParts';
+import { ReportTabs, SourceEvidence, statusStyle, timeLabel } from './DeepReportParts';
 import { AudiencePanel } from './AudiencePanel';
-import { deepEvidenceScope } from './deepEvidenceScope';
+import { DeepOverviewView } from './DeepOverviewView';
 
 const PLATFORM_ICON = { instagram: 'logo-instagram', facebook: 'logo-facebook', youtube: 'logo-youtube', linkedin: 'logo-linkedin' } as const;
 const ACTION_TITLE = { repeat: 'Repeat This Strength', change: 'Avoid or Change Next Time', idea: 'Your Next Content Idea' } as const;
@@ -68,7 +68,6 @@ export function DeepReportView({ mediaId }: { mediaId: string }) {
     return () => { alive = false; if (timer) clearTimeout(timer); };
   }, [mediaId, retry, requestedGoal]);
   const report = ui.job?.report ?? null;
-  const scope = report ? deepEvidenceScope(report) : null;
   const platform = report?.platform ?? item?.platform;
   const identifier = report?.post.title || report?.post.caption || item?.title || item?.caption || 'Loading selected post…';
   const date = report?.post.publishedAt ?? item?.publishedAt;
@@ -113,18 +112,7 @@ export function DeepReportView({ mediaId }: { mediaId: string }) {
       {ui.loading ? <View style={s.card}><View style={s.row}><ActivityIndicator size="small" color={colors.primary} /><Text style={s.cardTitle}>{ui.job?.progress.stage || 'Preparing analysis'}</Text></View><Text style={[s.small, { marginTop: 8 }]}>{ui.job ? `${ui.job.progress.processed} of ${ui.job.progress.total} processing steps` : 'The selected post is being queued for review.'}</Text>{!report ? [88, 100, 64].map((width) => <View key={width} style={[s.skeleton, { width: `${width}%` }]} />) : null}<Text style={[s.small, { marginTop: 10 }]}>You can leave this screen while the server processes the report.</Text>{ui.job ? <Pressable accessibilityRole="button" onPress={() => void cancel()} style={s.textButton}><Text style={s.link}>Cancel analysis</Text></Pressable> : null}</View> : null}
       {ui.error ? <View style={s.card}><Text accessibilityRole="alert" style={s.body}>{ui.error}</Text><View style={{ marginTop: 12 }}><Button title="Retry analysis" variant="secondary" onPress={() => restart()} /></View></View> : null}
       {report ? <>
-        <View style={s.card}><Text style={s.sourceLabel}>{scope?.label}</Text><Text style={s.small}>{scope?.detail}</Text></View>
-        {report.analysisStatus === 'partial' ? <View style={s.partial}><Ionicons name="information-circle-outline" size={18} color={colors.warning} /><Text style={[s.small, { flex: 1, color: colors.warning }]}>Partial analysis · {report.coverage.limitations[0] || 'Some content could not be independently verified.'}</Text></View> : null}
-        {ui.tab === 'Overview' ? <>
-          <View style={s.card}><View style={s.row}><Ionicons name="scan-outline" size={21} color={colors.primary} /><Text accessibilityRole="header" style={s.cardTitle}>Content Review</Text></View><Text style={[s.body, { color: colors.navy, marginTop: 10 }]}>{report.overview.summary}</Text>{report.overview.strongestQuality ? <Text style={[s.body, { marginTop: 9 }]}><Text style={s.bold}>Strongest quality: </Text>{report.overview.strongestQuality}</Text> : null}{report.overview.mainOpportunity ? <Text style={[s.body, { marginTop: 7 }]}><Text style={s.bold}>Main opportunity: </Text>{report.overview.mainOpportunity}</Text> : null}</View>
-          <IntelligenceTimeline report={report} />
-          {!report.overview.priorityFindings.length && report.processing.sources.length ? <View style={s.card}><Text style={s.cardTitle}>Extracted post evidence</Text><View style={{ marginTop: 10 }}><SourceEvidence sources={report.processing.sources.slice(0, 8)} /></View></View> : null}
-          <Text accessibilityRole="header" style={s.sectionTitle}>Priority Findings</Text><Text style={[s.small, { marginBottom: 11 }]}>The most useful supported insights. Tap to inspect the evidence.</Text>
-          {report.overview.priorityFindings.length ? report.overview.priorityFindings.map((finding, i) => <PriorityFindingCard key={finding.id} finding={finding} highlighted={i === 0} expanded={Boolean(ui.expanded[finding.id])} onToggle={() => dispatch({ type: 'toggle', id: finding.id })} onCopy={() => void copy(`${finding.title}\nFinding: ${finding.finding}\nEvidence: ${finding.evidence.map((e) => `${e.startSeconds !== null ? `${timeLabel(e.startSeconds)} · ` : ''}${e.quote || e.description}`).join('\n')}\nLikely impact: ${finding.likelyImpact}\nRecommended action: ${finding.recommendedAction}`)} />) : <View style={s.card}><Text style={s.body}>No strategic findings are supported by the available evidence. Review the extracted details and coverage limits.</Text></View>}
-          <View style={[s.card, { backgroundColor: colors.sky }]}><Text accessibilityRole="header" style={s.cardTitle}>Key Takeaway</Text><Text style={[s.body, { marginTop: 7 }]}>{report.overview.keyTakeaway}</Text></View>
-          <Pressable accessibilityRole="button" accessibilityState={{ expanded: Boolean(ui.expanded.coverage) }} onPress={() => dispatch({ type: 'toggle', id: 'coverage' })} style={s.textButton}><Text style={s.link}>{ui.expanded.coverage ? 'Hide' : 'View'} coverage and limitations</Text><Ionicons name={ui.expanded.coverage ? 'chevron-up' : 'chevron-down'} size={16} color={colors.primary} /></Pressable>
-          {ui.expanded.coverage ? <View style={s.card}><Text style={s.body}>{report.coverage.method}</Text><Text style={[s.small, { marginTop: 8 }]}>{`${report.coverage.analyzedAssets} of ${report.coverage.accessibleAssets} accessible assets assessed${report.coverage.accessibleDurationSeconds !== null ? ` · ${report.coverage.analyzedDurationSeconds}s of ${report.coverage.accessibleDurationSeconds}s has grounded segment evidence` : ''}.`}</Text>{report.coverage.limitations.map((limit, i) => <Text key={i} style={[s.small, { marginTop: 8 }]}>{limit}</Text>)}<Text style={[s.small, { marginTop: 8 }]}>The AI’s conclusions can be mistaken. Creative judgments are not measured audience outcomes.</Text></View> : null}
-        </> : ui.tab === 'Audience' ? <>
+        {ui.tab === 'Overview' ? <DeepOverviewView report={report} expanded={ui.expanded} onToggle={(id) => dispatch({ type: 'toggle', id })} onCopy={(value) => void copy(value)} onSave={(id) => void save(id)} saved={saved} saving={saving} timeline={<IntelligenceTimeline report={report} />} /> : ui.tab === 'Audience' ? <>
           <AudiencePanel audience={report.audience} expanded={ui.expanded} onToggle={(id) => dispatch({ type: 'toggle', id })} onRefresh={() => void refreshAudience()} refreshing={audienceRefreshing} disabled={ui.loading} />
         </> : <>
           <Text accessibilityRole="header" style={s.sectionTitle}>For Your Next Content</Text><Text style={[s.body, { marginBottom: 14 }]}>A few specific things to repeat or test, grounded in this published post.</Text>
