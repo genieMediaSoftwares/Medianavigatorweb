@@ -5,7 +5,6 @@ import { colors } from '@/constants/colors';
 import { formatDate } from '@/lib/format';
 import { OVERVIEW_LABELS, type OverviewSectionKey } from '../../../../shared/deepOverview';
 import type { DeepAnalysisV2, DeepAction } from '../../../../shared/deepAnalysisV2';
-import { SourceEvidence } from './DeepReportParts';
 import { deepEvidenceScope } from './deepEvidenceScope';
 
 const ICONS = { message: 'chatbox-ellipses-outline', visual: 'image-outline', caption: 'document-text-outline', structure: 'layers-outline', audio: 'musical-notes-outline', details: 'list-outline', alignment: 'git-compare-outline', cta: 'navigate-outline' } as const;
@@ -13,12 +12,6 @@ const GRADES = { strong: { label: 'Works well', color: colors.success, backgroun
 interface Props {
   report: DeepAnalysisV2; expanded: Record<string, boolean>; onToggle: (key: string) => void;
   onCopy: (value: string) => void; onSave: (id: string) => void; saved: string[]; saving: string | null; timeline?: ReactNode;
-}
-function EvidenceToggle({ id, sources, expanded, onToggle }: { id: string; sources: DeepAnalysisV2['processing']['sources']; expanded: Props['expanded']; onToggle: Props['onToggle'] }) {
-  return <View>
-    <Pressable accessibilityRole="button" accessibilityState={{ expanded: Boolean(expanded[id]) }} onPress={() => onToggle(id)} style={s.linkButton}><Ionicons name="reader-outline" size={15} color={colors.primary} /><Text style={s.link}>{expanded[id] ? 'Hide' : 'See'} supporting details · {sources.length}</Text><Ionicons name={expanded[id] ? 'chevron-up' : 'chevron-down'} size={14} color={colors.primary} /></Pressable>
-    {expanded[id] ? <View style={s.evidence}><SourceEvidence sources={sources} /></View> : null}
-  </View>;
 }
 function Recommendation({ action, index, saved, saving, onSave, onCopy }: { action: DeepAction; index: number } & Pick<Props, 'saved' | 'saving' | 'onSave' | 'onCopy'>) {
   return <View style={s.recommendation}>
@@ -31,7 +24,6 @@ function Recommendation({ action, index, saved, saving, onSave, onCopy }: { acti
 export function DeepOverviewView({ report, expanded, onToggle, onCopy, onSave, saved, saving, timeline }: Props) {
   const review = report.overview.editorial;
   const sources = report.processing.sources;
-  const evidenceFor = (ids: string[]) => sources.filter((source) => ids.includes(source.id));
   const scope = deepEvidenceScope(report);
   const textOnly = sources.length > 0 && sources.every((source) => ['caption', 'title'].includes(source.source));
   const format = report.mediaType === 'post' ? 'Image post' : report.mediaType[0].toUpperCase() + report.mediaType.slice(1);
@@ -47,13 +39,11 @@ export function DeepOverviewView({ report, expanded, onToggle, onCopy, onSave, s
     {review?.facts.length ? <View style={s.card}>
       <Text style={s.eyebrow}>AT A GLANCE</Text><Text accessibilityRole="header" style={s.heading}>The details in this post</Text>
       <View style={s.facts}>{review.facts.map((fact, index) => <View key={index} style={s.fact}><Text style={s.factLabel}>{fact.label}</Text><Text selectable style={s.factValue}>{fact.value}</Text></View>)}</View>
-      <EvidenceToggle id="overview_fact_sources" sources={evidenceFor(review.facts.map((fact) => fact.evidenceId))} expanded={expanded} onToggle={onToggle} />
     </View> : null}
     <View style={s.sectionIntro}><Text style={s.eyebrow}>CREATIVE ASSESSMENT</Text><Text accessibilityRole="header" style={s.heading}>How the post comes together</Text><Text style={s.reason}>The message, the creative and the copy—reviewed in context.</Text></View>
     {review?.sections.map((section) => <View key={section.key} style={s.card}>
       <View style={[s.row, { justifyContent: 'space-between' }]}><View style={s.row}><View style={s.icon}><Ionicons name={ICONS[section.key]} size={19} color={colors.primary} /></View><Text style={s.dimension}>{OVERVIEW_LABELS[section.key as OverviewSectionKey]}</Text></View><View style={[s.grade, { backgroundColor: GRADES[section.status].background }]}><Text style={[s.gradeText, { color: GRADES[section.status].color }]}>{GRADES[section.status].label}</Text></View></View>
       <Text accessibilityRole="header" style={s.assessmentTitle}>{section.title}</Text><Text style={s.body}>{section.assessment}</Text>
-      <EvidenceToggle id={`overview_evidence_${section.key}`} sources={evidenceFor(section.evidenceIds)} expanded={expanded} onToggle={onToggle} />
       {section.key === 'structure' ? timeline : null}
     </View>)}
     {!review ? <View style={s.card}><Text style={s.body}>Refresh this report to receive the detailed creative, caption and information review.</Text></View> : null}
@@ -78,6 +68,6 @@ export function DeepOverviewView({ report, expanded, onToggle, onCopy, onSave, s
 }
 const s = StyleSheet.create({
   hero: { padding: 22, borderRadius: 22, backgroundColor: colors.navy, marginBottom: 18 }, heroEyebrow: { color: colors.onDarkMuted, fontSize: 10, fontWeight: '700', letterSpacing: 1.7 }, format: { backgroundColor: colors.onDarkSubtle, paddingVertical: 5, paddingHorizontal: 9, borderRadius: 20 }, formatText: { color: colors.white, fontSize: 10, fontWeight: '600' }, headline: { color: colors.white, fontSize: 24, lineHeight: 32, fontWeight: '700', letterSpacing: -.4 }, introduction: { color: colors.white, opacity: .9, fontSize: 14, lineHeight: 24, marginTop: 15 }, heroFooter: { borderTopWidth: 1, borderTopColor: colors.onDarkSubtle, paddingTop: 14, marginTop: 19, flexDirection: 'row', alignItems: 'center', gap: 6 }, heroMeta: { color: colors.onDarkMuted, fontSize: 10, lineHeight: 17 },
-  card: { backgroundColor: colors.white, borderRadius: 19, borderWidth: 1, borderColor: colors.neutral100, padding: 18, marginBottom: 14 }, row: { flexDirection: 'row', alignItems: 'center', gap: 8 }, eyebrow: { fontSize: 10, fontWeight: '700', letterSpacing: 1.4, color: colors.primary, marginBottom: 8 }, heading: { color: colors.navy, fontSize: 19, lineHeight: 27, fontWeight: '700', marginBottom: 7 }, body: { color: colors.navyLight, fontSize: 14, lineHeight: 24 }, reason: { color: colors.neutral500, fontSize: 12, lineHeight: 20, flexShrink: 1 }, sectionIntro: { paddingHorizontal: 3, paddingTop: 13, paddingBottom: 16 }, dimension: { color: colors.navy, fontSize: 11, fontWeight: '700', flexShrink: 1 }, icon: { width: 33, height: 33, borderRadius: 10, backgroundColor: colors.sky, justifyContent: 'center', alignItems: 'center' }, assessmentTitle: { color: colors.navy, fontSize: 17, fontWeight: '700', lineHeight: 25, marginTop: 16, marginBottom: 10 }, grade: { paddingVertical: 5, paddingHorizontal: 7, borderRadius: 20 }, gradeText: { fontSize: 9, fontWeight: '600' }, linkButton: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, marginTop: 7 }, link: { color: colors.primary, fontSize: 11, fontWeight: '600' }, evidence: { backgroundColor: colors.neutral100, borderRadius: 10, padding: 12, marginTop: 2 },
+  card: { backgroundColor: colors.white, borderRadius: 19, borderWidth: 1, borderColor: colors.neutral100, padding: 18, marginBottom: 14 }, row: { flexDirection: 'row', alignItems: 'center', gap: 8 }, eyebrow: { fontSize: 10, fontWeight: '700', letterSpacing: 1.4, color: colors.primary, marginBottom: 8 }, heading: { color: colors.navy, fontSize: 19, lineHeight: 27, fontWeight: '700', marginBottom: 7 }, body: { color: colors.navyLight, fontSize: 14, lineHeight: 24 }, reason: { color: colors.neutral500, fontSize: 12, lineHeight: 20, flexShrink: 1 }, sectionIntro: { paddingHorizontal: 3, paddingTop: 13, paddingBottom: 16 }, dimension: { color: colors.navy, fontSize: 11, fontWeight: '700', flexShrink: 1 }, icon: { width: 33, height: 33, borderRadius: 10, backgroundColor: colors.sky, justifyContent: 'center', alignItems: 'center' }, assessmentTitle: { color: colors.navy, fontSize: 17, fontWeight: '700', lineHeight: 25, marginTop: 16, marginBottom: 10 }, grade: { paddingVertical: 5, paddingHorizontal: 7, borderRadius: 20 }, gradeText: { fontSize: 9, fontWeight: '600' }, linkButton: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, marginTop: 7 }, link: { color: colors.primary, fontSize: 11, fontWeight: '600' },
   facts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }, fact: { backgroundColor: colors.neutral100, borderRadius: 12, padding: 12, flexGrow: 1, flexBasis: '45%' }, factLabel: { color: colors.neutral500, fontSize: 10, lineHeight: 17 }, factValue: { color: colors.navy, fontSize: 13, fontWeight: '600', lineHeight: 21, marginTop: 4 }, metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 }, metric: { flexBasis: '45%', flexGrow: 1, padding: 13, borderRadius: 12, borderWidth: 1, borderColor: colors.neutral100 }, metricValue: { color: colors.navy, fontSize: 23, fontWeight: '700', marginBottom: 5 }, note: { color: colors.neutral500, fontSize: 11, lineHeight: 18, marginTop: 9 }, verdict: { backgroundColor: colors.sky, borderRadius: 19, padding: 20, marginVertical: 6 }, recommendation: { borderWidth: 1, borderColor: colors.skyBorder, borderRadius: 19, backgroundColor: colors.white, padding: 18, gap: 9, marginBottom: 13 }, step: { backgroundColor: colors.sky, borderRadius: 12, width: 27, height: 27, alignItems: 'center', justifyContent: 'center' }, stepText: { color: colors.primary, fontSize: 12, fontWeight: '700' }, recommendationTitle: { color: colors.navy, fontSize: 15, lineHeight: 22, fontWeight: '700', flex: 1 }, example: { padding: 13, borderRadius: 12, backgroundColor: colors.neutral100 }, scope: { flexDirection: 'row', gap: 9, alignItems: 'flex-start', padding: 14, borderRadius: 14, backgroundColor: colors.sky, marginBottom: 16 },
 });

@@ -34,18 +34,12 @@ export function AudiencePanel({ audience, expanded, onToggle, onRefresh, refresh
       <Text style={[a.small, a.space]}>Missing metrics are unavailable, not zero. Refreshing feedback checks comments; sync the account to update activity counts.</Text>
     </View>
     {summary.findings.map((finding) => {
-      const key = `audience_finding_${finding.id}`;
-      const open = Boolean(expanded[key]);
       const evidence = finding.evidence.filter((source) => source.source === 'comment' && source.quote);
       return <View key={finding.id} style={a.card}>
         <Text style={a.eyebrow}>{TITLES[finding.section]}</Text>
         <Text accessibilityRole="header" style={[a.title, a.space]}>{finding.title}</Text>
         <Text style={[a.body, a.space]}>{finding.text}</Text>
         <Text style={[a.small, a.space]}>{LABELS[finding.label]} · {evidence.length} supporting {evidence.length === 1 ? 'comment' : 'comments'}</Text>
-        <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} accessibilityLabel={open ? 'Hide supporting comments' : 'Read supporting comments'} onPress={() => onToggle(key)} style={a.trigger}>
-          <Text style={a.link}>{open ? 'Hide supporting comments' : 'Read supporting comments'}</Text><Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={17} color={colors.primary} />
-        </Pressable>
-        {open ? <SourceEvidence sources={evidence} /> : null}
       </View>;
     })}
     <View style={a.action}>
@@ -80,6 +74,6 @@ const a = StyleSheet.create({
   space: { marginTop: 10 }, grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
   metric: { flexBasis: '45%', flexGrow: 1, backgroundColor: colors.canvas, padding: 12, borderRadius: 12 },
   value: { color: colors.navy, fontSize: 25, fontWeight: '700', lineHeight: 33 }, date: { color: colors.neutral500, fontSize: 10, lineHeight: 16, marginTop: 6 },
-  trigger: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }, link: { color: colors.primary, fontSize: 12, fontWeight: '600' },
+  trigger: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
   action: { backgroundColor: colors.sky, borderRadius: 18, padding: 20, marginBottom: 16 },
 });
