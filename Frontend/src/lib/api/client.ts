@@ -146,16 +146,22 @@ async function request<T>(path: string, options: ApiRequestOptions): Promise<{ d
   const attempt = async () => {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (json !== undefined) headers['Content-Type'] = 'application/json';
-    if (auth) {
-      const token = await getSecureItem(SecureStorageKey.AccessToken);
-      if (token) headers.Authorization = `Bearer ${token}`;
-    }
-    return send<T>(url, { method, headers, body: json === undefined ? undefined : JSON.stringify(json) });
+    const token = auth ? await getSecureItem(SecureStorageKey.AccessToken) : null;
+    if (token) headers.Authorization = `Bearer ${token}`;
+    return { ...await send<T>(url, { method, headers, body: json === undefined ? undefined : JSON.stringify(json) }), token };
   };
 
-  let { response, envelope } = await attempt();
+  // Requests started during rotation must wait until both new tokens are stored.
+  if (auth && refreshing) await refreshing;
+  const initial = await attempt();
+  let { response, envelope } = initial;
+  const token = initial.token;
   if (auth && response.status === 401) {
-    if (!(await refreshOnce())) {
+    const currentToken = await getSecureItem(SecureStorageKey.AccessToken);
+    // A slow response may refer to a token another request already replaced.
+    // Retry with that replacement rather than rotating the session again.
+    const recovered = refreshing ? await refreshing : currentToken && currentToken !== token ? true : await refreshOnce();
+    if (!recovered) {
       await handleUnauthorized();
       throw new ApiError('Your session has ended. Please sign in again.', 401, 'UNAUTHORIZED');
     }

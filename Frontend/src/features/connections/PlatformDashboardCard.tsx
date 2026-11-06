@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Pressable, Text, View } from 'react-native';
+import { Platform as NativePlatform, Pressable, Text, View } from 'react-native';
 
 import { PlatformLogo } from '@/components/PlatformLogo';
 import { colors, platformColors } from '@/constants/colors';
@@ -81,7 +81,14 @@ function CardButton({ title, onPress, variant, disabled = false }: { title: stri
   const text = disabled || variant === 'primary' ? 'text-white' : variant === 'outline' ? 'text-primary' : 'text-navy';
   return (
     <Pressable
-      onPress={onPress}
+      onPress={(event) => {
+        // Release the outgoing screen's button before navigation hides that screen.
+        if (NativePlatform.OS === 'web') {
+          const target = event.currentTarget as unknown as { blur?: () => void };
+          target.blur?.();
+        }
+        onPress();
+      }}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={title}
